@@ -248,7 +248,7 @@ eventTemplates:
 fieldBosses:
   source:
     provider: questlog
-    enabled: false           # off until questlog.gg agrees (PLAN.md Appendix A); manual /boss works meanwhile
+    enabled: true            # set to false if questlog.gg objects or the endpoint breaks; manual /boss still works
     serverId: 2403           # Triniel (South America)
     pollIntervalSeconds: 180
     staleAfterHours: 6       # older readings trigger a warning in #audit-log
