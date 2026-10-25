@@ -2,9 +2,8 @@
 
 Discord bot for the **M4F1A** legion (Aion 2, Triniel LATAM, Asmodian), controllable through MCP.
 
-- Plan: [docs/PLAN.md](docs/PLAN.md)
-- Server layout: [docs/SERVER_LAYOUT.md](docs/SERVER_LAYOUT.md)
 - Declarative server config: [server.yaml](server.yaml)
+- The plan and the server layout (`docs/`) are kept locally, outside the repository.
 
 ## Development
 
@@ -25,11 +24,17 @@ Health check: `GET http://localhost:8080/healthz`.
 
 ## Production
 
+On the Linux server (Docker, git, curl and Tailscale installed; the repo is private, so log in with `gh auth login` or use a deploy key first):
+
 ```bash
-cp .env.example .env              # fill in the Discord credentials
-mkdir -p data && sudo chown 1000:1000 data
-docker compose up -d --build
-tailscale funnel --bg 8080
+git clone https://github.com/gomes-eric/godfather.git
+cd godfather
+./scripts/deploy-wizard.sh
 ```
 
-The SQLite database lives in `./data`. The container runs as the `node` user (uid 1000), so that folder must be writable by uid 1000; otherwise Docker creates it as root and the bot cannot open the database.
+The wizard walks through every step and is safe to re-run: production `.env`, stopping the dev bot, copying `data/padrinho.db` from the PC, `docker compose up -d --build`, the Tailscale Funnel URL (`PUBLIC_BASE_URL`), the daily backup cron and a final check of `/healthz` and `/mcp`.
+
+- **Never run two copies of the bot** with the same token: both answer every command and reminders go out twice.
+- The SQLite database lives in `./data`, owned by uid 1000 (the container's `node` user).
+- Backups: `scripts/backup.sh` (runs `node dist/backup.js` inside the container) writes `data/backups/padrinho-YYYY-MM-DD.db` and keeps 14 days.
+- Updating: `git pull && docker compose up -d --build`.
