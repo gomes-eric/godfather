@@ -13,6 +13,7 @@ const war: OccurrenceView = {
   cancelled: false,
   eventId: null,
   templateKey: 'abyss-war',
+  rsvp: true,
 };
 
 describe('reminderContent', () => {

@@ -9,6 +9,7 @@ import type { Actor } from '../../core/actor.js';
 import type { AuditLog } from '../../core/audit.js';
 import type { Logger } from '../../logger.js';
 import type { EventService } from '../../services/event.service.js';
+import type { FieldBossService } from '../../services/field-boss.service.js';
 import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
@@ -29,6 +30,7 @@ export interface CommandContext {
   messages: MessageService;
   voice: VoiceService;
   events: EventService;
+  bosses: FieldBossService;
   runAction: ActionRunner;
   confirmations: ConfirmationStore;
   resolveActor(userId: string): Promise<Actor>;

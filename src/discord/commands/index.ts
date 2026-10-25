@@ -1,4 +1,5 @@
 import { auditCommand } from './audit.js';
+import { bossCommand } from './boss.js';
 import { configCommand } from './config.js';
 import { eventCommand } from './event.js';
 import { memberCommand } from './member.js';
@@ -8,7 +9,7 @@ import { setupCommand } from './setup.js';
 import { voiceCommand } from './voice.js';
 import type { SlashCommand } from './types.js';
 
-// Every slash command the bot registers. Later phases add boss and mcp.
+// Every slash command the bot registers. Phase 7 adds mcp.
 export const commands: SlashCommand[] = [
   setupCommand,
   configCommand,
@@ -17,5 +18,6 @@ export const commands: SlashCommand[] = [
   sayCommand,
   voiceCommand,
   eventCommand,
+  bossCommand,
   auditCommand,
 ];

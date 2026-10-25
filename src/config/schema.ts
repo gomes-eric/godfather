@@ -108,6 +108,31 @@ const eventTemplateSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
+const fieldBossSchema = z.object({
+  key,
+  title: z.string().min(1).max(100),
+  emoji: z.string().default('💀'),
+  region: z.string().optional(),
+  level: z.number().int().positive().optional(),
+  /** Id in the questlog.gg feed (Asmodian versions only). */
+  questlogId: z.number().int().positive().optional(),
+  /** Minutes from death to respawn; needed only for `/boss killed`. */
+  respawnMinutes: z.number().int().positive().nullable().default(null),
+  enabled: z.boolean().default(true),
+});
+
+const fieldBossesSchema = z.object({
+  source: z.object({
+    provider: z.literal('questlog'),
+    enabled: z.boolean(),
+    serverId: z.number().int().positive(),
+    pollIntervalSeconds: z.number().int().min(60).default(180),
+    staleAfterHours: z.number().positive().default(6),
+  }),
+  reminderOffsetsMinutes: reminderOffsets,
+  bosses: z.array(fieldBossSchema).default([]),
+});
+
 const voiceAccessSchema = z.object({
   role: key,
   allow: z.array(permissionName).min(1),
@@ -155,6 +180,7 @@ export const serverConfigSchema = z
     voiceAccess: z.array(voiceAccessSchema).default([]),
     voiceGenerators: z.array(voiceGeneratorSchema).default([]),
     eventTemplates: z.array(eventTemplateSchema).default([]),
+    fieldBosses: fieldBossesSchema.optional(),
   })
   .superRefine((config, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -251,6 +277,10 @@ export const serverConfigSchema = z
       }
     });
 
+    for (const dup of duplicates((config.fieldBosses?.bosses ?? []).map((b) => b.key))) {
+      issue(['fieldBosses', 'bosses'], `duplicate field boss key "${dup}"`);
+    }
+
     const seenTiers = new Set<string>();
     config.roles.forEach((role, i) => {
       if (!role.tier) return;
@@ -265,6 +295,7 @@ export type RoleConfig = ServerConfig['roles'][number];
 export type CategoryConfig = ServerConfig['categories'][number];
 export type ChannelConfig = CategoryConfig['channels'][number];
 export type EventTemplateConfig = ServerConfig['eventTemplates'][number];
+export type FieldBossConfig = NonNullable<ServerConfig['fieldBosses']>['bosses'][number];
 
 /** Discord role names for each ranked tier, e.g. { officer: "Oficial" }. */
 export function tierRoleNames(config: ServerConfig): Partial<Record<RankedTier, string>> {

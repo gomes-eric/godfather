@@ -204,6 +204,35 @@ export const ptBR = {
     } as Record<string, string>,
   },
 
+  bosses: {
+    unknown: (input: string) => `Não conheço o boss "${input}". Veja /boss list.`,
+    badTime:
+      'Não entendi o horário. Exemplos: `09:16` (relógio do mapa) ou `5h44m` (tempo restante).',
+    noRespawn: (name: string) =>
+      `Ainda não sei o tempo de respawn de **${name}**. Use \`/boss set\` com o horário que aparece no mapa (M).`,
+    set: (name: string, unix: number) =>
+      `💀 **${name}** nasce <t:${unix}:t> (<t:${unix}:R>). Os avisos saem automaticamente.`,
+    cleared: (name: string) =>
+      `↩️ Correção manual de **${name}** removida. O horário volta a vir do questlog.gg.`,
+    nothingToClear: (name: string) => `**${name}** não tem correção manual.`,
+    listTitle: '💀 Bosses de campo',
+    alive: '🟢 vivo',
+    unknownStatus: '❔ sem informação',
+    respawn: (unix: number) => `nasce <t:${unix}:t> (<t:${unix}:R>)`,
+    sourceQuestlog: (unix: number) => `questlog.gg · leitura <t:${unix}:R>`,
+    sourceManual: (userId: string) => `definido por <@${userId}>`,
+    feedOff: '-# Leitura automática do questlog.gg desligada (server.yaml). Use /boss set.',
+    reminderSource: (source: string) => `Fonte: ${source}`,
+    region: (region: string) => `📍 ${region}`,
+    warnings: {
+      down: '⚠️ O questlog.gg não responde há mais de 15 minutos. Os timers dos bosses podem estar desatualizados — use `/boss set`.',
+      format:
+        '⚠️ O formato da resposta do questlog.gg mudou e não consigo ler os timers. Use `/boss set` até alguém atualizar o bot.',
+      stale:
+        '⚠️ Ninguém atualiza os timers no questlog.gg há horas (ninguém abriu o mapa com o app deles). Confira e use `/boss set` se precisar.',
+    },
+  },
+
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
   },

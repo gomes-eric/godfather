@@ -24,6 +24,21 @@ export interface OccurrenceView {
   /** Set for one-off events; templates are identified by key. */
   eventId: number | null;
   templateKey: string | null;
+  /** Whether reminders carry the ✅/❔/❌ buttons (not for field boss respawns). */
+  rsvp: boolean;
+}
+
+/**
+ * Extra occurrences that aren't server.yaml templates, e.g. field boss respawns. The source owns
+ * every occurrence whose key starts with its prefix.
+ */
+export interface OccurrenceSource {
+  prefix: string;
+  occurrences(now: Date, until: Date): { key: string; startsAt: Date }[];
+  view(
+    key: string,
+  ): Pick<OccurrenceView, 'title' | 'emoji' | 'description' | 'voiceChannelId' | 'ping'> | null;
+  offsets(key: string): number[];
 }
 
 export interface RsvpSummary {
@@ -59,6 +74,7 @@ interface Deps {
   config: () => ServerConfig;
   port: AnnouncementPort;
   logger: Logger;
+  sources?: OccurrenceSource[];
   now?: () => Date;
 }
 
@@ -111,6 +127,12 @@ export class ReminderScheduler {
       templateKey: occurrence.templateKey,
     };
 
+    const source = this.sourceFor(occurrence.templateKey);
+    if (source && occurrence.templateKey) {
+      const view = source.view(occurrence.templateKey);
+      return view ? { ...base, ...view, rsvp: false } : null;
+    }
+
     if (occurrence.templateKey) {
       const template = config.eventTemplates.find((t) => t.key === occurrence.templateKey);
       if (!template?.enabled) return null;
@@ -123,6 +145,7 @@ export class ReminderScheduler {
           ? (this.deps.managed.get('channel', template.voiceChannel)?.discordId ?? null)
           : null,
         ping: template.ping ?? defaultPing,
+        rsvp: true,
       };
     }
 
@@ -135,6 +158,7 @@ export class ReminderScheduler {
       description: event.description,
       voiceChannelId: event.voiceChannelId,
       ping: event.ping,
+      rsvp: true,
     };
   }
 
@@ -168,7 +192,13 @@ export class ReminderScheduler {
     return rsvp;
   }
 
+  private sourceFor(key: string | null): OccurrenceSource | undefined {
+    return key ? this.deps.sources?.find((s) => key.startsWith(s.prefix)) : undefined;
+  }
+
   private offsetsFor(occurrence: OccurrenceRow): number[] {
+    const source = this.sourceFor(occurrence.templateKey);
+    if (source && occurrence.templateKey) return source.offsets(occurrence.templateKey);
     const config = this.deps.config();
     const template = occurrence.templateKey
       ? config.eventTemplates.find((t) => t.key === occurrence.templateKey)
@@ -188,6 +218,12 @@ export class ReminderScheduler {
       for (const startsAt of templateOccurrences(template, now, until, timeZone)) {
         store.ensureTemplateOccurrence(template.key, startsAt);
         wanted.add(`${template.key}@${startsAt.getTime()}`);
+      }
+    }
+    for (const source of this.deps.sources ?? []) {
+      for (const { key, startsAt } of source.occurrences(now, until)) {
+        store.ensureTemplateOccurrence(key, startsAt);
+        wanted.add(`${key}@${startsAt.getTime()}`);
       }
     }
     for (const occurrence of store.untouchedTemplateOccurrences(now)) {

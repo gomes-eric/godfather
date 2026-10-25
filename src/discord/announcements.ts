@@ -68,7 +68,9 @@ export function reminderContent(message: ReminderMessage, rsvpClasses: string): 
       : t.reminderNow(o.emoji, o.title, unix(o.startsAt)),
     ...(o.voiceChannelId ? [t.room(o.voiceChannelId)] : []),
     ...(o.description ? [o.description] : []),
-    t.rsvpLine(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length, rsvpClasses),
+    ...(o.rsvp
+      ? [t.rsvpLine(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length, rsvpClasses)]
+      : []),
   ];
   return lines.join('\n');
 }
@@ -104,7 +106,7 @@ export function createDiscordAnnouncements(
     const classes = classBreakdown(guild, directory, config(), message.rsvp.yes);
     return {
       content: reminderContent(message, classes),
-      components: [rsvpButtons(message.occurrence.occurrenceId)],
+      components: message.occurrence.rsvp ? [rsvpButtons(message.occurrence.occurrenceId)] : [],
     };
   };
 

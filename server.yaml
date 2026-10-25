@@ -244,7 +244,7 @@ eventTemplates:
 fieldBosses:
   source:
     provider: questlog
-    enabled: true            # turn off if questlog.gg withdraws permission or the endpoint breaks
+    enabled: false           # off until questlog.gg agrees (PLAN.md Appendix A); manual /boss works meanwhile
     serverId: 2403           # Triniel (South America)
     pollIntervalSeconds: 180
     staleAfterHours: 6       # older readings trigger a warning in #audit-log

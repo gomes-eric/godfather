@@ -5,6 +5,7 @@ import { createActionRunner } from './core/action.js';
 import { AuditLog } from './core/audit.js';
 import { openDatabase } from './db/client.js';
 import { EventStore } from './db/events.js';
+import { FieldBossStore } from './db/field-bosses.js';
 import { ManagedObjectStore } from './db/managed-objects.js';
 import { TempVoiceStore } from './db/temp-voice.js';
 import { resolveActor } from './discord/actor.js';
@@ -23,6 +24,7 @@ import { EnvError, loadEnv } from './env.js';
 import { createHttpApp } from './http/app.js';
 import { createLogger } from './logger.js';
 import { EventService } from './services/event.service.js';
+import { FieldBossService } from './services/field-boss.service.js';
 import { MemberService } from './services/member.service.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
@@ -103,15 +105,32 @@ async function main(): Promise<void> {
       .catch((error: unknown) => logger.warn({ err: error }, 'temp voice sweep failed'));
 
     const eventStore = new EventStore(database.db);
+    const bosses = new FieldBossService({
+      store: new FieldBossStore(database.db),
+      config,
+      runAction,
+      logger,
+      warn: async (text) => {
+        await directory
+          .channelByKey(config.get().settings.audit.channel)
+          ?.send({ content: text, allowedMentions: { parse: [] } });
+      },
+      onChange: () => void scheduler.tick().catch(() => undefined),
+    });
     const scheduler = new ReminderScheduler({
       store: eventStore,
       managed,
       config: () => config.get(),
       port: createDiscordAnnouncements(guild, directory, () => config.get()),
       logger,
+      sources: [bosses],
     });
-    stopScheduler = () => scheduler.stop();
+    stopScheduler = () => {
+      scheduler.stop();
+      bosses.stop();
+    };
     scheduler.start();
+    bosses.start();
 
     attachInteractionRouter(client, commands, {
       guild,
@@ -125,6 +144,7 @@ async function main(): Promise<void> {
       messages: new MessageService({ guild, runAction }),
       voice,
       events: new EventService({ store: eventStore, scheduler, config, runAction }),
+      bosses,
       runAction,
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),
