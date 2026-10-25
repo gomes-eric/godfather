@@ -86,7 +86,13 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           write: access.write,
           tierRoleKeys: tiers,
           ...(channel.allowSlashCommands && { slashCommands: channel.allowSlashCommands }),
-          ...(isVoice && { extraAllows: voiceAllows }),
+          extraAllows: [
+            ...(isVoice ? voiceAllows : []),
+            ...channel.allow.map((extra) => ({
+              roleKey: extra.role,
+              allow: permissionBits(extra.permissions),
+            })),
+          ],
         }),
         tags:
           channel.type === 'forum'

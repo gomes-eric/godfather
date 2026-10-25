@@ -73,6 +73,15 @@ describe('/setup reconciliation', () => {
     expect(soldier.allow & P.UseApplicationCommands).toBe(P.UseApplicationCommands);
   });
 
+  it('lets the Bot role see and post in #musica', async () => {
+    await setup(buildDesiredState(repoConfig));
+    const botsId = store.get('role', 'bots')!.discordId;
+    const musica = guild.channels.find((c) => c.name === 'musica')!;
+
+    const bots = musica.overwrites.find((o) => o.id === botsId)!;
+    expect(bots.allow & (P.ViewChannel | P.SendMessages)).toBe(P.ViewChannel | P.SendMessages);
+  });
+
   it('renaming in the yaml edits the same channel instead of creating one', async () => {
     await setup(buildDesiredState(repoConfig));
     const geralId = store.get('channel', 'general')!.discordId;

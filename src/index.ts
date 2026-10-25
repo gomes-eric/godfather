@@ -16,6 +16,7 @@ import { commands } from './discord/commands/index.js';
 import { createDirectory } from './discord/directory.js';
 import { createDiscordGuildPort } from './discord/guild-port.js';
 import { attachMemberJoinListener } from './discord/listeners/member-join.js';
+import { attachMessageListener } from './discord/listeners/message-create.js';
 import { attachVoiceStateListener } from './discord/listeners/voice-state.js';
 import { createConfirmationStore } from './discord/interactions/confirmation.js';
 import { attachInteractionRouter } from './discord/interactions/router.js';
@@ -28,6 +29,7 @@ import { FieldBossService } from './services/field-boss.service.js';
 import { MemberService } from './services/member.service.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
+import { MusicGuardService } from './services/music-guard.service.js';
 import { ReminderScheduler } from './services/reminder.scheduler.js';
 import { SetupService } from './services/setup.service.js';
 import { VoiceService } from './services/voice.service.js';
@@ -99,6 +101,12 @@ async function main(): Promise<void> {
       logger,
     });
     attachVoiceStateListener(client, guild.id, voice, logger);
+    attachMessageListener(
+      client,
+      guild.id,
+      new MusicGuardService({ directory, config, logger }),
+      logger,
+    );
     voice
       .sweep()
       .then((swept) => logger.info(swept, 'temp voice rooms swept'))

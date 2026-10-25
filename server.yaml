@@ -180,6 +180,10 @@ categories:
         name: musica
         topic: Só comandos de música (/play, /skip...). Mensagens comuns são apagadas.
         allowSlashCommands: soldier
+        # Music bots post "now playing" here; people only run slash commands.
+        allow:
+          - role: bots
+            permissions: [ViewChannel, SendMessages, EmbedLinks, ReadMessageHistory]
 
   - key: officers
     name: 🛡️ OFICIAIS

@@ -233,6 +233,11 @@ export const ptBR = {
     },
   },
 
+  music: {
+    notice: (channelId: string) =>
+      `🎵 Em <#${channelId}> só vale comando de música (\`/play\`, \`/skip\`...). Sua mensagem foi apagada para o canal ficar limpo.`,
+  },
+
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
   },

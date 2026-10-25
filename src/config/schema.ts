@@ -58,6 +58,8 @@ const channelSchema = z.object({
   topic: z.string().max(1024).optional(),
   access: accessSchema.partial().optional(),
   allowSlashCommands: accessLevel.optional(),
+  /** Fixed extra permissions for a role on this channel, e.g. music bots posting in #musica. */
+  allow: z.array(z.object({ role: key, permissions: z.array(permissionName).min(1) })).default([]),
   userLimit: z.number().int().min(0).max(99).optional(),
   requireTag: z.boolean().default(false),
   tags: z.array(forumTagSchema).max(20).default([]),
@@ -253,6 +255,13 @@ export const serverConfigSchema = z
     if (botRole !== undefined && !roleKeys.includes(botRole)) {
       issue(['settings', 'welcome', 'botRole'], `unknown role key "${botRole}"`);
     }
+    channels.forEach((channel) => {
+      for (const extra of channel.allow) {
+        if (!roleKeys.includes(extra.role)) {
+          issue(['categories'], `channel "${channel.key}" allows unknown role key "${extra.role}"`);
+        }
+      }
+    });
     config.voiceAccess.forEach((entry, i) => {
       if (!roleKeys.includes(entry.role))
         issue(['voiceAccess', i, 'role'], `unknown role key "${entry.role}"`);
