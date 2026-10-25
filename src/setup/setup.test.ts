@@ -184,6 +184,18 @@ describe('/setup reconciliation', () => {
     expect(p.warnings).toEqual([]);
   });
 
+  it('locks nicknames by taking ChangeNickname from @everyone, and unlocks them again', async () => {
+    await setup(buildDesiredState(repoConfig));
+    expect(guild.everyonePermissions & P.ChangeNickname).toBe(0n);
+    expect(guild.everyonePermissions & P.ViewChannel).toBe(P.ViewChannel);
+    expect((await plan(buildDesiredState(repoConfig))).plan.ops).toEqual([]);
+
+    const unlocked = structuredClone(repoConfig);
+    unlocked.settings.lockNicknames = false;
+    await setup(buildDesiredState(unlocked));
+    expect(guild.everyonePermissions & P.ChangeNickname).toBe(P.ChangeNickname);
+  });
+
   it('lets Parceiro into the social channels only', async () => {
     await setup(buildDesiredState(repoConfig));
     const partnerId = store.get('role', 'partner')!.discordId;
@@ -243,7 +255,7 @@ describe('/setup reconciliation', () => {
 
     guild.messages.delete(rulesMessageId);
     const changed = structuredClone(repoConfig);
-    changed.settings.rolePicker.multipleClasses = true;
+    changed.roles.find((r) => r.key === 'class-gladiator')!.emoji = '🪓';
     const { plan: p } = await setup(buildDesiredState(changed));
 
     const panelOps = p.ops.filter((op) => op.type === 'upsertPanel');

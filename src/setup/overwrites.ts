@@ -41,6 +41,11 @@ const LEVEL_RANK: Record<AccessLevel, number> = {
   none: 4,
 };
 
+/** @everyone's base permissions with ChangeNickname removed (locked) or granted (unlocked). */
+export function lockedNicknamePermissions(current: bigint, locked: boolean): bigint {
+  return locked ? current & ~P.ChangeNickname : current | P.ChangeNickname;
+}
+
 export interface AccessRule {
   level: AccessLevel;
   permissions: bigint;

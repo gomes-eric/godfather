@@ -1,5 +1,6 @@
 import { PermissionFlagsBits } from 'discord.js';
 import type { ManagedState } from '../db/managed-objects.js';
+import { lockedNicknamePermissions } from './overwrites.js';
 import { PANEL_PREFIX } from './desired.js';
 import {
   EVERYONE,
@@ -326,6 +327,15 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
       channelKey: desired.afk.channelKey,
       channelName: desired.afk.channelName,
       timeoutSeconds: desired.afk.timeoutSeconds,
+    });
+  }
+
+  const everyone = lockedNicknamePermissions(snapshot.everyonePermissions, desired.lockNicknames);
+  if (everyone !== snapshot.everyonePermissions) {
+    layoutOps.push({
+      type: 'setNicknameLock',
+      locked: desired.lockNicknames,
+      permissions: everyone,
     });
   }
 

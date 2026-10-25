@@ -61,6 +61,7 @@ export interface GuildPort {
   enableCommunity(rulesChannelId: string, updatesChannelId: string): Promise<void>;
   setCommunityChannels(rulesChannelId: string, updatesChannelId: string): Promise<void>;
   setAfk(channelId: string, timeoutSeconds: number): Promise<void>;
+  setEveryonePermissions(permissions: bigint): Promise<void>;
 
   /** Edits the message if it exists, otherwise posts a new one. Returns the message id. */
   upsertPanel(channelId: string, messageId: string | null, panel: PanelMessage): Promise<string>;

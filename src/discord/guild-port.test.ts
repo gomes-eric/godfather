@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadServerConfig } from '../config/loader.js';
-import { buildDesiredState, PANEL_KEYS } from '../setup/desired.js';
+import { buildDesiredState, PANEL_KEYS, REGISTER_BUTTON_ID } from '../setup/desired.js';
 import { groupButtonRows } from './guild-port.js';
 
 const repoConfig = loadServerConfig(fileURLToPath(new URL('../../server.yaml', import.meta.url)));
@@ -25,19 +25,13 @@ describe('groupButtonRows', () => {
   });
 });
 
-describe('#classes panel', () => {
-  it('has one button line per archetype, Guerreiros first', () => {
+describe('#registro panel', () => {
+  it('lists the classes by archetype and has a single Registrar button', () => {
     const panel = buildDesiredState(repoConfig).panels.find(
       (p) => p.key === PANEL_KEYS.rolePicker,
     )!;
-    const rows = groupButtonRows(panel.buttons).map((row) => row.map((b) => b.label));
 
-    expect(rows).toEqual([
-      ['Gladiador', 'Templário'],
-      ['Assassino', 'Arqueiro'],
-      ['Mago', 'Espiritualista'],
-      ['Clérigo', 'Encantador'],
-    ]);
+    expect(panel.buttons.map((b) => b.customId)).toEqual([REGISTER_BUTTON_ID]);
     expect(panel.description).toContain('🔵 **Guerreiros** · ⚔️ Gladiador · 🛡️ Templário');
   });
 });

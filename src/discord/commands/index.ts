@@ -3,6 +3,7 @@ import { bossCommand } from './boss.js';
 import { configCommand } from './config.js';
 import { mcpCommand } from './mcp.js';
 import { eventCommand } from './event.js';
+import { helpCommand } from './help.js';
 import { memberCommand } from './member.js';
 import { modCommand } from './mod.js';
 import { sayCommand } from './say.js';
@@ -12,6 +13,7 @@ import type { SlashCommand } from './types.js';
 
 // Every slash command the bot registers.
 export const commands: SlashCommand[] = [
+  helpCommand,
   setupCommand,
   configCommand,
   memberCommand,

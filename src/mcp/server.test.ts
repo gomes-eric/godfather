@@ -39,7 +39,7 @@ describe('MCP endpoint', () => {
     // Only the pieces these tools touch; the rest needs a live Discord guild.
     const services = { config, runAction, messageContent: false } as unknown as McpServices;
     handler = createMcpHandler({
-      tokens: { verify: (token) => (token === TOKEN ? { userId: 'lekyh', tokenId: 1 } : null) },
+      tokens: { verify: (token) => (token === TOKEN ? { userId: 'padrinho', tokenId: 1 } : null) },
       resolveActor: async (userId, harness): Promise<Actor> => ({
         userId,
         tier,
@@ -111,7 +111,7 @@ describe('MCP endpoint', () => {
     expect(audit[0]).toMatchObject({
       action: 'voice.generator.upsert',
       result: 'ok',
-      actor: { userId: 'lekyh', source: 'mcp', harness: 'vitest' },
+      actor: { userId: 'padrinho', source: 'mcp', harness: 'vitest' },
     });
   });
 

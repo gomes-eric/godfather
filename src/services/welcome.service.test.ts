@@ -28,7 +28,7 @@ describe('welcomeCard', () => {
   };
   const newcomer = {
     id: '42',
-    displayName: 'Lekyh',
+    displayName: 'Padrinho',
     avatarUrl: 'https://cdn.discordapp.com/avatar.png',
     memberCount: 37,
   };

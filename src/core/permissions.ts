@@ -38,7 +38,7 @@ export const ACTION_POLICIES = {
   'role.delete': policy('commander', { destructive: true }),
   'role.assign': policy('commander'),
   // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
-  'class.select': policy('visitor', { audited: false }),
+  'member.register': policy('visitor', { audited: false }),
 
   'message.send': policy('officer'),
   'message.edit': policy('officer'),

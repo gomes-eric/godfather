@@ -1,3 +1,4 @@
+import { PermissionFlagsBits as P } from 'discord.js';
 import type { ChannelSnapshot, GuildSnapshot, RoleSnapshot } from '../model.js';
 import type { ChannelPosition, ChannelSpec, GuildPort, PanelMessage, RoleSpec } from '../port.js';
 
@@ -20,6 +21,8 @@ export class FakeGuild implements GuildPort {
   publicUpdatesChannelId: string | null = null;
   afkChannelId: string | null = null;
   afkTimeout = 300;
+  /** Discord's defaults include ChangeNickname. */
+  everyonePermissions = P.ViewChannel | P.SendMessages | P.ChangeNickname;
   failCommunity = false;
   calls: string[] = [];
 
@@ -79,6 +82,7 @@ export class FakeGuild implements GuildPort {
       publicUpdatesChannelId: this.publicUpdatesChannelId,
       afkChannelId: this.afkChannelId,
       afkTimeout: this.afkTimeout,
+      everyonePermissions: this.everyonePermissions,
       existingMessageIds: new Set(
         messages
           .filter((m) => this.messages.get(m.messageId)?.channelId === m.channelId)
@@ -175,6 +179,11 @@ export class FakeGuild implements GuildPort {
   async setCommunityChannels(rulesChannelId: string, updatesChannelId: string): Promise<void> {
     this.rulesChannelId = rulesChannelId;
     this.publicUpdatesChannelId = updatesChannelId;
+  }
+
+  async setEveryonePermissions(permissions: bigint): Promise<void> {
+    this.calls.push('setEveryonePermissions');
+    this.everyonePermissions = permissions;
   }
 
   async setAfk(channelId: string, timeoutSeconds: number): Promise<void> {

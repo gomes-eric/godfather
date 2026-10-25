@@ -124,26 +124,36 @@ export const ptBR = {
   },
 
   panels: {
-    rolePickerTitle: '🎭 Escolha sua classe',
-    rolePickerIntro: (multipleClasses: boolean) =>
-      multipleClasses
-        ? 'Marque as classes que você joga no Aion 2: elas aparecem no seu perfil e ajudam os Oficiais a montar grupos. 🎮\n-# Clique de novo para remover.'
-        : 'Marque sua **classe principal** no Aion 2: ela aparece no seu perfil e ajuda os Oficiais a montar grupos. 🎮\n-# Escolher outra troca a anterior · clicar de novo remove.',
+    registrationTitle: '📝 Registro na M4F1A',
+    registrationIntro:
+      'Clique em **Registrar** e informe o **nome do seu personagem** e a sua **classe principal** no Aion 2. O Padrinho troca seu apelido no servidor para `emoji da classe + nome` (ex.: ⚔️ Padrinho) e marca sua classe. 🎮\n-# Mudou de nome ou de classe? É só registrar de novo: o apelido só muda por aqui.',
+    registrationButton: 'Registrar',
     archetypes: {
       warrior: '🔵 **Guerreiros**',
       scout: '🟢 **Batedores**',
       mage: '🟣 **Magos**',
       priest: '🟡 **Sacerdotes**',
     } as Record<string, string>,
-    rolePickerFooter: 'Os botões abaixo seguem a mesma ordem.',
+    registrationFooter: 'Assim os Oficiais acham você no jogo e montam os grupos.',
   },
 
-  classes: {
-    added: (name: string) => `✅ Agora você é **${name}**.`,
-    removed: (name: string) => `➖ Classe **${name}** removida.`,
-    switched: (name: string, previous: string[]) =>
-      `🔄 Agora você é **${name}** (antes: ${previous.join(', ')}).`,
-    unknown: 'Essa classe não existe mais. Peça a um Oficial para rodar /setup.',
+  registration: {
+    modalTitle: 'Registro na M4F1A',
+    nameLabel: 'Nome do personagem',
+    nameHint: 'Exatamente como aparece no Aion 2',
+    namePlaceholder: 'Ex.: Padrinho',
+    classLabel: 'Classe principal',
+    classPlaceholder: 'Escolha sua classe',
+    unknownClass: 'Essa classe não existe mais. Peça a um Oficial para rodar /setup.',
+    problems: {
+      empty: 'Informe o nome do seu personagem.',
+      tooLong: 'Esse nome não cabe no apelido do Discord (máximo de 32 caracteres com o emoji).',
+      invalid: "Use só letras, números, espaços e . _ ' - no nome do personagem.",
+    },
+    registered: (nickname: string, className: string) =>
+      `✅ Registrado! Seu apelido agora é **${nickname}** e sua classe é **${className}**.`,
+    registeredNoNick: (nickname: string, className: string) =>
+      `✅ Classe **${className}** marcada. O Discord não me deixa mudar o seu apelido (seu cargo está acima do meu): troque para **${nickname}** em *Editar perfil do servidor*.`,
   },
 
   members: {
@@ -482,6 +492,10 @@ export const ptBR = {
       setCommunityChannels: '🏛️ Definir canais de regras e de atualizações da Comunidade',
       reorderChannels: '🔀 Reordenar categorias e canais',
       setAfk: (name: string, minutes: number) => `🌙 Canal AFK: **${name}** após ${minutes} min`,
+      setNicknameLock: (locked: boolean) =>
+        locked
+          ? '🔒 Travar apelidos: só o #registro muda o nome de cada um'
+          : '🔓 Destravar apelidos: cada um pode mudar o próprio',
       upsertPanel: (name: string) => `📌 Publicar/atualizar mensagem fixa em **#${name}**`,
       deleteChannel: (name: string) => `🗑️ Apagar canal **${name}**`,
       deleteCategory: (name: string) => `🗑️ Apagar categoria **${name}**`,
@@ -497,5 +511,114 @@ export const ptBR = {
     },
     communityManual:
       'Não consegui ativar a Comunidade pela API. Ative em **Configurações do Servidor → Habilitar Comunidade** (regras: #regras, atualizações: #oficiais) e rode /setup de novo.',
+  },
+  help: {
+    title: '🎩 O que o Padrinho faz por você',
+    intro:
+      'Comandos que o **seu cargo** pode usar. Nas salas de voz criadas pelo ➕ Criar, o painel de botões faz o mesmo que `/voice`.',
+    footer: (tier: string) => `Mostrando os comandos de: ${tier} · só você vê esta mensagem`,
+    sections: [
+      {
+        title: '🔊 Sua sala de voz',
+        entries: [
+          {
+            usage: '/voice rename',
+            text: 'Muda o nome da sala (2 vezes a cada 10 min)',
+            tier: 'visitor',
+          },
+          {
+            usage: '/voice limit',
+            text: 'Quantas pessoas cabem (0 = sem limite)',
+            tier: 'visitor',
+          },
+          { usage: '/voice lock · unlock', text: 'Tranca ou abre a sala', tier: 'visitor' },
+          {
+            usage: '/voice hide · unhide',
+            text: 'Esconde ou mostra a sala na lista',
+            tier: 'visitor',
+          },
+          { usage: '/voice kick', text: 'Tira alguém da sala sem volta', tier: 'visitor' },
+          { usage: '/voice claim', text: 'Assume uma sala cujo dono saiu', tier: 'visitor' },
+        ],
+      },
+      {
+        title: '📅 Eventos e bosses',
+        entries: [
+          { usage: '/event list', text: 'Eventos dos próximos 7 dias', tier: 'soldier' },
+          { usage: '/boss list', text: 'Próximos respawns dos bosses de campo', tier: 'soldier' },
+          {
+            usage: '/event create · edit · cancel',
+            text: 'Cria, edita ou cancela um evento',
+            tier: 'officer',
+          },
+          { usage: '/event rsvps', text: 'Quem confirmou presença', tier: 'officer' },
+          {
+            usage: '/event template',
+            text: 'Liga, desliga ou edita os eventos recorrentes',
+            tier: 'officer',
+          },
+          {
+            usage: '/boss set · killed · clear',
+            text: 'Ajusta o horário de um boss à mão',
+            tier: 'officer',
+          },
+        ],
+      },
+      {
+        title: '👥 Membros',
+        entries: [
+          {
+            usage: '/member promote · demote',
+            text: 'Sobe ou desce alguém na legião',
+            tier: 'officer',
+          },
+          {
+            usage: '/member partner',
+            text: 'Dá ou tira o cargo Parceiro (quem não joga)',
+            tier: 'officer',
+          },
+          { usage: '/member info', text: 'Cargo, classes e datas de alguém', tier: 'officer' },
+        ],
+      },
+      {
+        title: '🛡️ Moderação',
+        entries: [
+          { usage: '/mod timeout', text: 'Silencia alguém por um tempo', tier: 'officer' },
+          { usage: '/mod kick', text: 'Expulsa alguém do servidor', tier: 'officer' },
+          { usage: '/mod purge', text: 'Apaga mensagens recentes de um canal', tier: 'officer' },
+          { usage: '/mod ban · unban', text: 'Bane ou desbane alguém', tier: 'commander' },
+          { usage: '/say', text: 'Envia uma mensagem como o Padrinho', tier: 'officer' },
+          { usage: '/audit', text: 'Últimas ações registradas no log', tier: 'officer' },
+        ],
+      },
+      {
+        title: '⚙️ Servidor e IA',
+        entries: [
+          { usage: '/mcp token', text: 'Tokens para controlar o Padrinho por IA', tier: 'officer' },
+          {
+            usage: '/setup',
+            text: 'Aplica o server.yaml (canais, cargos, painéis)',
+            tier: 'commander',
+          },
+          {
+            usage: '/config reload',
+            text: 'Recarrega o server.yaml sem reiniciar',
+            tier: 'commander',
+          },
+        ],
+      },
+      {
+        title: '💡 Sem comando',
+        entries: [
+          { usage: '#registro', text: 'Registre o nome do personagem e a classe', tier: 'visitor' },
+          { usage: '✅ ❔ ❌', text: 'Confirme presença nos avisos de #eventos', tier: 'soldier' },
+          {
+            usage: 'm!p · /play',
+            text: 'Música em #musica (Don Vinil e Tony Vitrola)',
+            tier: 'visitor',
+          },
+        ],
+      },
+    ],
   },
 } as const;

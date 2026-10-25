@@ -7,10 +7,11 @@ import {
   type ServerConfig,
 } from '../config/schema.js';
 import { ptBR } from '../i18n/pt-BR.js';
-import type { DesiredChannel, DesiredPanel, DesiredState, PanelButton } from './model.js';
+import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
 
-export const ROLE_PICKER_PREFIX = 'class:';
+/** The one button on the #registro panel; it opens the name + class form. */
+export const REGISTER_BUTTON_ID = 'register:open';
 export const PANEL_PREFIX = 'panel-';
 export const PANEL_KEYS = { rules: 'panel-rules', rolePicker: 'panel-role-picker' } as const;
 
@@ -22,15 +23,8 @@ function permissionBits(names: (keyof typeof PermissionFlagsBits)[]): bigint {
 }
 
 const ARCHETYPE_ORDER = ['warrior', 'scout', 'mage', 'priest'] as const;
-const ARCHETYPE_STYLE = {
-  warrior: 'primary',
-  scout: 'success',
-  mage: 'danger',
-  priest: 'secondary',
-} as const satisfies Record<(typeof ARCHETYPE_ORDER)[number], PanelButton['style']>;
-
 /** Intro plus one line per archetype ("🔵 Guerreiros · ⚔️ Gladiador · 🛡️ Templário"). */
-function rolePickerDescription(classRoles: RoleConfig[], multipleClasses: boolean): string {
+function registrationDescription(classRoles: RoleConfig[]): string {
   const t = ptBR.panels;
   const lines = ARCHETYPE_ORDER.flatMap((archetype) => {
     const roles = classRoles.filter((r) => r.archetype === archetype);
@@ -41,9 +35,7 @@ function rolePickerDescription(classRoles: RoleConfig[], multipleClasses: boolea
   const loose = classRoles.filter((r) => !r.archetype);
   if (loose.length > 0)
     lines.push(loose.map((r) => `${r.emoji ?? ''} ${r.name}`.trim()).join(' · '));
-  return [t.rolePickerIntro(multipleClasses), '', ...lines, '', `-# ${t.rolePickerFooter}`].join(
-    '\n',
-  );
+  return [t.registrationIntro, '', ...lines, '', `-# ${t.registrationFooter}`].join('\n');
 }
 
 function panel(fields: Omit<DesiredPanel, 'fingerprint'>): DesiredPanel {
@@ -173,18 +165,17 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       key: PANEL_KEYS.rolePicker,
       channelKey: config.settings.rolePicker.channel,
       channelName: channelNameByKey(config, config.settings.rolePicker.channel) ?? '',
-      title: ptBR.panels.rolePickerTitle,
-      description: rolePickerDescription(classRoles, config.settings.rolePicker.multipleClasses),
+      title: ptBR.panels.registrationTitle,
+      description: registrationDescription(classRoles),
       color: ROLE_PICKER_COLOR,
-      buttons: classRoles.map((role) => ({
-        customId: `${ROLE_PICKER_PREFIX}${role.key}`,
-        label: role.name,
-        emoji: role.emoji ?? null,
-        ...(role.archetype && {
-          row: ARCHETYPE_ORDER.indexOf(role.archetype),
-          style: ARCHETYPE_STYLE[role.archetype],
-        }),
-      })),
+      buttons: [
+        {
+          customId: REGISTER_BUTTON_ID,
+          label: ptBR.panels.registrationButton,
+          emoji: '📝',
+          style: 'primary',
+        },
+      ],
     }),
   ];
 
@@ -202,6 +193,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       channelName: channelNameByKey(config, config.settings.afk.channel) ?? '',
       timeoutSeconds: config.settings.afk.timeoutSeconds,
     },
+    lockNicknames: config.settings.lockNicknames,
     panels,
     unmanagedKeys: {
       role: new Set(config.roles.filter((r) => !r.managed).map((r) => r.key)),

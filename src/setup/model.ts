@@ -75,6 +75,8 @@ export interface DesiredState {
   channels: DesiredChannel[];
   community: { enable: boolean; rulesChannelKey: string; updatesChannelKey: string };
   afk: { channelKey: string; channelName: string; timeoutSeconds: number };
+  /** Whether @everyone lacks ChangeNickname, so only #registro (and admins) change nicknames. */
+  lockNicknames: boolean;
   panels: DesiredPanel[];
   /** Keys marked `managed: false`: never touched and never pruned. */
   unmanagedKeys: { role: Set<string>; category: Set<string>; channel: Set<string> };
@@ -116,6 +118,8 @@ export interface ChannelSnapshot {
 
 export interface GuildSnapshot {
   everyoneRoleId: string;
+  /** Base permissions of @everyone. */
+  everyonePermissions: bigint;
   /** Position of the bot's highest role; it can only manage roles strictly below it. */
   botRolePosition: number;
   roles: RoleSnapshot[];
@@ -144,6 +148,7 @@ export type SetupOp =
   | { type: 'setCommunityChannels'; rulesChannelKey: string; updatesChannelKey: string }
   | { type: 'reorderChannels'; categoryKeys: string[]; channelKeys: Record<string, string[]> }
   | { type: 'setAfk'; channelKey: string; channelName: string; timeoutSeconds: number }
+  | { type: 'setNicknameLock'; locked: boolean; permissions: bigint }
   | { type: 'upsertPanel'; panel: DesiredPanel; messageId: string | null }
   | {
       type: 'deleteChannel' | 'deleteCategory' | 'deleteRole';

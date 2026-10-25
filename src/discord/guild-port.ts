@@ -160,6 +160,7 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
 
       const snapshot: GuildSnapshot = {
         everyoneRoleId: guild.roles.everyone.id,
+        everyonePermissions: guild.roles.everyone.permissions.bitfield,
         botRolePosition: me.roles.highest.position,
         roles: roles.map((role) => ({
           id: role.id,
@@ -299,6 +300,10 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
 
     async setAfk(channelId, timeoutSeconds) {
       await guild.edit({ afkChannel: channelId, afkTimeout: timeoutSeconds });
+    },
+
+    async setEveryonePermissions(permissions) {
+      await guild.roles.everyone.setPermissions(permissions, 'server.yaml: lockNicknames');
     },
 
     async upsertPanel(channelId, messageId, panel) {

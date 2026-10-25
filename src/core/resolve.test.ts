@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveCandidate, type Candidate } from './resolve.js';
 
 const members: Candidate[] = [
-  { id: '302857660712353794', names: ['lekyh', 'Lekyh'], label: 'Lekyh (@lekyh)' },
+  { id: '1563808696885313608', names: ['padrinho', 'Padrinho'], label: 'Padrinho (@padrinho)' },
   { id: '907337576367673364', names: ['djndroficial', 'DJNDR'], label: 'DJNDR (@djndroficial)' },
   { id: '111111111111111111', names: ['tireurzin', '👑 Mouzz 👑'], label: '👑 Mouzz 👑' },
   { id: '222222222222222222', names: ['micaelddias', 'micaeldias'], label: 'micaeldias' },
@@ -10,16 +10,16 @@ const members: Candidate[] = [
 
 describe('resolveCandidate', () => {
   it('accepts mentions and ids', () => {
-    expect(resolveCandidate('<@302857660712353794>', members)).toEqual({
+    expect(resolveCandidate('<@1563808696885313608>', members)).toEqual({
       ok: true,
-      id: '302857660712353794',
+      id: '1563808696885313608',
     });
     expect(resolveCandidate('<@!907337576367673364>', members)).toMatchObject({ ok: true });
     expect(resolveCandidate('111111111111111111', members)).toMatchObject({ ok: true });
   });
 
   it('matches names ignoring case, accents and a leading @ or #', () => {
-    expect(resolveCandidate('@LEKYH', members)).toMatchObject({ id: '302857660712353794' });
+    expect(resolveCandidate('@PADRINHO', members)).toMatchObject({ id: '1563808696885313608' });
     expect(resolveCandidate('djndr', members)).toMatchObject({ id: '907337576367673364' });
   });
 

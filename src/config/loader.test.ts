@@ -54,7 +54,7 @@ describe('server.yaml', () => {
 
     expect(commander?.color).toBe(0xe0303a);
     expect(commander?.hoist).toBe(false);
-    expect(config.settings.rolePicker.multipleClasses).toBe(false);
+    expect(config.settings.musicGuard.commandPrefixes).toEqual([]);
     expect(config.voiceGenerators).toEqual([]);
   });
 

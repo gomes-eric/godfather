@@ -154,6 +154,8 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
       }
       case 'setAfk':
         return port.setAfk(requireId(channelIds, op.channelKey, 'channel'), op.timeoutSeconds);
+      case 'setNicknameLock':
+        return port.setEveryonePermissions(op.permissions);
       case 'upsertPanel': {
         const { panel } = op;
         const messageId = await port.upsertPanel(

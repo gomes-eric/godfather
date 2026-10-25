@@ -80,10 +80,12 @@ settings:
       ⚖️ **Punições**
       Conforme a gravidade: aviso → timeout → expulsão do Discord e da legião. Casos graves vão direto para o banimento.
 
-      🎭 Escolha sua classe em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
+      📝 Registre seu personagem em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
+  # Nobody changes their own nickname by hand: #registro sets it (Comandantes are not affected).
+  lockNicknames: true
+  # #registro panel: in-game name + main class → nickname "⚔️ Nome" and the class role.
   rolePicker:
     channel: role-picker
-    multipleClasses: false
   audit:
     channel: audit-log
   musicGuard:
@@ -159,7 +161,7 @@ categories:
       - { key: rules,       type: text, name: regras }
       - { key: announcements, type: announcement, name: anuncios, access: { write: officer } }
       - { key: welcome,     type: text, name: boas-vindas }
-      - { key: role-picker, type: text, name: classes }
+      - { key: role-picker, type: text, name: registro }
 
   - key: recruitment
     name: 🤝 RECRUTAMENTO
@@ -255,6 +257,13 @@ categories:
     access: { view: officer, write: officer }
     channels:
       - { key: officers,      type: text,  name: oficiais }
+      # Only slash commands: nobody types here, the replies only the caller sees.
+      - key: officer-commands
+        type: text
+        name: comandos
+        topic: Use os comandos do Padrinho aqui (/member, /mod, /event...). Digite / para ver a lista.
+        access: { write: none }
+        allowSlashCommands: officer
       - { key: audit-log,     type: text,  name: audit-log, access: { write: bot } }
       - { key: meeting-voice, type: voice, name: Reunião }
 

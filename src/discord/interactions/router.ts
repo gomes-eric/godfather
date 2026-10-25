@@ -2,7 +2,7 @@ import { Events, MessageFlags, type Client, type Interaction } from 'discord.js'
 import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
-import { handleRolePickerButton } from './role-picker.js';
+import { handleRegisterButton, handleRegisterModal } from './registration.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
 import { handleRsvpButton } from './rsvp.js';
 
@@ -43,7 +43,7 @@ export function attachInteractionRouter(
       if (interaction.isButton()) {
         const handled =
           (await handleConfirmationButton(interaction, ctx.confirmations)) ||
-          (await handleRolePickerButton(interaction, ctx)) ||
+          (await handleRegisterButton(interaction, ctx)) ||
           (await handleRsvpButton(interaction, ctx)) ||
           (await handleRoomPanelButton(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');
@@ -51,7 +51,9 @@ export function attachInteractionRouter(
       }
 
       if (interaction.isModalSubmit()) {
-        const handled = await handleRoomPanelModal(interaction, ctx);
+        const handled =
+          (await handleRegisterModal(interaction, ctx)) ||
+          (await handleRoomPanelModal(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown modal');
         return;
       }

@@ -182,7 +182,13 @@ const settingsSchema = z.looseObject({
     title: z.string().max(256).optional(),
     message: z.string().min(1).max(4000),
   }),
-  rolePicker: z.object({ channel: key, multipleClasses: z.boolean().default(false) }),
+  /**
+   * Members can't change their own nickname (ChangeNickname is removed from @everyone); the
+   * #registro form is how it changes. Administrators are not affected.
+   */
+  lockNicknames: z.boolean().default(false),
+  /** #registro: the panel where people register their in-game name and main class. */
+  rolePicker: z.object({ channel: key }),
   audit: z.object({ channel: key }),
   musicGuard: z.object({
     channel: key,
