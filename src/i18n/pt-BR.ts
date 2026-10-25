@@ -126,7 +126,7 @@ export const ptBR = {
   panels: {
     registrationTitle: '📝 Registro na M4F1A',
     registrationIntro:
-      'Clique em **Registrar** e digite o **nome do seu personagem** no Aion 2. O Padrinho busca o personagem no site oficial, confere se ele está na legião, marca a **classe** e troca seu apelido para `emoji da classe + nome` (ex.: ⚔️ Padrinho). 🎮\n-# Mudou de nome ou de classe? É só registrar de novo: o apelido só muda por aqui.',
+      'Clique em **Registrar** e digite o **nome do seu personagem** no Aion 2. O Padrinho busca o personagem no site oficial, marca a **classe** e troca seu apelido para `emoji da classe + nome` (ex.: ⚔️ Padrinho).\n\n🛡️ **Já está na M4F1A no jogo?** Você vira **Soldado** na hora.\n🤝 **Ainda não?** O Padrinho mostra como entrar pelo recrutamento.\n-# Mudou de nome, de classe ou entrou na legião? É só registrar de novo: o apelido só muda por aqui.',
     registrationButton: 'Registrar',
     archetypes: {
       warrior: '🔵 **Guerreiros**',
@@ -146,10 +146,14 @@ export const ptBR = {
       'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
     notFound: (name: string) =>
       `Não achei o personagem **${name}** no Triniel. Confira o nome exatamente como aparece no jogo.`,
-    notInLegion: (name: string, legion: string, current: string) =>
-      current
-        ? `**${name}** está na legião **${current}** no jogo, não na **${legion}**. Entre na legião no jogo e registre de novo.`
-        : `**${name}** não está em nenhuma legião no jogo. Entre na **${legion}** e registre de novo.`,
+    joinedLegion: (legion: string) =>
+      `🛡️ Seu personagem está na **${legion}** no jogo: agora você é **Soldado** e já vê os canais da legião.`,
+    inLegion: (legion: string) => `🛡️ Seu personagem está na **${legion}** no jogo.`,
+    notInLegion: (legion: string, current: string, recruitmentId: string | undefined) => {
+      const where = recruitmentId ? `<#${recruitmentId}>` : '#recrutamento';
+      const now = current ? ` (hoje ele está na **${current}**)` : '';
+      return `🤝 Seu personagem ainda não está na **${legion}** no jogo${now}. Quer entrar? Fale com a gente em ${where}; depois de entrar no jogo, registre de novo para liberar seu acesso.`;
+    },
     unknownGameClass: (className: string) =>
       `A classe **${className}** do seu personagem não tem cargo aqui. Avise um Oficial.`,
     problems: {

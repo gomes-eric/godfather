@@ -192,9 +192,12 @@ const settingsSchema = z.looseObject({
     /** Search region: la = South America. */
     region: z.enum(['nae', 'naw', 'eu', 'la', 'as']),
     serverId: z.number().int().positive(),
-    /** In-game legion name; #registro only accepts characters in it when requireLegion is on. */
+    /**
+     * In-game legion name. Registering a character in it makes a Visitante a Soldado; anyone
+     * else is pointed to recruitmentChannel.
+     */
     legion: z.string().min(1),
-    requireLegion: z.boolean().default(true),
+    recruitmentChannel: key,
   }),
   /** #registro: the panel where people register their in-game name and main class. */
   rolePicker: z.object({ channel: key }),
@@ -270,6 +273,11 @@ export const serverConfigSchema = z
       [['settings', 'rolePicker', 'channel'], config.settings.rolePicker.channel, textChannelKeys],
       [['settings', 'audit', 'channel'], config.settings.audit.channel, textChannelKeys],
       [['settings', 'musicGuard', 'channel'], config.settings.musicGuard.channel, textChannelKeys],
+      [
+        ['settings', 'characters', 'recruitmentChannel'],
+        config.settings.characters.recruitmentChannel,
+        textChannelKeys,
+      ],
       [
         ['settings', 'eventDefaults', 'announceChannel'],
         config.settings.eventDefaults.announceChannel,

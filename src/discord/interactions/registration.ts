@@ -100,10 +100,7 @@ export async function handleRegisterModal(
     await interaction.editReply(`⚠️ ${t.notFound(typed)}`);
     return true;
   }
-  if (lookup.requireLegion && !sameLegion(found.legion, lookup.legion)) {
-    await interaction.editReply(`⚠️ ${t.notInLegion(found.name, lookup.legion, found.legion)}`);
-    return true;
-  }
+  const inLegion = sameLegion(found.legion, lookup.legion);
   const roles = classRoles(ctx);
   const chosen = matchClass(found.className, roles);
   const chosenId = chosen && ctx.directory.roleId(chosen.key);
@@ -148,8 +145,22 @@ export async function handleRegisterModal(
     },
   });
 
-  await interaction.editReply(
-    outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-  );
+  if (outcome.status !== 'ok') {
+    await interaction.editReply(
+      outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
+    );
+    return true;
+  }
+
+  // The legion in-game decides the next step: Soldado now, or the way to recruitment.
+  let next: string;
+  if (inLegion) {
+    const promoted = await ctx.members.admitFromGame(interaction.user.id, character.name);
+    next = promoted ? t.joinedLegion(lookup.legion) : t.inLegion(lookup.legion);
+  } else {
+    const recruitment = ctx.directory.channelByKey(lookup.recruitmentChannel);
+    next = t.notInLegion(lookup.legion, character.legion, recruitment?.id);
+  }
+  await interaction.editReply(`${outcome.value}\n${next}`);
   return true;
 }

@@ -4,6 +4,7 @@ import {
   decideDemotion,
   decidePartner,
   decidePromotion,
+  rolesForAdmission,
   rolesForPartner,
   rolesForTier,
 } from './member-rules.js';
@@ -174,5 +175,12 @@ describe('rolesForPartner', () => {
       'class',
       'visitor',
     ]);
+  });
+});
+
+describe('rolesForAdmission', () => {
+  it('swaps Visitante (and Parceiro) for Soldado, keeping classes', () => {
+    const tiers = { visitor: 'v', soldier: 's', officer: 'o' };
+    expect(rolesForAdmission(['v', 'partner', 'class'], 'partner', tiers)).toEqual(['class', 's']);
   });
 });

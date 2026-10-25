@@ -1,11 +1,12 @@
 import type { Guild, GuildMember } from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
-import type { Actor } from '../core/actor.js';
+import { systemActor, type Actor } from '../core/actor.js';
 import {
   decideDemotion,
   decidePartner,
   decidePromotion,
+  rolesForAdmission,
   rolesForPartner,
   rolesForTier,
 } from '../core/member-rules.js';
@@ -131,6 +132,34 @@ export class MemberService {
   private partnerRoleId(): string | undefined {
     const key = this.deps.config.get().settings.partnerRole;
     return key ? this.deps.directory.roleId(key) : undefined;
+  }
+
+  /**
+   * Makes a Visitante a Soldado because the game shows their character in the legion. Done by
+   * the bot itself (audited as Padrinho), never by the member. Anyone already in the legion on
+   * Discord is left as is. Resolves to whether they were promoted.
+   */
+  async admitFromGame(userId: string, characterName: string): Promise<boolean> {
+    const { guild, directory, runAction } = this.deps;
+    const member = await this.fetchMember(userId);
+    if (!member || member.user.bot || memberTier(member, directory) !== 'visitor') return false;
+    const tierRoles = this.tierRoles();
+    if (!tierRoles.soldier || !member.manageable) return false;
+
+    const name = member.displayName;
+    const outcome = await runAction({
+      actor: systemActor(guild.client.user.id),
+      action: 'member.promote',
+      target: name,
+      params: { userId: member.id, from: 'visitor', to: 'soldier', character: characterName },
+      preview: t.promotePreview(name, ptBR.tier('visitor'), ptBR.tier('soldier')),
+      execute: async () => {
+        const current = [...member.roles.cache.keys()].filter((id) => id !== guild.id);
+        await member.roles.set(rolesForAdmission(current, this.partnerRoleId(), tierRoles));
+        return t.promoted(name, ptBR.tier('soldier'));
+      },
+    });
+    return outcome.status === 'ok';
   }
 
   /** Gives Parceiro to someone who doesn't play (in place of Visitante), or takes it back. */

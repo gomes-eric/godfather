@@ -131,6 +131,22 @@ export function rolesForPartner(
   return [...kept, partnerRoleId];
 }
 
+/**
+ * Roles for someone the game shows in the legion: Soldado in place of Visitante, and Parceiro
+ * dropped (it is for people who don't play).
+ */
+export function rolesForAdmission(
+  currentRoleIds: string[],
+  partnerRoleId: string | undefined,
+  tierRoles: Partial<Record<Tier, string>>,
+): string[] {
+  return rolesForTier(
+    currentRoleIds.filter((id) => id !== partnerRoleId),
+    'soldier',
+    tierRoles,
+  );
+}
+
 export function rolesForTier(
   currentRoleIds: string[],
   to: Tier,

@@ -37,7 +37,9 @@ settings:
     steps:
       - name: 📜 Leia as regras
         value: Tudo começa em {channel:rules}.
-      - name: 🤝 Quer entrar na legião?
+      - name: 📝 Registre seu personagem
+        value: Em {channel:role-picker}, digite o nome do seu personagem. Se você já está na M4F1A no jogo, vira Soldado na hora.
+      - name: 🤝 Ainda não é da legião?
         value: Apresente-se em {channel:recruitment} e fale com um Oficial.
       - name: ❓ Ficou com dúvida?
         value: Pergunte em {channel:visitor-qa}, a gente responde.
@@ -88,8 +90,10 @@ settings:
   characters:
     region: la
     serverId: 2403
+    # In the legion in-game → #registro makes them Soldado; otherwise it points to recruitment.
+    # (The site shows only the legion's name, not the in-game rank: Oficiais are promoted by hand.)
     legion: M4F1A
-    requireLegion: true      # #registro only accepts characters in this legion in-game
+    recruitmentChannel: recruitment
   # #registro panel: in-game name → class (read from the game) and nickname "⚔️ Nome".
   rolePicker:
     channel: role-picker
