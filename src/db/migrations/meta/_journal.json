@@ -50,6 +50,13 @@
       "when": 1792922275981,
       "tag": "0006_room_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1792961281188,
+      "tag": "0007_registered_characters",
+      "breakpoints": true
     }
   ]
 }

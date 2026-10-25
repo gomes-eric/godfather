@@ -187,6 +187,15 @@ const settingsSchema = z.looseObject({
    * #registro form is how it changes. Administrators are not affected.
    */
   lockNicknames: z.boolean().default(false),
+  /** Where #registro and /perfil look characters up on the official Aion 2 site. */
+  characters: z.object({
+    /** Search region: la = South America. */
+    region: z.enum(['nae', 'naw', 'eu', 'la', 'as']),
+    serverId: z.number().int().positive(),
+    /** In-game legion name; #registro only accepts characters in it when requireLegion is on. */
+    legion: z.string().min(1),
+    requireLegion: z.boolean().default(true),
+  }),
   /** #registro: the panel where people register their in-game name and main class. */
   rolePicker: z.object({ channel: key }),
   audit: z.object({ channel: key }),

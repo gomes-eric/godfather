@@ -83,7 +83,14 @@ settings:
       📝 Registre seu personagem em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
   # Nobody changes their own nickname by hand: #registro sets it (Comandantes are not affected).
   lockNicknames: true
-  # #registro panel: in-game name + main class → nickname "⚔️ Nome" and the class role.
+  # Characters are read from the official Aion 2 site (the same data shugo.gg shows).
+  # Triniel (South America, Asmodian side) is server 2403.
+  characters:
+    region: la
+    serverId: 2403
+    legion: M4F1A
+    requireLegion: true      # #registro only accepts characters in this legion in-game
+  # #registro panel: in-game name → class (read from the game) and nickname "⚔️ Nome".
   rolePicker:
     channel: role-picker
   audit:

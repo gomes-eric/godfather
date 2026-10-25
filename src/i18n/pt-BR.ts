@@ -126,7 +126,7 @@ export const ptBR = {
   panels: {
     registrationTitle: '📝 Registro na M4F1A',
     registrationIntro:
-      'Clique em **Registrar** e informe o **nome do seu personagem** e a sua **classe principal** no Aion 2. O Padrinho troca seu apelido no servidor para `emoji da classe + nome` (ex.: ⚔️ Padrinho) e marca sua classe. 🎮\n-# Mudou de nome ou de classe? É só registrar de novo: o apelido só muda por aqui.',
+      'Clique em **Registrar** e digite o **nome do seu personagem** no Aion 2. O Padrinho busca o personagem no site oficial, confere se ele está na legião, marca a **classe** e troca seu apelido para `emoji da classe + nome` (ex.: ⚔️ Padrinho). 🎮\n-# Mudou de nome ou de classe? É só registrar de novo: o apelido só muda por aqui.',
     registrationButton: 'Registrar',
     archetypes: {
       warrior: '🔵 **Guerreiros**',
@@ -142,9 +142,16 @@ export const ptBR = {
     nameLabel: 'Nome do personagem',
     nameHint: 'Exatamente como aparece no Aion 2',
     namePlaceholder: 'Ex.: Padrinho',
-    classLabel: 'Classe principal',
-    classPlaceholder: 'Escolha sua classe',
-    unknownClass: 'Essa classe não existe mais. Peça a um Oficial para rodar /setup.',
+    apiDown:
+      'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
+    notFound: (name: string) =>
+      `Não achei o personagem **${name}** no Triniel. Confira o nome exatamente como aparece no jogo.`,
+    notInLegion: (name: string, legion: string, current: string) =>
+      current
+        ? `**${name}** está na legião **${current}** no jogo, não na **${legion}**. Entre na legião no jogo e registre de novo.`
+        : `**${name}** não está em nenhuma legião no jogo. Entre na **${legion}** e registre de novo.`,
+    unknownGameClass: (className: string) =>
+      `A classe **${className}** do seu personagem não tem cargo aqui. Avise um Oficial.`,
     problems: {
       empty: 'Informe o nome do seu personagem.',
       tooLong: 'Esse nome não cabe no apelido do Discord (máximo de 32 caracteres com o emoji).',
@@ -154,6 +161,28 @@ export const ptBR = {
       `✅ Registrado! Seu apelido agora é **${nickname}** e sua classe é **${className}**.`,
     registeredNoNick: (nickname: string, className: string) =>
       `✅ Classe **${className}** marcada. O Discord não me deixa mudar o seu apelido (seu cargo está acima do meu): troque para **${nickname}** em *Editar perfil do servidor*.`,
+  },
+
+  profile: {
+    level: (level: number) => `Nível ${level}`,
+    legion: (legion: string) => `🏰 Legião **${legion}**`,
+    noLegion: '🏰 Sem legião',
+    combatPower: '⚔️ Poder de combate',
+    itemLevel: '🎚️ Nível de item',
+    weapons: '🗡️ Armas',
+    armor: '🛡️ Armaduras',
+    accessories: '💍 Acessórios',
+    runesArcana: '🔮 Runas e arcanas',
+    gear: '🎒 Equipamentos',
+    noGear: 'Nenhum item equipado.',
+    footer: (server: string) => `${server} · dados do site oficial do Aion 2`,
+    apiDown:
+      'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
+    notFound: (name: string) => `Não achei o personagem **${name}** no Triniel.`,
+    notRegistered:
+      'Você ainda não registrou seu personagem. Use o botão **Registrar** no #registro ou passe um nome.',
+    memberNotRegistered: (id: string) =>
+      `<@${id}> ainda não registrou um personagem no #registro. Tente pelo nome.`,
   },
 
   members: {
@@ -384,9 +413,9 @@ export const ptBR = {
   },
 
   music: {
-    notice: (channelId: string, prefixes: readonly string[]) => {
+    notice: (userId: string, prefixes: readonly string[]) => {
       const examples = [...prefixes.map((p) => `\`${p}play\``), '`/play`'].join(', ');
-      return `🎵 Em <#${channelId}> só vale comando de música (${examples}...). Sua mensagem foi apagada para o canal ficar limpo.`;
+      return `<@${userId}> 🎵 aqui só vale comando de música (${examples}...). Sua mensagem foi apagada para o canal ficar limpo.`;
     },
   },
 
@@ -519,6 +548,16 @@ export const ptBR = {
     footer: (tier: string) => `Mostrando os comandos de: ${tier} · só você vê esta mensagem`,
     sections: [
       {
+        title: '🎮 Personagens',
+        entries: [
+          {
+            usage: '/perfil',
+            text: 'Poder de combate, nível de item e equipamentos de um personagem',
+            tier: 'visitor',
+          },
+        ],
+      },
+      {
         title: '🔊 Sua sala de voz',
         entries: [
           {
@@ -610,7 +649,11 @@ export const ptBR = {
       {
         title: '💡 Sem comando',
         entries: [
-          { usage: '#registro', text: 'Registre o nome do personagem e a classe', tier: 'visitor' },
+          {
+            usage: '#registro',
+            text: 'Registre seu personagem (classe e legião vêm do jogo)',
+            tier: 'visitor',
+          },
           { usage: '✅ ❔ ❌', text: 'Confirme presença nos avisos de #eventos', tier: 'soldier' },
           {
             usage: 'm!p · /play',

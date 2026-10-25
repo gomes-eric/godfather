@@ -5,8 +5,10 @@ import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 
 const NOTICE_EVERY_MS = 10 * 60_000;
+/** How long the in-channel notice stays before the bot deletes it. */
+const NOTICE_LIFETIME_MS = 10_000;
 
-/** Remembers who was told recently, so nobody gets a DM for every deleted message. */
+/** Remembers who was told recently, so nobody gets a notice for every deleted message. */
 export class NoticeThrottle {
   private readonly lastNotice = new Map<string, number>();
 
@@ -72,10 +74,14 @@ export class MusicGuardService {
       { user: message.author.tag },
       'removed a non-command message from #musica',
     );
+    // No DMs: a deleted message has no interaction to answer privately, so the notice is a
+    // short reply in the channel that mentions only the author and deletes itself.
     if (this.throttle.take(message.author.id)) {
-      await message.author
-        .send(ptBR.music.notice(channel.id, musicGuard.commandPrefixes))
-        .catch(() => undefined); // DMs may be closed
+      const notice = await channel.send({
+        content: ptBR.music.notice(message.author.id, musicGuard.commandPrefixes),
+        allowedMentions: { users: [message.author.id] },
+      });
+      setTimeout(() => void notice.delete().catch(() => undefined), NOTICE_LIFETIME_MS);
     }
   }
 }

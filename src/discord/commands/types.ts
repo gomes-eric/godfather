@@ -7,9 +7,11 @@ import type { ConfigStore } from '../../config/store.js';
 import type { ActionRunner } from '../../core/action.js';
 import type { Actor } from '../../core/actor.js';
 import type { AuditLog } from '../../core/audit.js';
+import type { CharacterStore } from '../../db/characters.js';
 import type { Logger } from '../../logger.js';
 import type { EventService } from '../../services/event.service.js';
 import type { FieldBossService } from '../../services/field-boss.service.js';
+import type { GameCharacterService } from '../../services/game-character.service.js';
 import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
@@ -32,6 +34,10 @@ export interface CommandContext {
   voice: VoiceService;
   events: EventService;
   bosses: FieldBossService;
+  /** Characters from the official Aion 2 site. */
+  characters: GameCharacterService;
+  /** Who registered which character in #registro. */
+  registrations: CharacterStore;
   tokens: TokenService;
   /** Public URL of the MCP endpoint, shown with new tokens. */
   mcpUrl: string;

@@ -39,6 +39,8 @@ import { SetupService } from './services/setup.service.js';
 import { TokenService } from './services/token.service.js';
 import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
+import { GameCharacterService } from './services/game-character.service.js';
+import { CharacterStore } from './db/characters.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -172,6 +174,8 @@ async function main(): Promise<void> {
 
     attachInteractionRouter(client, commands, {
       ...services,
+      characters: new GameCharacterService({ config, logger }),
+      registrations: new CharacterStore(database.db),
       logger,
       voice,
       tokens,

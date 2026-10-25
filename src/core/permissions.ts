@@ -39,6 +39,7 @@ export const ACTION_POLICIES = {
   'role.assign': policy('commander'),
   // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
   'member.register': policy('visitor', { audited: false }),
+  'character.read': policy('visitor', { audited: false }),
 
   'message.send': policy('officer'),
   'message.edit': policy('officer'),

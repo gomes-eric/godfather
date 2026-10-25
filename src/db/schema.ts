@@ -145,6 +145,18 @@ export const mcpTokens = sqliteTable('mcp_tokens', {
   revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
 });
 
+// The in-game character each member registered in #registro (one per member).
+export const registeredCharacters = sqliteTable('registered_characters', {
+  userId: text('user_id').primaryKey(),
+  characterId: text('character_id').notNull(),
+  name: text('name').notNull(),
+  serverId: integer('server_id').notNull(),
+  classKey: text('class_key').notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+});
+
 // Every write action, from slash commands or MCP, is recorded here (PLAN.md §6.10).
 export const auditLog = sqliteTable(
   'audit_log',
