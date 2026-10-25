@@ -11,13 +11,18 @@ import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/c
 import { commands } from './discord/commands/index.js';
 import { createDirectory } from './discord/directory.js';
 import { createDiscordGuildPort } from './discord/guild-port.js';
+import { attachMemberJoinListener } from './discord/listeners/member-join.js';
 import { createConfirmationStore } from './discord/interactions/confirmation.js';
 import { attachInteractionRouter } from './discord/interactions/router.js';
 import { registerGuildCommands } from './discord/register-commands.js';
 import { EnvError, loadEnv } from './env.js';
 import { createHttpApp } from './http/app.js';
 import { createLogger } from './logger.js';
+import { MemberService } from './services/member.service.js';
+import { MessageService } from './services/message.service.js';
+import { ModerationService } from './services/moderation.service.js';
 import { SetupService } from './services/setup.service.js';
+import { WelcomeService } from './services/welcome.service.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -56,6 +61,11 @@ async function main(): Promise<void> {
 
   process.once('SIGINT', () => void stop('SIGINT'));
   process.once('SIGTERM', () => void stop('SIGTERM'));
+  server.once('error', (error) => {
+    logger.fatal({ err: error, port: env.HTTP_PORT }, 'http server failed (is the port in use?)');
+    process.exitCode = 1;
+    void stop('http server error');
+  });
 
   try {
     const guild = await connectDiscord(client, {
@@ -76,10 +86,20 @@ async function main(): Promise<void> {
       directory,
       audit,
       setup: new SetupService(createDiscordGuildPort(guild), managed, config),
+      members: new MemberService({ guild, directory, config, runAction }),
+      moderation: new ModerationService({ guild, directory, runAction }),
+      messages: new MessageService({ guild, runAction }),
       runAction,
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),
     });
+    const welcome = new WelcomeService({ guild, directory, config, logger });
+    attachMemberJoinListener(client, guild.id, welcome, logger);
+    welcome
+      .syncAutoRoles()
+      .then((synced) => logger.info(synced, 'automatic roles synced'))
+      .catch((error: unknown) => logger.warn({ err: error }, 'automatic role sync failed'));
+
     await registerGuildCommands({
       token: env.DISCORD_TOKEN,
       clientId: env.DISCORD_CLIENT_ID,

@@ -1,0 +1,102 @@
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import type { Tier } from '../../core/tiers.js';
+import { ptBR } from '../../i18n/pt-BR.js';
+import { outcomeMessage, runWithConfirmation } from '../interactions/confirmation.js';
+import type { SlashCommand } from './types.js';
+
+const rankChoices = (tiers: Tier[]) =>
+  tiers.map((tier) => ({ name: ptBR.tier(tier), value: tier }));
+
+export const memberCommand: SlashCommand = {
+  data: new SlashCommandBuilder()
+    .setName('member')
+    .setDescription('Manage legion members')
+    .setDescriptionLocalizations({ 'pt-BR': 'Gerencia os membros da legião' })
+    .addSubcommand((sub) =>
+      sub
+        .setName('promote')
+        .setDescription('Promote a member (Visitante → Soldado → Oficial)')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Promove um membro (Visitante → Soldado → Oficial)',
+        })
+        .addUserOption((o) => o.setName('user').setDescription('Who to promote').setRequired(true))
+        .addStringOption((o) =>
+          o
+            .setName('rank')
+            .setDescription('Target rank (default: one step up)')
+            .addChoices(...rankChoices(['soldier', 'officer'])),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('demote')
+        .setDescription('Demote a member one step (or to a given rank)')
+        .setDescriptionLocalizations({ 'pt-BR': 'Rebaixa um membro um nível (ou para um cargo)' })
+        .addUserOption((o) => o.setName('user').setDescription('Who to demote').setRequired(true))
+        .addStringOption((o) =>
+          o
+            .setName('rank')
+            .setDescription('Target rank (default: one step down)')
+            .addChoices(...rankChoices(['visitor', 'soldier'])),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('info')
+        .setDescription('Show a member’s rank, classes and dates')
+        .setDescriptionLocalizations({ 'pt-BR': 'Mostra cargo, classes e datas de um membro' })
+        .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true)),
+    )
+    .toJSON(),
+
+  async execute(interaction, ctx) {
+    const sub = interaction.options.getSubcommand();
+    const user = interaction.options.getUser('user', true);
+    const rank = (interaction.options.getString('rank') ?? undefined) as Tier | undefined;
+    const actor = await ctx.resolveActor(interaction.user.id);
+
+    if (sub === 'promote') {
+      await runWithConfirmation(interaction, ctx.confirmations, () =>
+        ctx.members.promote(actor, user.id, rank),
+      );
+      return;
+    }
+    if (sub === 'demote') {
+      await runWithConfirmation(interaction, ctx.confirmations, (confirm) =>
+        ctx.members.demote(actor, user.id, rank, confirm),
+      );
+      return;
+    }
+
+    const outcome = await ctx.members.info(actor, user.id);
+    if (outcome.status !== 'ok') {
+      const content =
+        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
+      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const info = outcome.value;
+    const f = ptBR.members.info;
+    const ts = (date: Date | null) =>
+      date ? `<t:${Math.floor(date.getTime() / 1000)}:D>` : f.none;
+    const embed = new EmbedBuilder()
+      .setTitle(f.title(info.name))
+      .setThumbnail(info.avatarUrl)
+      .setColor(0xa855f7)
+      .addFields(
+        { name: f.tier, value: ptBR.tier(info.tier), inline: true },
+        { name: f.classes, value: info.classes.join(', ') || f.none, inline: true },
+        { name: f.joined, value: ts(info.joinedAt), inline: true },
+        { name: f.created, value: ts(info.createdAt), inline: true },
+      );
+    if (info.timeoutUntil) {
+      embed.addFields({
+        name: f.timedOut,
+        value: `<t:${Math.floor(info.timeoutUntil.getTime() / 1000)}:f>`,
+        inline: true,
+      });
+    }
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  },
+};

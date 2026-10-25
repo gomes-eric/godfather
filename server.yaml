@@ -26,6 +26,7 @@ settings:
   welcome:
     channel: welcome
     autoRole: visitor
+    botRole: bots            # every bot that joins gets this role instead of autoRole
     message: |
       Bem-vindo(a) à **M4F1A**, {member}! 🌹
       Quer entrar na legião? Fale com a gente em {channel:recruitment}.

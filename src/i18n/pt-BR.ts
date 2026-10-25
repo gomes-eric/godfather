@@ -70,6 +70,68 @@ export const ptBR = {
     unknown: 'Essa classe não existe mais. Peça a um Oficial para rodar /setup.',
   },
 
+  members: {
+    refusals: {
+      targetIsBot: 'Não dá para fazer isso com um bot.',
+      targetIsOwner: 'Ninguém pode fazer isso com o dono do servidor.',
+      targetIsSelf: 'Você não pode fazer isso consigo mesmo.',
+      alreadyTop: 'Essa pessoa já está no cargo mais alto possível.',
+      alreadyBottom: 'Essa pessoa já é Visitante.',
+      notHigher: 'O cargo escolhido não é acima do atual. Use /member demote.',
+      notLower: 'O cargo escolhido não é abaixo do atual. Use /member promote.',
+      cannotManageTier: 'Você só pode mover pessoas para cargos abaixo do seu.',
+      officerLimit: 'O limite de Oficiais já foi atingido (o mesmo do jogo).',
+      targetTooHigh: 'Você só pode moderar quem está abaixo do seu cargo.',
+    } as Record<string, string>,
+    notMember: 'Essa pessoa não está no servidor.',
+    missingRole: (tier: string) => `O cargo **${tier}** ainda não existe. Rode /setup.`,
+    botCannot:
+      'O Discord não me deixa agir sobre essa pessoa: o cargo mais alto dela está acima do meu.',
+    promotePreview: (name: string, from: string, to: string) =>
+      `Promover **${name}** de ${from} para **${to}**.`,
+    demotePreview: (name: string, from: string, to: string) =>
+      `Rebaixar **${name}** de ${from} para **${to}**.`,
+    promoted: (name: string, to: string) => `⬆️ **${name}** agora é **${to}**.`,
+    demoted: (name: string, to: string) => `⬇️ **${name}** agora é **${to}**.`,
+    info: {
+      title: (name: string) => `👤 ${name}`,
+      tier: 'Cargo na legião',
+      classes: 'Classes',
+      joined: 'Entrou no servidor',
+      created: 'Conta criada',
+      timedOut: 'Em timeout até',
+      none: '—',
+    },
+  },
+
+  moderation: {
+    kickPreview: (name: string, reason: string) =>
+      `Expulsar **${name}** do servidor. Motivo: ${reason}`,
+    kicked: (name: string) => `👢 **${name}** foi expulso.`,
+    banPreview: (name: string, reason: string, deleteHours: number) =>
+      `Banir **${name}**. Motivo: ${reason}. ${
+        deleteHours === 0
+          ? 'O histórico de mensagens não será apagado.'
+          : `Mensagens das últimas ${deleteHours}h serão apagadas.`
+      }`,
+    banned: (name: string) => `🔨 **${name}** foi banido.`,
+    unbanned: (name: string) => `🕊️ **${name}** foi desbanido.`,
+    notBanned: 'Essa pessoa não está banida.',
+    timedOut: (name: string, minutes: number) =>
+      `🔇 **${name}** está em timeout por ${minutes} min.`,
+    timeoutRemoved: (name: string) => `🔊 Timeout de **${name}** removido.`,
+    purgePreview: (count: number, channel: string, user?: string) =>
+      `Apagar as últimas ${count} mensagens${user ? ` de **${user}**` : ''} em **#${channel}**. Mensagens com mais de 14 dias não podem ser apagadas em massa.`,
+    purged: (count: number, channel: string) =>
+      `🧹 ${count} mensagens apagadas em **#${channel}**.`,
+    noReason: 'sem motivo informado',
+    notText: 'Esse canal não aceita mensagens.',
+  },
+
+  say: {
+    sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
+  },
+
   config: {
     reloaded: (roles: number, channels: number) =>
       `🔄 server.yaml recarregado: ${roles} cargos e ${channels} canais. Rode \`/setup dry-run:true\` para ver o que mudaria no servidor.`,

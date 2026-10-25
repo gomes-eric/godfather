@@ -24,6 +24,21 @@ export type ActionOutcome<T> =
 export type ActionRunner = <T>(request: ActionRequest<T>) => Promise<ActionOutcome<T>>;
 
 /**
+ * A request a service refused before it reached the pipeline, e.g. "the officer limit is
+ * reached". The reason is shown to the user as is.
+ */
+export interface Rejected {
+  status: 'rejected';
+  reason: string;
+}
+
+export type ServiceOutcome<T> = ActionOutcome<T> | Rejected;
+
+export function rejected(reason: string): Rejected {
+  return { status: 'rejected', reason };
+}
+
+/**
  * The single pipeline every action goes through, whether it came from a slash command or MCP:
  * authorize → confirm (destructive only) → execute → audit (PLAN.md §2).
  * Errors thrown by `execute` are audited and rethrown.

@@ -99,7 +99,13 @@ const settingsSchema = z.looseObject({
       message: `timeoutSeconds must be one of ${AFK_TIMEOUTS.join(', ')}`,
     }),
   }),
-  welcome: z.object({ channel: key, autoRole: key, message: z.string().min(1) }),
+  welcome: z.object({
+    channel: key,
+    autoRole: key,
+    /** Role given to every bot that joins (Jockie, Rythm, ...) instead of autoRole. */
+    botRole: key.optional(),
+    message: z.string().min(1),
+  }),
   rules: z.object({ channel: key, message: z.string().min(1).max(4000) }),
   rolePicker: z.object({ channel: key, multipleClasses: z.boolean().default(false) }),
   audit: z.object({ channel: key }),
@@ -170,6 +176,10 @@ export const serverConfigSchema = z
         ['settings', 'welcome', 'autoRole'],
         `unknown role key "${config.settings.welcome.autoRole}"`,
       );
+    }
+    const botRole = config.settings.welcome.botRole;
+    if (botRole !== undefined && !roleKeys.includes(botRole)) {
+      issue(['settings', 'welcome', 'botRole'], `unknown role key "${botRole}"`);
     }
     config.voiceAccess.forEach((entry, i) => {
       if (!roleKeys.includes(entry.role))

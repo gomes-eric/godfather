@@ -6,7 +6,7 @@ import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
 } from 'discord.js';
-import type { ActionOutcome } from '../../core/action.js';
+import type { ServiceOutcome } from '../../core/action.js';
 import { PendingConfirmations } from '../../core/confirm.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 
@@ -14,7 +14,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
  * A slash-command action that can run with or without confirmation. The value of a successful
  * outcome is the message shown to the user.
  */
-export type ConfirmableOperation = (confirm: boolean) => Promise<ActionOutcome<string>>;
+export type ConfirmableOperation = (confirm: boolean) => Promise<ServiceOutcome<string>>;
 
 export type ConfirmationStore = PendingConfirmations<ConfirmableOperation>;
 
@@ -25,10 +25,18 @@ export function createConfirmationStore(): ConfirmationStore {
 const CONFIRM_PREFIX = 'confirm:';
 const CANCEL_PREFIX = 'cancel:';
 
-function outcomeMessage(
-  outcome: Exclude<ActionOutcome<string>, { status: 'confirmation_required' }>,
-) {
-  return outcome.status === 'ok' ? outcome.value : ptBR.errors.denied(outcome.requiredTier);
+/** Text for any finished outcome (everything except a pending confirmation). */
+export function outcomeMessage(
+  outcome: Exclude<ServiceOutcome<string>, { status: 'confirmation_required' }>,
+): string {
+  switch (outcome.status) {
+    case 'ok':
+      return outcome.value;
+    case 'denied':
+      return ptBR.errors.denied(outcome.requiredTier);
+    case 'rejected':
+      return `⚠️ ${outcome.reason}`;
+  }
 }
 
 /**
