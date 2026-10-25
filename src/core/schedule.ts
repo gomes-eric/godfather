@@ -146,7 +146,7 @@ export function parseWhen(input: string, now: Date, timeZone: string): Date | nu
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/-feira/, '');
   const today = localParts(now, timeZone);
 

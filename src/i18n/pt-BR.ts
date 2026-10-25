@@ -238,6 +238,56 @@ export const ptBR = {
       `🎵 Em <#${channelId}> só vale comando de música (\`/play\`, \`/skip\`...). Sua mensagem foi apagada para o canal ficar limpo.`,
   },
 
+  resolve: {
+    none: (what: string, input: string) => `Não achei ${what} "${input}".`,
+    ambiguous: (what: string, input: string, options: string[]) =>
+      `"${input}" pode ser mais de ${what}: ${options.join(', ')}. Seja mais específico ou use o ID.`,
+    what: { member: 'um membro', channel: 'um canal', role: 'um cargo', category: 'uma categoria' },
+  },
+
+  channels: {
+    created: (name: string, id: string) => `➕ Canal <#${id}> (**${name}**) criado.`,
+    edited: (id: string) => `✏️ Canal <#${id}> atualizado.`,
+    deletePreview: (name: string, managed: boolean) =>
+      `Apagar o canal **${name}** e todo o seu histórico.${
+        managed ? ' ⚠️ Ele está no server.yaml: o próximo /setup vai recriá-lo vazio.' : ''
+      }`,
+    deleted: (name: string) => `🗑️ Canal **${name}** apagado.`,
+    notCategory: 'Isso não é uma categoria.',
+  },
+
+  roles: {
+    created: (name: string) => `➕ Cargo **${name}** criado.`,
+    edited: (name: string) => `✏️ Cargo **${name}** atualizado.`,
+    deletePreview: (name: string, members: number) =>
+      `Apagar o cargo **${name}** (${members} ${members === 1 ? 'pessoa tem' : 'pessoas têm'} esse cargo).`,
+    deleted: (name: string) => `🗑️ Cargo **${name}** apagado.`,
+    assigned: (role: string, member: string) => `✅ **${member}** agora tem o cargo **${role}**.`,
+    removed: (role: string, member: string) => `➖ Cargo **${role}** removido de **${member}**.`,
+    aboveBot: 'Esse cargo está acima do Padrinho, então não posso alterá-lo.',
+    tierRole:
+      'Esse é um cargo da hierarquia da legião. Use `promote_member` / `demote_member` (ou /member) para mudar o nível de alguém.',
+    integration: 'Esse cargo pertence a um bot e não pode ser alterado.',
+  },
+
+  mcp: {
+    created: (name: string, token: string, url: string) =>
+      [
+        `🔑 Token **${name}** criado. Copie agora — ele não será mostrado de novo:`,
+        `\`\`\`\n${token}\n\`\`\``,
+        `Endpoint: \`${url}\``,
+        'Claude Code:',
+        `\`\`\`\nclaude mcp add --transport http padrinho ${url} --header "Authorization: Bearer ${token}"\n\`\`\``,
+        '-# Quem tiver este token age como você no servidor. Não compartilhe. Revogue com `/mcp token revoke`.',
+      ].join('\n'),
+    listTitle: '🔑 Seus tokens MCP',
+    listLine: (id: number, name: string, created: number, used: number | null) =>
+      `\`#${id}\` **${name}** — criado <t:${created}:d>${used ? ` · último uso <t:${used}:R>` : ' · nunca usado'}`,
+    none: 'Você não tem tokens ativos.',
+    revoked: (name: string) => `🗑️ Token **${name}** revogado.`,
+    tokenNotFound: (id: number) => `Não achei o token **#${id}** (ou ele já foi revogado).`,
+  },
+
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
   },

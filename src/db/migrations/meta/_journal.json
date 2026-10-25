@@ -36,6 +36,13 @@
       "when": 1792916344932,
       "tag": "0004_field_bosses",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792917122683,
+      "tag": "0005_mcp_tokens",
+      "breakpoints": true
     }
   ]
 }

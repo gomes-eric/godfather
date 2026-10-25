@@ -12,6 +12,11 @@ const envSchema = z.object({
   DATABASE_PATH: z.string().min(1).default('./data/padrinho.db'),
   SERVER_CONFIG_PATH: z.string().min(1).default('./server.yaml'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /** Request the privileged Message Content intent (enable it in the Developer Portal first). */
+  DISCORD_MESSAGE_CONTENT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,0 +1,75 @@
+import {
+  ChannelType,
+  type Guild,
+  type GuildBasedChannel,
+  type GuildMember,
+  type Role,
+} from 'discord.js';
+import { resolveCandidate, type Candidate } from '../core/resolve.js';
+import { ptBR } from '../i18n/pt-BR.js';
+
+export type Found<T> = { ok: true; value: T } | { ok: false; reason: string };
+
+const t = ptBR.resolve;
+
+function found<T>(
+  what: keyof typeof t.what,
+  input: string,
+  candidates: Candidate[],
+  get: (id: string) => T | undefined,
+): Found<T> {
+  const result = resolveCandidate(input, candidates);
+  if (result.ok) {
+    const value = get(result.id);
+    if (value) return { ok: true, value };
+  }
+  if (!result.ok && result.reason === 'ambiguous') {
+    return { ok: false, reason: t.ambiguous(t.what[what], input, result.options) };
+  }
+  return { ok: false, reason: t.none(t.what[what], input) };
+}
+
+/** Member by mention, id, username, display name or nickname (from the member cache). */
+export function findMember(guild: Guild, input: string): Found<GuildMember> {
+  const candidates = [...guild.members.cache.values()].map((m) => ({
+    id: m.id,
+    names: [m.user.username, m.displayName, m.user.globalName ?? '', m.nickname ?? ''].filter(
+      Boolean,
+    ),
+    label: `${m.displayName} (@${m.user.username})`,
+  }));
+  return found('member', input, candidates, (id) => guild.members.cache.get(id));
+}
+
+const KIND_LABEL: Partial<Record<ChannelType, string>> = {
+  [ChannelType.GuildVoice]: '🔊 ',
+  [ChannelType.GuildCategory]: '📁 ',
+  [ChannelType.GuildForum]: '📋 ',
+};
+
+/** Channel by mention, id or name; `filter` narrows the kinds accepted. */
+export function findChannel(
+  guild: Guild,
+  input: string,
+  filter: (channel: GuildBasedChannel) => boolean = () => true,
+  what: 'channel' | 'category' = 'channel',
+): Found<GuildBasedChannel> {
+  const candidates = [...guild.channels.cache.values()].filter(filter).map((c) => ({
+    id: c.id,
+    names: [c.name],
+    label: `${KIND_LABEL[c.type] ?? '#'}${c.name}`,
+  }));
+  return found(what, input, candidates, (id) => guild.channels.cache.get(id));
+}
+
+export function findCategory(guild: Guild, input: string): Found<GuildBasedChannel> {
+  return findChannel(guild, input, (c) => c.type === ChannelType.GuildCategory, 'category');
+}
+
+/** Role by mention, id or name (never @everyone). */
+export function findRole(guild: Guild, input: string): Found<Role> {
+  const candidates = [...guild.roles.cache.values()]
+    .filter((r) => r.id !== guild.id)
+    .map((r) => ({ id: r.id, names: [r.name], label: r.name }));
+  return found('role', input, candidates, (id) => guild.roles.cache.get(id));
+}

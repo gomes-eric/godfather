@@ -5,8 +5,16 @@ export interface HealthProbes {
   databaseHealthy(): boolean;
 }
 
-/** HTTP surface of the bot. Phase 7 mounts the MCP endpoint (`/mcp`) here. */
-export function createHttpApp(probes: HealthProbes): Hono {
+export type McpHandler = (request: Request) => Promise<Response>;
+
+/**
+ * HTTP surface of the bot: `/healthz` and the MCP endpoint `/mcp`. The MCP handler needs the
+ * Discord guild, so it's read lazily and the endpoint answers 503 until the bot is connected.
+ */
+export function createHttpApp(
+  probes: HealthProbes,
+  mcp: () => McpHandler | undefined = () => undefined,
+): Hono {
   const app = new Hono();
 
   app.get('/healthz', (c) => {
@@ -21,6 +29,12 @@ export function createHttpApp(probes: HealthProbes): Hono {
       },
       ok ? 200 : 503,
     );
+  });
+
+  app.all('/mcp', async (c) => {
+    const handler = mcp();
+    if (!handler) return c.json({ error: 'Padrinho is still connecting to Discord.' }, 503);
+    return handler(c.req.raw);
   });
 
   return app;

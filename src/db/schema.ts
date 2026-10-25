@@ -127,6 +127,20 @@ export const fieldBossSourceHealth = sqliteTable('field_boss_source_health', {
   lastWarnedAt: integer('last_warned_at', { mode: 'timestamp_ms' }),
 });
 
+// Personal MCP tokens (PLAN.md §8.1). Only a SHA-256 hash is stored; the token carries no
+// permissions of its own — each call uses its owner's current Discord roles.
+export const mcpTokens = sqliteTable('mcp_tokens', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+  lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+  revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+});
+
 // Every write action, from slash commands or MCP, is recorded here (PLAN.md §6.10).
 export const auditLog = sqliteTable(
   'audit_log',

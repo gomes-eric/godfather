@@ -49,3 +49,50 @@ describe('ConfigStore.updateEventTemplate', () => {
     );
   });
 });
+
+describe('ConfigStore voice generators', () => {
+  let path: string;
+
+  beforeEach(() => {
+    path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
+    copyFileSync(repoServerYaml, path);
+  });
+
+  it('adds, updates and removes a generator in server.yaml', () => {
+    const store = new ConfigStore(path);
+    const raid = {
+      key: 'gen-raid',
+      category: 'voice-rooms',
+      name: '➕ Raid',
+      nameTemplate: 'Raid {n}',
+      userLimit: 8,
+    };
+
+    store.upsertVoiceGenerator(raid);
+    expect(new ConfigStore(path).get().voiceGenerators.at(-1)).toEqual(raid);
+
+    store.upsertVoiceGenerator({ ...raid, userLimit: 12 });
+    expect(new ConfigStore(path).get().voiceGenerators.filter((g) => g.key === 'gen-raid')).toEqual(
+      [{ ...raid, userLimit: 12 }],
+    );
+
+    store.deleteVoiceGenerator('gen-raid');
+    expect(new ConfigStore(path).get().voiceGenerators.some((g) => g.key === 'gen-raid')).toBe(
+      false,
+    );
+    expect(readFileSync(path, 'utf8')).toContain('# Join-to-create generators');
+  });
+
+  it('refuses a generator pointing at an unknown category', () => {
+    const store = new ConfigStore(path);
+    expect(() =>
+      store.upsertVoiceGenerator({
+        key: 'gen-x',
+        category: 'nope',
+        name: 'x',
+        nameTemplate: 'X {n}',
+        userLimit: 0,
+      }),
+    ).toThrow(ConfigError);
+  });
+});

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { serve } from '@hono/node-server';
 import { ConfigError } from './config/loader.js';
 import { ConfigStore } from './config/store.js';
@@ -22,8 +23,10 @@ import { createConfirmationStore } from './discord/interactions/confirmation.js'
 import { attachInteractionRouter } from './discord/interactions/router.js';
 import { registerGuildCommands } from './discord/register-commands.js';
 import { EnvError, loadEnv } from './env.js';
-import { createHttpApp } from './http/app.js';
+import { createHttpApp, type McpHandler } from './http/app.js';
 import { createLogger } from './logger.js';
+import { createMcpHandler } from './mcp/server.js';
+import { ChannelService } from './services/channel.service.js';
 import { EventService } from './services/event.service.js';
 import { FieldBossService } from './services/field-boss.service.js';
 import { MemberService } from './services/member.service.js';
@@ -31,7 +34,9 @@ import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
 import { MusicGuardService } from './services/music-guard.service.js';
 import { ReminderScheduler } from './services/reminder.scheduler.js';
+import { RoleService } from './services/role.service.js';
 import { SetupService } from './services/setup.service.js';
+import { TokenService } from './services/token.service.js';
 import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
 
@@ -48,12 +53,20 @@ async function main(): Promise<void> {
   const managed = new ManagedObjectStore(database.db);
   const audit = new AuditLog(database.db, logger);
   const runAction = createActionRunner(audit);
-  const client = createDiscordClient();
+  const client = createDiscordClient({ messageContent: env.DISCORD_MESSAGE_CONTENT });
+  const tokens = new TokenService(database.db, runAction);
+  const { version } = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  ) as { version: string };
 
-  const app = createHttpApp({
-    discordReady: () => isDiscordReady(client),
-    databaseHealthy: () => database.isHealthy(),
-  });
+  let mcpHandler: McpHandler | undefined;
+  const app = createHttpApp(
+    {
+      discordReady: () => isDiscordReady(client),
+      databaseHealthy: () => database.isHealthy(),
+    },
+    () => mcpHandler,
+  );
   const server = serve({ fetch: app.fetch, port: env.HTTP_PORT }, (info) =>
     logger.info({ port: info.port, publicBaseUrl: env.PUBLIC_BASE_URL }, 'http server listening'),
   );
@@ -140,22 +153,39 @@ async function main(): Promise<void> {
     scheduler.start();
     bosses.start();
 
-    attachInteractionRouter(client, commands, {
+    // Shared by slash commands and MCP tools: both adapters call the same services.
+    const services = {
       guild,
-      logger,
       config,
       directory,
       audit,
+      runAction,
       setup: new SetupService(createDiscordGuildPort(guild), managed, config),
       members: new MemberService({ guild, directory, config, runAction }),
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
-      voice,
       events: new EventService({ store: eventStore, scheduler, config, runAction }),
       bosses,
-      runAction,
+      channels: new ChannelService({ guild, managed, runAction }),
+      roles: new RoleService({ guild, directory, config, runAction }),
+    };
+
+    attachInteractionRouter(client, commands, {
+      ...services,
+      logger,
+      voice,
+      tokens,
+      mcpUrl: new URL('/mcp', env.PUBLIC_BASE_URL).toString(),
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),
+    });
+
+    mcpHandler = createMcpHandler({
+      tokens,
+      resolveActor: (userId, harness) => resolveActor(guild, directory, userId, 'mcp', harness),
+      services: { ...services, messageContent: env.DISCORD_MESSAGE_CONTENT },
+      logger,
+      version,
     });
     const welcome = new WelcomeService({ guild, directory, config, logger });
     attachMemberJoinListener(client, guild.id, welcome, logger);

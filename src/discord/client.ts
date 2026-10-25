@@ -2,8 +2,8 @@ import { Client, Events, GatewayIntentBits, type Guild } from 'discord.js';
 import type { Logger } from '../logger.js';
 
 // GuildMembers is a privileged intent: enable "Server Members Intent" in the Developer Portal.
-// MessageContent is added later, only for the MCP `read_messages` tool (PLAN.md §10).
-const intents = [
+// MessageContent is optional (DISCORD_MESSAGE_CONTENT): only the MCP `read_messages` tool needs it.
+const baseIntents = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMembers,
   GatewayIntentBits.GuildVoiceStates,
@@ -11,8 +11,12 @@ const intents = [
   GatewayIntentBits.GuildModeration,
 ];
 
-export function createDiscordClient(): Client {
-  return new Client({ intents });
+export function createDiscordClient(options: { messageContent?: boolean } = {}): Client {
+  return new Client({
+    intents: options.messageContent
+      ? [...baseIntents, GatewayIntentBits.MessageContent]
+      : baseIntents,
+  });
 }
 
 export function isDiscordReady(client: Client): boolean {

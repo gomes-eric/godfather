@@ -243,7 +243,11 @@ export function parseDays(input: string): (Weekday | 'daily')[] | null {
     sat: 'sat',
     sab: 'sat',
   };
-  const normalized = input.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const normalized = input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
   if (aliases[normalized] === 'daily') return ['daily'];
   const days = normalized
     .split(/[\s,;/]+/)

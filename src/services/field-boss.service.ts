@@ -140,7 +140,12 @@ export class FieldBossService implements OccurrenceSource {
 
   /** Finds a boss by key or by part of its name, ignoring accents and case. */
   resolve(input: string): FieldBossConfig | undefined {
-    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const normalize = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
     const needle = normalize(input);
     return this.bosses().find((b) => b.key === needle || normalize(b.title).includes(needle));
   }
