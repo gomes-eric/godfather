@@ -80,6 +80,34 @@ const voiceGeneratorSchema = z.object({
   userLimit: z.number().int().min(0).max(99),
 });
 
+export const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
+const reminderOffsets = z
+  .array(
+    z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60),
+  )
+  .min(1);
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'time is HH:MM (24h)');
+
+const eventTemplateSchema = z.object({
+  key,
+  title: z.string().min(1).max(100),
+  emoji: z.string().default('📅'),
+  description: z.string().max(1000).optional(),
+  /** Weekdays, or ["daily"]. */
+  days: z.array(z.enum([...WEEKDAYS, 'daily'])).min(1),
+  time: clockTime,
+  voiceChannel: key.optional(),
+  ping: z.boolean().optional(),
+  reminderOffsetsMinutes: reminderOffsets.optional(),
+  enabled: z.boolean().default(true),
+});
+
 const voiceAccessSchema = z.object({
   role: key,
   allow: z.array(permissionName).min(1),
@@ -110,6 +138,13 @@ const settingsSchema = z.looseObject({
   rolePicker: z.object({ channel: key, multipleClasses: z.boolean().default(false) }),
   audit: z.object({ channel: key }),
   musicGuard: z.object({ channel: key }),
+  eventDefaults: z.object({
+    announceChannel: key,
+    agendaChannel: key,
+    reminderOffsetsMinutes: reminderOffsets,
+    /** `everyone` pings @everyone in reminders; `none` sends them silently. */
+    ping: z.enum(['everyone', 'none']).default('everyone'),
+  }),
 });
 
 export const serverConfigSchema = z
@@ -119,6 +154,7 @@ export const serverConfigSchema = z
     categories: z.array(categorySchema).min(1),
     voiceAccess: z.array(voiceAccessSchema).default([]),
     voiceGenerators: z.array(voiceGeneratorSchema).default([]),
+    eventTemplates: z.array(eventTemplateSchema).default([]),
   })
   .superRefine((config, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -162,6 +198,16 @@ export const serverConfigSchema = z
       [['settings', 'audit', 'channel'], config.settings.audit.channel, textChannelKeys],
       [['settings', 'musicGuard', 'channel'], config.settings.musicGuard.channel, textChannelKeys],
       [
+        ['settings', 'eventDefaults', 'announceChannel'],
+        config.settings.eventDefaults.announceChannel,
+        textChannelKeys,
+      ],
+      [
+        ['settings', 'eventDefaults', 'agendaChannel'],
+        config.settings.eventDefaults.agendaChannel,
+        textChannelKeys,
+      ],
+      [
         ['settings', 'afk', 'channel'],
         config.settings.afk.channel,
         new Set(channels.filter((c) => c.type === 'voice').map((c) => c.key)),
@@ -191,6 +237,20 @@ export const serverConfigSchema = z
       }
     });
 
+    const voiceChannelKeys = new Set(channels.filter((c) => c.type === 'voice').map((c) => c.key));
+    const templateKeys = config.eventTemplates.map((t) => t.key);
+    for (const dup of duplicates(templateKeys)) {
+      issue(['eventTemplates'], `duplicate event template key "${dup}"`);
+    }
+    config.eventTemplates.forEach((template, i) => {
+      if (template.voiceChannel && !voiceChannelKeys.has(template.voiceChannel)) {
+        issue(
+          ['eventTemplates', i, 'voiceChannel'],
+          `"${template.voiceChannel}" is not a voice channel key`,
+        );
+      }
+    });
+
     const seenTiers = new Set<string>();
     config.roles.forEach((role, i) => {
       if (!role.tier) return;
@@ -204,6 +264,7 @@ export type ServerConfig = z.infer<typeof serverConfigSchema>;
 export type RoleConfig = ServerConfig['roles'][number];
 export type CategoryConfig = ServerConfig['categories'][number];
 export type ChannelConfig = CategoryConfig['channels'][number];
+export type EventTemplateConfig = ServerConfig['eventTemplates'][number];
 
 /** Discord role names for each ranked tier, e.g. { officer: "Oficial" }. */
 export function tierRoleNames(config: ServerConfig): Partial<Record<RankedTier, string>> {

@@ -49,7 +49,9 @@ export const ACTION_POLICIES = {
   'event.edit': policy('officer'),
   'event.cancel': policy('officer', { destructive: true }),
   'event.template.edit': policy('officer'),
-  'event.rsvp': policy('soldier'),
+  // RSVP clicks are self-service and too noisy for #audit-log.
+  'event.rsvp': policy('soldier', { audited: false }),
+  'event.rsvps.read': policy('officer', { audited: false }),
   'event.read': policy('soldier', { audited: false }),
 
   'boss.read': policy('soldier', { audited: false }),

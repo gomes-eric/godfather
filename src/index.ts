@@ -4,9 +4,11 @@ import { ConfigStore } from './config/store.js';
 import { createActionRunner } from './core/action.js';
 import { AuditLog } from './core/audit.js';
 import { openDatabase } from './db/client.js';
+import { EventStore } from './db/events.js';
 import { ManagedObjectStore } from './db/managed-objects.js';
 import { TempVoiceStore } from './db/temp-voice.js';
 import { resolveActor } from './discord/actor.js';
+import { createDiscordAnnouncements } from './discord/announcements.js';
 import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
 import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/client.js';
 import { commands } from './discord/commands/index.js';
@@ -20,9 +22,11 @@ import { registerGuildCommands } from './discord/register-commands.js';
 import { EnvError, loadEnv } from './env.js';
 import { createHttpApp } from './http/app.js';
 import { createLogger } from './logger.js';
+import { EventService } from './services/event.service.js';
 import { MemberService } from './services/member.service.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
+import { ReminderScheduler } from './services/reminder.scheduler.js';
 import { SetupService } from './services/setup.service.js';
 import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
@@ -52,10 +56,12 @@ async function main(): Promise<void> {
 
   // Closes every open handle so the process exits on its own. Calling process.exit()
   // while handles are still closing aborts on Windows (libuv assertion).
+  let stopScheduler: () => void = () => undefined;
   let stopping: Promise<void> | undefined;
   const stop = (reason: string) =>
     (stopping ??= (async () => {
       logger.info({ reason }, 'shutting down');
+      stopScheduler();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await client.destroy();
       database.close();
@@ -96,6 +102,17 @@ async function main(): Promise<void> {
       .then((swept) => logger.info(swept, 'temp voice rooms swept'))
       .catch((error: unknown) => logger.warn({ err: error }, 'temp voice sweep failed'));
 
+    const eventStore = new EventStore(database.db);
+    const scheduler = new ReminderScheduler({
+      store: eventStore,
+      managed,
+      config: () => config.get(),
+      port: createDiscordAnnouncements(guild, directory, () => config.get()),
+      logger,
+    });
+    stopScheduler = () => scheduler.stop();
+    scheduler.start();
+
     attachInteractionRouter(client, commands, {
       guild,
       logger,
@@ -107,6 +124,7 @@ async function main(): Promise<void> {
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
       voice,
+      events: new EventService({ store: eventStore, scheduler, config, runAction }),
       runAction,
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),

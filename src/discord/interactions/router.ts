@@ -3,6 +3,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
 import { handleRolePickerButton } from './role-picker.js';
+import { handleRsvpButton } from './rsvp.js';
 
 async function replyWithError(interaction: Interaction, content: string): Promise<void> {
   if (!interaction.isRepliable()) return;
@@ -41,7 +42,8 @@ export function attachInteractionRouter(
       if (interaction.isButton()) {
         const handled =
           (await handleConfirmationButton(interaction, ctx.confirmations)) ||
-          (await handleRolePickerButton(interaction, ctx));
+          (await handleRolePickerButton(interaction, ctx)) ||
+          (await handleRsvpButton(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');
       }
     } catch (error) {

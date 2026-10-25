@@ -16,6 +16,7 @@ settings:
   rolePicker: { channel: rules }
   audit: { channel: staff }
   musicGuard: { channel: rules }
+  eventDefaults: { announceChannel: rules, agendaChannel: rules, reminderOffsetsMinutes: [30, 0] }
 roles:
   - { key: commander, name: Comandante, tier: commander, color: "#E0303A", permissions: [Administrator] }
   - { key: visitor, name: Visitante, tier: visitor }

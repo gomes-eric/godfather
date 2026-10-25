@@ -146,6 +146,64 @@ export const ptBR = {
     cooldown: 'Calma! Espere alguns segundos antes de criar outra sala.',
   },
 
+  events: {
+    reminderSoon: (emoji: string, title: string, minutes: number, unix: number) =>
+      `${emoji} **${title}** começa em **${minutes} minutos** (<t:${unix}:t> · <t:${unix}:R>)`,
+    reminderNow: (emoji: string, title: string, unix: number) =>
+      `${emoji} **${title}** começou! (<t:${unix}:t>)`,
+    room: (channelId: string) => `📍 Sala: <#${channelId}>`,
+    rsvpLine: (yes: number, maybe: number, no: number, classes: string) =>
+      `✅ ${yes} · ❔ ${maybe} · ❌ ${no}${classes ? `  (${classes})` : ''}`,
+    buttons: { yes: 'Vou', maybe: 'Talvez', no: 'Não vou' },
+    statusName: { yes: 'Vou', maybe: 'Talvez', no: 'Não vou' } as Record<string, string>,
+    voted: (status: string, title: string) => `Presença registrada em **${title}**: **${status}**.`,
+    gone: 'Esse evento não existe mais.',
+    agendaTitle: '📅 Agenda — próximos 7 dias',
+    agendaEmpty: 'Nenhum evento nos próximos 7 dias.',
+    agendaFooter: 'Atualizada automaticamente pelo Padrinho',
+    badWhen: 'Não entendi a data. Exemplos: `30/10 21:00`, `sáb 21h`, `amanhã 20:30`, `hoje 21h`.',
+    inPast: 'Essa data já passou.',
+    created: (id: number, title: string, unix: number) =>
+      `📅 Evento **#${id} ${title}** criado para <t:${unix}:F> (<t:${unix}:R>). Os avisos saem automaticamente.`,
+    edited: (id: number) => `✏️ Evento **#${id}** atualizado.`,
+    cancelPreview: (id: number, title: string, unix: number) =>
+      `Cancelar **#${id} ${title}** de <t:${unix}:F>. Os avisos que ainda não saíram não serão enviados.`,
+    cancelled: (id: number) => `🚫 Evento **#${id}** cancelado.`,
+    notFound: (id: number) => `Não achei o evento **#${id}**. Veja os números em /event list.`,
+    alreadyCancelled: 'Esse evento já foi cancelado.',
+    templateOnlyEdit:
+      'Esse é um evento recorrente do server.yaml. Edite o template com `/event template edit`, ou cancele só esta data com `/event cancel`.',
+    listTitle: '📅 Próximos 7 dias',
+    listLine: (id: number, emoji: string, title: string, unix: number, recurring: boolean) =>
+      `\`#${id}\` <t:${unix}:f> ${emoji} ${title}${recurring ? ' 🔁' : ''}`,
+    rsvpsTitle: (title: string) => `📋 Presença: ${title}`,
+    nobody: 'ninguém',
+    templateListTitle: '🔁 Eventos recorrentes (server.yaml)',
+    templateLine: (
+      key: string,
+      emoji: string,
+      title: string,
+      days: string,
+      time: string,
+      enabled: boolean,
+    ) => `${enabled ? '🟢' : '⚪'} \`${key}\` ${emoji} **${title}** — ${days} às ${time}`,
+    templateUpdated: (key: string) =>
+      `🔁 Template \`${key}\` atualizado no server.yaml. A agenda e os avisos se ajustam em até 30 segundos.`,
+    templateUnknown: (key: string) => `Não existe template \`${key}\`. Veja /event template list.`,
+    templateInvalid: (details: string) =>
+      `❌ A mudança deixaria o server.yaml inválido:\n${details}`,
+    weekdays: {
+      sun: 'dom',
+      mon: 'seg',
+      tue: 'ter',
+      wed: 'qua',
+      thu: 'qui',
+      fri: 'sex',
+      sat: 'sáb',
+      daily: 'todo dia',
+    } as Record<string, string>,
+  },
+
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
   },
