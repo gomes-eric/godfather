@@ -1,11 +1,17 @@
 import { createHash } from 'node:crypto';
 import { PermissionFlagsBits } from 'discord.js';
-import { channelNameByKey, tierRoleKeys, type ServerConfig } from '../config/schema.js';
+import {
+  channelNameByKey,
+  tierRoleKeys,
+  type RoleConfig,
+  type ServerConfig,
+} from '../config/schema.js';
 import { ptBR } from '../i18n/pt-BR.js';
-import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
+import type { DesiredChannel, DesiredPanel, DesiredState, PanelButton } from './model.js';
 import { computeOverwrites } from './overwrites.js';
 
 export const ROLE_PICKER_PREFIX = 'class:';
+export const PANEL_PREFIX = 'panel-';
 export const PANEL_KEYS = { rules: 'panel-rules', rolePicker: 'panel-role-picker' } as const;
 
 const RULES_COLOR = 0xe0303a;
@@ -13,6 +19,31 @@ const ROLE_PICKER_COLOR = 0xa855f7;
 
 function permissionBits(names: (keyof typeof PermissionFlagsBits)[]): bigint {
   return names.reduce((bits, name) => bits | PermissionFlagsBits[name], 0n);
+}
+
+const ARCHETYPE_ORDER = ['warrior', 'scout', 'mage', 'priest'] as const;
+const ARCHETYPE_STYLE = {
+  warrior: 'primary',
+  scout: 'success',
+  mage: 'danger',
+  priest: 'secondary',
+} as const satisfies Record<(typeof ARCHETYPE_ORDER)[number], PanelButton['style']>;
+
+/** Intro plus one line per archetype ("🔵 Guerreiros · ⚔️ Gladiador · 🛡️ Templário"). */
+function rolePickerDescription(classRoles: RoleConfig[], multipleClasses: boolean): string {
+  const t = ptBR.panels;
+  const lines = ARCHETYPE_ORDER.flatMap((archetype) => {
+    const roles = classRoles.filter((r) => r.archetype === archetype);
+    if (roles.length === 0) return [];
+    const names = roles.map((r) => `${r.emoji ?? ''} ${r.name}`.trim()).join(' · ');
+    return [`${t.archetypes[archetype]} · ${names}`];
+  });
+  const loose = classRoles.filter((r) => !r.archetype);
+  if (loose.length > 0)
+    lines.push(loose.map((r) => `${r.emoji ?? ''} ${r.name}`.trim()).join(' · '));
+  return [t.rolePickerIntro(multipleClasses), '', ...lines, '', `-# ${t.rolePickerFooter}`].join(
+    '\n',
+  );
 }
 
 function panel(fields: Omit<DesiredPanel, 'fingerprint'>): DesiredPanel {
@@ -53,7 +84,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
     .filter((category) => category.managed)
     .map((category) => {
       const hasVoice =
-        category.channels.some((c) => c.type === 'voice') ||
+        category.channels.some((c) => c.type === 'voice' || c.type === 'stage') ||
         config.voiceGenerators.some((g) => g.category === category.key);
       return {
         key: category.key,
@@ -72,7 +103,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
   for (const category of config.categories) {
     for (const channel of category.channels.filter((c) => c.managed)) {
       const access = { ...category.access, ...channel.access };
-      const isVoice = channel.type === 'voice';
+      const isVoice = channel.type === 'voice' || channel.type === 'stage';
       channels.push({
         key: channel.key,
         categoryKey: category.key,
@@ -130,7 +161,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       key: PANEL_KEYS.rules,
       channelKey: config.settings.rules.channel,
       channelName: channelNameByKey(config, config.settings.rules.channel) ?? '',
-      title: null,
+      title: config.settings.rules.title ?? null,
       description: config.settings.rules.message.trim(),
       color: RULES_COLOR,
       buttons: [],
@@ -140,12 +171,16 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       channelKey: config.settings.rolePicker.channel,
       channelName: channelNameByKey(config, config.settings.rolePicker.channel) ?? '',
       title: ptBR.panels.rolePickerTitle,
-      description: ptBR.panels.rolePickerDescription(config.settings.rolePicker.multipleClasses),
+      description: rolePickerDescription(classRoles, config.settings.rolePicker.multipleClasses),
       color: ROLE_PICKER_COLOR,
       buttons: classRoles.map((role) => ({
         customId: `${ROLE_PICKER_PREFIX}${role.key}`,
         label: role.name,
         emoji: role.emoji ?? null,
+        ...(role.archetype && {
+          row: ARCHETYPE_ORDER.indexOf(role.archetype),
+          style: ARCHETYPE_STYLE[role.archetype],
+        }),
       })),
     }),
   ];

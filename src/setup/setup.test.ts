@@ -46,9 +46,34 @@ describe('/setup reconciliation', () => {
     expect(second.plan.ops).toEqual([]);
 
     const names = guild.channels.map((c) => c.name);
-    expect(names).toEqual(expect.arrayContaining(['regras', 'tutoriais', 'musica', '➕ Abismo']));
+    expect(names).toEqual(
+      expect.arrayContaining(['regras', 'tutoriais', 'musica', 'Evento', '➕ Criar']),
+    );
+    expect(guild.channels.find((c) => c.name === 'Evento')?.kind).toBe('stage');
     expect(guild.community).toBe(true);
     expect(guild.messages.size).toBe(2);
+  });
+
+  it('gives each room type its own category with a lone ➕ Criar, in yaml order', async () => {
+    await setup(buildDesiredState(repoConfig));
+    const byPosition = (a: { position: number }, b: { position: number }) =>
+      a.position - b.position;
+
+    const generators = repoConfig.voiceGenerators.map((g) => {
+      const channel = guild.channels.find((c) => c.id === store.get('channel', g.key)?.discordId)!;
+      const category = guild.channels.find((c) => c.id === channel.parentId)!;
+      const siblings = guild.channels.filter((c) => c.parentId === category.id);
+      return { name: channel.name, category, siblings: siblings.length };
+    });
+
+    expect(generators.map((g) => g.name)).toEqual(['➕ Criar', '➕ Criar', '➕ Criar', '➕ Criar']);
+    expect(generators.every((g) => g.siblings === 1)).toBe(true);
+    expect(
+      generators
+        .map((g) => g.category)
+        .sort(byPosition)
+        .map((c) => c.name),
+    ).toEqual(['🗝️ SALAS DUNGEON', '⚔️ SALAS ABISMO', '🐉 SALAS BOSS', '🍻 SALAS SOCIAL']);
   });
 
   it('puts every managed role below the bot in the yaml order', async () => {
@@ -203,22 +228,23 @@ describe('/setup reconciliation', () => {
   it('only deletes things removed from the yaml when prune is on', async () => {
     await setup(buildDesiredState(repoConfig));
     const without = structuredClone(repoConfig);
-    without.categories = without.categories.filter((c) => c.key !== 'operations');
+    without.categories = without.categories.filter((c) => c.key !== 'recruitment');
 
     const { plan: kept } = await plan(buildDesiredState(without));
     expect(kept.ops.some((op) => op.type.startsWith('delete'))).toBe(false);
 
     const { plan: pruned } = await setup(buildDesiredState(without), true);
     const deleted = pruned.ops.filter((op) => op.type.startsWith('delete')).map((op) => op.type);
-    expect(deleted).toEqual([
-      'deleteChannel',
-      'deleteChannel',
-      'deleteChannel',
-      'deleteChannel',
-      'deleteChannel',
-      'deleteCategory',
-    ]);
-    expect(guild.channels.some((c) => c.name === 'abismo')).toBe(false);
+    expect(deleted).toEqual(['deleteChannel', 'deleteChannel', 'deleteCategory']);
+    expect(guild.channels.some((c) => c.name === 'recrutamento')).toBe(false);
+  });
+
+  it('prune keeps managed messages that are not /setup panels (the agenda)', async () => {
+    await setup(buildDesiredState(repoConfig));
+    store.set('message', 'agenda', '999', 'fingerprint');
+
+    const { plan: p } = await plan(buildDesiredState(repoConfig), true);
+    expect(p.ops).toEqual([]);
   });
 
   it('never touches items marked managed: false', async () => {

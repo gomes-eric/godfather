@@ -30,6 +30,7 @@ const KIND_TO_TYPE = {
   text: ChannelType.GuildText,
   announcement: ChannelType.GuildAnnouncement,
   voice: ChannelType.GuildVoice,
+  stage: ChannelType.GuildStageVoice,
   forum: ChannelType.GuildForum,
 } as const satisfies Record<ChannelKind | 'category', ChannelType>;
 
@@ -87,25 +88,46 @@ function snapshotChannel(channel: GuildBasedChannel): ChannelSnapshot {
   };
 }
 
+/** Buttons sharing a `row` go on one line; the rest fill lines of 5 (Discord's limit). */
+export function groupButtonRows<T extends { row?: number }>(buttons: T[]): T[][] {
+  const byRow = new Map<number, T[]>();
+  const loose: T[] = [];
+  for (const button of buttons) {
+    if (button.row === undefined) loose.push(button);
+    else byRow.set(button.row, [...(byRow.get(button.row) ?? []), button]);
+  }
+  const rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]).flatMap(([, row]) => chunk(row));
+  return [...rows, ...chunk(loose)].slice(0, 5);
+}
+
+function chunk<T>(items: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += 5) out.push(items.slice(i, i + 5));
+  return out;
+}
+
 function panelPayload(panel: PanelMessage) {
   const embed = new EmbedBuilder().setDescription(panel.description).setColor(panel.color);
   if (panel.title) embed.setTitle(panel.title);
 
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-  for (let i = 0; i < panel.buttons.length; i += 5) {
-    rows.push(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        panel.buttons.slice(i, i + 5).map((button) => {
-          const builder = new ButtonBuilder()
-            .setCustomId(button.customId)
-            .setLabel(button.label)
-            .setStyle(ButtonStyle.Secondary);
-          if (button.emoji) builder.setEmoji(button.emoji);
-          return builder;
-        }),
-      ),
-    );
-  }
+  const styles = {
+    primary: ButtonStyle.Primary,
+    secondary: ButtonStyle.Secondary,
+    success: ButtonStyle.Success,
+    danger: ButtonStyle.Danger,
+  } as const;
+  const rows = groupButtonRows(panel.buttons).map((buttons) =>
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      buttons.map((button) => {
+        const builder = new ButtonBuilder()
+          .setCustomId(button.customId)
+          .setLabel(button.label)
+          .setStyle(styles[button.style ?? 'secondary']);
+        if (button.emoji) builder.setEmoji(button.emoji);
+        return builder;
+      }),
+    ),
+  );
   return { embeds: [embed], components: rows, allowedMentions: { parse: [] } };
 }
 
@@ -209,7 +231,9 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
         type: KIND_TO_TYPE[spec.kind],
         permissionOverwrites: toDiscordOverwrites(spec.overwrites),
         ...(spec.parentId && spec.kind !== 'category' && { parent: spec.parentId }),
-        ...(spec.topic !== null && spec.kind !== 'voice' && { topic: spec.topic }),
+        ...(spec.topic !== null &&
+          spec.kind !== 'voice' &&
+          spec.kind !== 'stage' && { topic: spec.topic }),
         ...(spec.kind === 'voice' && { userLimit: spec.userLimit }),
         ...(spec.kind === 'forum' && { availableTags: toDiscordTags(spec) }),
       } as GuildChannelCreateOptions;
@@ -228,7 +252,9 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
         name: spec.name,
         permissionOverwrites: toDiscordOverwrites(spec.overwrites),
         ...(spec.kind !== 'category' && { parent: spec.parentId, lockPermissions: false }),
-        ...(spec.kind !== 'voice' && spec.kind !== 'category' && { topic: spec.topic }),
+        ...(spec.kind !== 'voice' &&
+          spec.kind !== 'stage' &&
+          spec.kind !== 'category' && { topic: spec.topic }),
         ...(spec.kind === 'voice' && { userLimit: spec.userLimit }),
         ...(spec.kind === 'forum' && {
           availableTags: toDiscordTags(spec),

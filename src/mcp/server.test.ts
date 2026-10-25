@@ -119,17 +119,17 @@ describe('MCP endpoint', () => {
     const client = await connect();
     const first = await client.callTool({
       name: 'delete_voice_generator',
-      arguments: { key: 'gen-duo' },
+      arguments: { key: 'gen-social' },
     });
     expect(JSON.parse(textOf(first))).toMatchObject({ status: 'confirmation_required' });
-    expect(config.get().voiceGenerators.some((g) => g.key === 'gen-duo')).toBe(true);
+    expect(config.get().voiceGenerators.some((g) => g.key === 'gen-social')).toBe(true);
 
     const second = await client.callTool({
       name: 'delete_voice_generator',
-      arguments: { key: 'gen-duo', confirm: true },
+      arguments: { key: 'gen-social', confirm: true },
     });
     expect(second.isError).toBeFalsy();
-    expect(config.get().voiceGenerators.some((g) => g.key === 'gen-duo')).toBe(false);
+    expect(config.get().voiceGenerators.some((g) => g.key === 'gen-social')).toBe(false);
   });
 
   it('denies tools above the owner’s current tier', async () => {

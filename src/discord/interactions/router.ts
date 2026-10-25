@@ -3,6 +3,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
 import { handleRolePickerButton } from './role-picker.js';
+import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
 import { handleRsvpButton } from './rsvp.js';
 
 async function replyWithError(interaction: Interaction, content: string): Promise<void> {
@@ -14,7 +15,7 @@ async function replyWithError(interaction: Interaction, content: string): Promis
   }
 }
 
-/** Dispatches slash commands and buttons; any unexpected error becomes a generic reply. */
+/** Dispatches slash commands, buttons, forms and menus; any unexpected error becomes a generic reply. */
 export function attachInteractionRouter(
   client: Client,
   commands: SlashCommand[],
@@ -43,8 +44,21 @@ export function attachInteractionRouter(
         const handled =
           (await handleConfirmationButton(interaction, ctx.confirmations)) ||
           (await handleRolePickerButton(interaction, ctx)) ||
-          (await handleRsvpButton(interaction, ctx));
+          (await handleRsvpButton(interaction, ctx)) ||
+          (await handleRoomPanelButton(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');
+        return;
+      }
+
+      if (interaction.isModalSubmit()) {
+        const handled = await handleRoomPanelModal(interaction, ctx);
+        if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown modal');
+        return;
+      }
+
+      if (interaction.isStringSelectMenu()) {
+        const handled = await handleRoomKickSelect(interaction, ctx);
+        if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown select menu');
       }
     } catch (error) {
       ctx.logger.error(

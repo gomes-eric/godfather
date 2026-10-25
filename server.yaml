@@ -31,20 +31,46 @@ settings:
       Bem-vindo(a) à **M4F1A**, {member}! 🌹
       Quer entrar na legião? Fale com a gente em {channel:recruitment}.
       Leia as {channel:rules} antes de tudo.
-  # Posted (and kept up to date) by /setup in #regras. Draft: edit freely.
+  # Posted (and kept up to date) by /setup in #regras. {channel:<key>} becomes a clickable link.
   rules:
     channel: rules
+    title: 📜 Regras da M4F1A
     message: |
-      # 📜 Regras da M4F1A
+      Bem-vindo(a) à **M4F1A**, legião Asmodiana do Triniel! 🌹
+      Estas regras valem aqui no Discord **e** dentro do jogo. Ao ficar no servidor, você concorda com elas.
 
-      **1. Respeito acima de tudo.** Sem ofensas, preconceito ou assédio — dentro e fora do jogo.
-      **2. A legião vem primeiro.** Em guerras e chefes, siga a call dos oficiais.
-      **3. Sem spam ou divulgação** de outros servidores, vendas ou links suspeitos.
-      **4. Use o canal certo.** Música só em #musica, guias no fórum de tutoriais.
-      **5. Nada de conteúdo NSFW** ou que viole os termos do Discord e do Aion 2.
-      **6. Problemas com alguém?** Fale com um Oficial em vez de discutir no chat.
+      ━━━━━━━━━━━━━━━━━━━━━━
 
-      O descumprimento pode levar a advertência, timeout ou remoção da legião.
+      🤝 **1 · Respeito acima de tudo**
+      Sem ofensas, preconceito, assédio ou provocação, seja com membros, aliados ou inimigos. Brincadeira só vale se todo mundo estiver rindo.
+
+      ⚔️ **2 · A legião vem primeiro**
+      Na Guerra do Abismo, nos Chefes e nos eventos, siga a call dos Oficiais. Confirme presença nos botões dos avisos em {channel:event-alerts} e avise se não puder ir.
+
+      🎯 **3 · Compromisso com a atividade**
+      Participe dos eventos sempre que puder. Ficar muito tempo inativo sem avisar pode levar à remoção da legião no jogo.
+
+      💰 **4 · Loot e drops**
+      Siga as regras de distribuição combinadas pelos Oficiais. Nada de pegar item fora da sua vez.
+
+      🗂️ **5 · Cada coisa no seu canal**
+      💬 Conversa em {channel:general} · 🎵 música só em {channel:music} (comandos `/`) · 📚 guias em {channel:tutorials} · 📸 prints em {channel:clips}
+
+      🚫 **6 · Sem spam, divulgação ou golpes**
+      Nada de flood, links suspeitos, venda de contas/gold ou propaganda de outros servidores.
+
+      🔞 **7 · Conteúdo adequado**
+      Nada de NSFW, gore ou qualquer coisa que viole os termos do Discord ou do Aion 2.
+
+      🛡️ **8 · Problemas? Fale com um Oficial**
+      Discussão se resolve no privado com a liderança, não no chat. Denúncias são tratadas com sigilo.
+
+      ━━━━━━━━━━━━━━━━━━━━━━
+
+      ⚖️ **Punições**
+      Conforme a gravidade: aviso → timeout → expulsão do Discord e da legião. Casos graves vão direto para o banimento.
+
+      🎭 Escolha sua classe em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
   rolePicker:
     channel: role-picker
     multipleClasses: false
@@ -52,6 +78,10 @@ settings:
     channel: audit-log
   musicGuard:
     channel: music
+  # Safety net for the ➕ Criar generators: new rooms per minute for the whole server (0 = no limit).
+  # There is no per-person wait; leaving a room to create another just swaps them.
+  voiceRooms:
+    maxCreationsPerMinute: 30
   eventDefaults:
     announceChannel: event-alerts
     agendaChannel: agenda
@@ -90,7 +120,7 @@ roles:
     name: Bot
     color: "#6E7F99"   # steel
     hoist: true
-  # Classes (self-assigned via buttons in #escolha-seu-cargo).
+  # Classes (self-assigned via buttons in #classes).
   # Colors follow the in-game class icons (sampled from https://sistersofmercy.altervista.org/classes/):
   # Guerreiro = blue, Batedor = green, Mago = purple, Sacerdote = pale gold.
   # Each pair uses a deeper and a lighter shade so the two classes stay distinct.
@@ -111,7 +141,7 @@ categories:
       - { key: rules,       type: text, name: regras }
       - { key: announcements, type: announcement, name: anuncios, access: { write: officer } }
       - { key: welcome,     type: text, name: boas-vindas }
-      - { key: role-picker, type: text, name: escolha-seu-cargo }
+      - { key: role-picker, type: text, name: classes }
 
   - key: recruitment
     name: 🤝 RECRUTAMENTO
@@ -124,12 +154,12 @@ categories:
     name: 📣 M4F1A
     access: { view: soldier, write: soldier }
     channels:
-      - { key: event-alerts, type: text, name: avisos-eventos, access: { write: bot } }
-      - { key: agenda,       type: text, name: agenda,         access: { write: bot } }
       - { key: general,      type: text, name: geral }
       - { key: off-topic,    type: text, name: off-topic }
       - { key: clips,        type: text, name: prints-e-clips }
       - { key: builds,       type: text, name: builds-e-equips }
+      - { key: event-alerts, type: text, name: eventos, access: { write: bot } }
+      - { key: agenda,       type: text, name: agenda,  access: { write: bot } }
 
   - key: knowledge
     name: 📚 CONHECIMENTO
@@ -156,20 +186,33 @@ categories:
           - { name: Crafting }
           - { name: Iniciantes }
 
-  - key: operations
-    name: ⚔️ OPERAÇÕES
+  # Fixed rooms everyone shares.
+  - key: voice-rooms
+    name: 🔊 SALAS GERAIS
     access: { view: soldier, write: soldier }
     channels:
-      - { key: abyss-text,  type: text,  name: abismo }
-      - { key: siege-text,  type: text,  name: siege }
-      - { key: raids-text,  type: text,  name: raids-e-dungeons }
-      - { key: abyss-voice, type: voice, name: Abismo }
-      - { key: siege-voice, type: voice, name: Siege }
+      - { key: general-voice, type: voice, name: Geral }
+      - key: event-stage
+        type: stage
+        name: Evento
+        # Stage moderators (who bring people up to speak) need Manage Channels on the stage.
+        allow:
+          - role: officer
+            permissions: [ManageChannels, MuteMembers, MoveMembers]
 
-  - key: voice-rooms
-    name: 🔊 SALAS DE VOZ
+  # One category per room type: its "➕ Criar" generator and the rooms it creates live together.
+  - key: dungeon-rooms
+    name: 🗝️ SALAS DUNGEON
     access: { view: soldier, write: soldier }
-    # Generator channels live in `voiceGenerators` below; /setup creates them here.
+  - key: abyss-rooms
+    name: ⚔️ SALAS ABISMO
+    access: { view: soldier, write: soldier }
+  - key: boss-rooms
+    name: 🐉 SALAS BOSS
+    access: { view: soldier, write: soldier }
+  - key: social-rooms
+    name: 🍻 SALAS SOCIAL
+    access: { view: soldier, write: soldier }
 
   - key: music
     name: 🎵 MÚSICA
@@ -206,15 +249,15 @@ voiceAccess:
     allow: [ViewChannel, Connect, Speak]
     scope: all-voice
 
-# Join-to-create generators (handled by Padrinho, no third-party bot).
+# Join-to-create generators (handled by Padrinho, no third-party bot). Each sits alone in its
+# category, so the rooms it creates (Dungeon 01, 02...) stay grouped below it.
 # nameTemplate: {n} is the lowest free number, zero-padded to 2 digits.
-# userLimit: 0 = unlimited.
+# userLimit: 0 = unlimited (99 is Discord's maximum).
 voiceGenerators:
-  - { key: gen-abyss,   category: voice-rooms, name: "➕ Abismo",  nameTemplate: "Abismo {n}",  userLimit: 20 }
-  - { key: gen-dungeon, category: voice-rooms, name: "➕ Dungeon", nameTemplate: "Dungeon {n}", userLimit: 5 }
-  - { key: gen-bosses,  category: voice-rooms, name: "➕ Bosses",  nameTemplate: "Bosses {n}",  userLimit: 20 }
-  - { key: gen-social,  category: voice-rooms, name: "➕ Social",  nameTemplate: "Social {n}",  userLimit: 0 }
-  - { key: gen-duo,     category: voice-rooms, name: "➕ Duo",     nameTemplate: "Duo {n}",     userLimit: 2 }
+  - { key: gen-dungeon, category: dungeon-rooms, name: "➕ Criar", nameTemplate: "Dungeon {n}", userLimit: 5 }
+  - { key: gen-abyss,   category: abyss-rooms,   name: "➕ Criar", nameTemplate: "Abismo {n}",  userLimit: 20 }
+  - { key: gen-bosses,  category: boss-rooms,    name: "➕ Criar", nameTemplate: "Boss {n}",    userLimit: 20 }
+  - { key: gen-social,  category: social-rooms,  name: "➕ Criar", nameTemplate: "Social {n}",  userLimit: 99 }
 
 # Recurring events. Times are America/Sao_Paulo (Brasília).
 # Verified against https://shugo.gg/pt-br/timers (South America) on 2026-10-25.
@@ -225,21 +268,18 @@ eventTemplates:
     emoji: "⚔️"
     days: [mon, thu, sat]
     time: "21:00"
-    voiceChannel: abyss-voice
     enabled: true
   - key: abyss-bosses
     title: Chefes do Cerco (Tamasa, Argo, Kairah)
     emoji: "👹"
     days: [mon, thu, sat]
     time: "21:30"
-    voiceChannel: abyss-voice
     enabled: true
   - key: weekly-boss-nahma
     title: Boss Semanal — Senhor Guardião Nahma
     emoji: "🐉"
     days: [fri, sun]
     time: "21:00"
-    voiceChannel: siege-voice
     enabled: true
 
 # Respawn-based field bosses (no fixed clock time; see PLAN.md §6.11).

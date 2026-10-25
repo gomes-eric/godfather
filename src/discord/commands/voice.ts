@@ -47,6 +47,20 @@ export const voiceCommand: SlashCommand = {
     )
     .addSubcommand((sub) =>
       sub
+        .setName('hide')
+        .setDescription('Hide the room from the channel list; people inside still see it')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Esconde a sala da lista; quem está nela continua vendo',
+        }),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('unhide')
+        .setDescription('Show the room in the channel list again')
+        .setDescriptionLocalizations({ 'pt-BR': 'Mostra a sala na lista de novo' }),
+    )
+    .addSubcommand((sub) =>
+      sub
         .setName('kick')
         .setDescription('Remove someone from the room; they cannot rejoin it')
         .setDescriptionLocalizations({
@@ -71,7 +85,7 @@ export const voiceCommand: SlashCommand = {
           ? { type: 'limit', limit: interaction.options.getInteger('limit', true) }
           : sub === 'kick'
             ? { type: 'kick', userId: interaction.options.getUser('user', true).id }
-            : { type: sub as 'lock' | 'unlock' | 'claim' };
+            : { type: sub as 'lock' | 'unlock' | 'hide' | 'unhide' | 'claim' };
 
     // Channel edits can be slow (Discord rate-limits renames), so answer within 3s first.
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

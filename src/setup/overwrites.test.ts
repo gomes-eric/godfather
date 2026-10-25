@@ -15,7 +15,7 @@ describe('computeOverwrites', () => {
 
     expect(o[EVERYONE]?.allow).toBe(P.ViewChannel | P.ReadMessageHistory);
     expect(o[EVERYONE]?.deny).toBe(
-      P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads,
+      P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads | P.CreatePrivateThreads,
     );
     expect(o.soldier).toBeUndefined();
   });
@@ -30,7 +30,8 @@ describe('computeOverwrites', () => {
         P.ReadMessageHistory |
         P.SendMessages |
         P.SendMessagesInThreads |
-        P.CreatePublicThreads,
+        P.CreatePublicThreads |
+        P.CreatePrivateThreads,
     );
     for (const role of ['soldier', 'officer', 'commander']) {
       expect(o[role]?.allow, role).toBe(o[EVERYONE]?.deny);
@@ -75,6 +76,14 @@ describe('computeOverwrites', () => {
     );
 
     expect(o.bots?.allow).toBe(P.ViewChannel | P.Connect | P.Speak);
+  });
+
+  it('announcement channels also block threads for people who cannot post', () => {
+    const o = byTarget(
+      computeOverwrites({ kind: 'announcement', view: 'everyone', write: 'officer', tierRoleKeys }),
+    );
+    expect((o[EVERYONE]?.deny ?? 0n) & P.CreatePublicThreads).toBe(P.CreatePublicThreads);
+    expect((o.officer?.allow ?? 0n) & P.SendMessages).toBe(P.SendMessages);
   });
 
   it('ignores tiers whose role is not configured', () => {

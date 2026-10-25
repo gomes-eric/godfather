@@ -58,39 +58,94 @@ function rsvpButtons(occurrenceId: number) {
   );
 }
 
-/** Builds the reminder text; the ping line only matters on the first post (edits never ping). */
-export function reminderContent(message: ReminderMessage, rsvpClasses: string): string {
-  const { occurrence: o, offsetMinutes, rsvp } = message;
-  const lines = [
-    ...(o.ping ? ['@everyone'] : []),
-    offsetMinutes > 0
-      ? t.reminderSoon(o.emoji, o.title, offsetMinutes, unix(o.startsAt))
-      : t.reminderNow(o.emoji, o.title, unix(o.startsAt)),
-    ...(o.voiceChannelId ? [t.room(o.voiceChannelId)] : []),
-    ...(o.description ? [o.description] : []),
-    ...(o.rsvp
-      ? [t.rsvpLine(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length, rsvpClasses)]
-      : []),
-  ];
-  return lines.join('\n');
+const COLORS = { soon: 0xe6c46a, now: 0xe0303a, boss: 0x9b59d0, agenda: 0xa855f7 };
+
+function clock(date: Date, timeZone: string): string {
+  const local = localParts(date, timeZone);
+  return `${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
 }
 
-/** The #agenda embed: next 7 days grouped by day (in the server timezone). */
-export function agendaDescription(items: OccurrenceView[], timeZone: string): string {
-  if (items.length === 0) return t.agendaEmpty;
+export interface ReminderCard {
+  /** "@everyone" when the event pings; embeds can't ping on their own. */
+  content: string;
+  title: string;
+  description: string;
+  color: number;
+  fields: { name: string; value: string; inline: boolean }[];
+  footer: string;
+}
+
+/** The reminder as an embed: countdown, time, room, details and attendance. */
+export function reminderCard(
+  message: ReminderMessage,
+  rsvpClasses: string,
+  timeZone: string,
+): ReminderCard {
+  const { occurrence: o, offsetMinutes, rsvp } = message;
+  const c = t.card;
+  const fields: ReminderCard['fields'] = [
+    { name: c.time, value: c.timeValue(clock(o.startsAt, timeZone)), inline: true },
+  ];
+  if (o.voiceChannelId)
+    fields.push({ name: c.room, value: `<#${o.voiceChannelId}>`, inline: true });
+  if (o.rsvp) {
+    fields.push({
+      name: c.attendance,
+      value: [
+        c.attendanceValue(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length),
+        ...(rsvpClasses ? [`*${rsvpClasses}*`] : []),
+      ].join('\n'),
+      inline: false,
+    });
+  }
+  return {
+    content: o.ping ? '@everyone' : '',
+    title: `${o.emoji}  ${o.title}`,
+    description: [
+      offsetMinutes > 0 ? c.soon(offsetMinutes, unix(o.startsAt)) : c.now,
+      ...(o.description ? ['', o.description] : []),
+    ].join('\n'),
+    color: !o.rsvp ? COLORS.boss : offsetMinutes > 0 ? COLORS.soon : COLORS.now,
+    fields,
+    footer: c.footer(o.occurrenceId),
+  };
+}
+
+/** The #agenda text: next 7 days grouped by day in the server timezone, Hoje/Amanhã first. */
+export function agendaDescription(items: OccurrenceView[], timeZone: string, now: Date): string {
+  const a = t.agenda;
+  if (items.length === 0) return [a.subtitle, t.agendaEmpty].join('\n\n');
+
+  const dayKey = (date: Date) => {
+    const p = localParts(date, timeZone);
+    return `${p.year}-${p.month}-${p.day}`;
+  };
+  const today = dayKey(now);
+  const tomorrow = dayKey(new Date(now.getTime() + 24 * 3600_000));
+
   const days = new Map<string, string[]>();
   for (const item of items) {
     const local = localParts(item.startsAt, timeZone);
-    const header = `**${t.weekdays[local.weekday]}, ${String(local.day).padStart(2, '0')}/${String(local.month).padStart(2, '0')}**`;
-    const line = `<t:${unix(item.startsAt)}:t> ${item.emoji} ${item.title}${
-      item.voiceChannelId ? ` · <#${item.voiceChannelId}>` : ''
-    } \`#${item.occurrenceId}\``;
+    const date = `${String(local.day).padStart(2, '0')}/${String(local.month).padStart(2, '0')}`;
+    const key = dayKey(item.startsAt);
+    const weekday = a.weekdays[local.weekday] ?? local.weekday;
+    const relative = key === today ? a.today : key === tomorrow ? a.tomorrow : null;
+    const header = relative
+      ? `🗓️ **${relative}** · ${weekday.toLowerCase()}, ${date}`
+      : `🗓️ **${weekday}** · ${date}`;
+    const line = [
+      `\`${clock(item.startsAt, timeZone)}\` ${item.emoji} **${item.title}**`,
+      ...(item.voiceChannelId ? [`<#${item.voiceChannelId}>`] : []),
+      `<t:${unix(item.startsAt)}:R>`,
+      `\`#${item.occurrenceId}\``,
+    ].join(' · ');
     days.set(header, [...(days.get(header) ?? []), line]);
   }
-  return [...days.entries()].map(([header, lines]) => [header, ...lines].join('\n')).join('\n\n');
+  const body = [...days.entries()].map(([header, lines]) => [header, ...lines].join('\n'));
+  return [a.subtitle, ...body].join('\n\n');
 }
 
-/** AnnouncementPort for Discord: reminders in #avisos-eventos, the agenda in #agenda. */
+/** AnnouncementPort for Discord: reminders in #eventos, the agenda in #agenda. */
 export function createDiscordAnnouncements(
   guild: Guild,
   directory: GuildDirectory,
@@ -104,8 +159,17 @@ export function createDiscordAnnouncements(
 
   const payload = (message: ReminderMessage) => {
     const classes = classBreakdown(guild, directory, config(), message.rsvp.yes);
+    const card = reminderCard(message, classes, config().settings.timezone);
+    const embed = new EmbedBuilder()
+      .setTitle(card.title)
+      .setDescription(card.description)
+      .setColor(card.color)
+      .addFields(card.fields)
+      .setFooter({ text: card.footer })
+      .setTimestamp(message.occurrence.startsAt);
     return {
-      content: reminderContent(message, classes),
+      content: card.content,
+      embeds: [embed],
       components: message.occurrence.rsvp ? [rsvpButtons(message.occurrence.occurrenceId)] : [],
     };
   };
@@ -129,10 +193,10 @@ export function createDiscordAnnouncements(
     async upsertAgenda(messageId, items) {
       const target = channel(config().settings.eventDefaults.agendaChannel);
       const embed = new EmbedBuilder()
-        .setTitle(t.agendaTitle)
-        .setColor(0xa855f7)
-        .setDescription(agendaDescription(items, config().settings.timezone))
-        .setFooter({ text: t.agendaFooter })
+        .setTitle(t.agenda.title)
+        .setColor(COLORS.agenda)
+        .setDescription(agendaDescription(items, config().settings.timezone, new Date()))
+        .setFooter({ text: t.agenda.footer })
         .setTimestamp(new Date());
       const body = { embeds: [embed], allowedMentions: { parse: [] } };
 

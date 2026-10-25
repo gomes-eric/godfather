@@ -12,15 +12,23 @@ const VIEW: Record<Kind, bigint> = {
   announcement: P.ViewChannel | P.ReadMessageHistory,
   forum: P.ViewChannel | P.ReadMessageHistory,
   voice: P.ViewChannel | P.Connect,
+  stage: P.ViewChannel | P.Connect,
   category: P.ViewChannel | P.ReadMessageHistory | P.Connect,
 };
 
+// Writing includes starting threads, public or private: a read-only channel must not let
+// people open a thread under a post.
+const TEXT_WRITE =
+  P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads | P.CreatePrivateThreads;
+
 const WRITE: Record<Kind, bigint> = {
-  text: P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads,
-  announcement: P.SendMessages | P.SendMessagesInThreads,
+  text: TEXT_WRITE,
+  announcement: TEXT_WRITE,
   forum: P.SendMessages | P.SendMessagesInThreads,
   voice: P.Speak | P.Stream,
-  category: P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads | P.Speak | P.Stream,
+  // On a stage, "writing" means asking to speak; moderators bring speakers up.
+  stage: P.RequestToSpeak,
+  category: TEXT_WRITE | P.Speak | P.Stream,
 };
 
 const TIER_LEVELS: Record<RankedTier, number> = { soldier: 1, officer: 2, commander: 3 };

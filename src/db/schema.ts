@@ -35,6 +35,10 @@ export const tempVoiceChannels = sqliteTable(
     generatorKey: text('generator_key').notNull(),
     number: integer('number').notNull(),
     ownerId: text('owner_id').notNull(),
+    locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
+    hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
+    /** The control panel posted in the room's chat, edited when the room changes. */
+    panelMessageId: text('panel_message_id'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .default(sql`(unixepoch('subsec') * 1000)`),

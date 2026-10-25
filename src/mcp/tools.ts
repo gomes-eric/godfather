@@ -99,7 +99,9 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   };
   const channelId = (input: string, voiceOnly = false): string | ToolResult => {
     const found = findChannel(s.guild, input, (c) =>
-      voiceOnly ? c.type === ChannelType.GuildVoice : c.type !== ChannelType.GuildCategory,
+      voiceOnly
+        ? c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
+        : c.type !== ChannelType.GuildCategory,
     );
     return found.ok ? found.value.id : fail(found.reason);
   };

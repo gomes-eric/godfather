@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { OccurrenceView } from '../services/reminder.scheduler.js';
-import { agendaDescription, reminderContent } from './announcements.js';
+import { agendaDescription, reminderCard } from './announcements.js';
 
+const SP = 'America/Sao_Paulo';
 const war: OccurrenceView = {
   occurrenceId: 12,
   title: 'Guerra do Abismo',
@@ -15,60 +16,90 @@ const war: OccurrenceView = {
   templateKey: 'abyss-war',
   rsvp: true,
 };
+const noVotes = { yes: [], maybe: [], no: [] };
 
-describe('reminderContent', () => {
-  it('pings, links the room and shows the RSVP counts', () => {
-    const text = reminderContent(
+describe('reminderCard', () => {
+  it('pings, counts down, shows the Brasília time, room and attendance', () => {
+    const card = reminderCard(
       { occurrence: war, offsetMinutes: 30, rsvp: { yes: ['a', 'b'], maybe: ['c'], no: [] } },
       '2 Clérigo',
+      SP,
     );
-    expect(text.split('\n')).toEqual([
-      '@everyone',
-      '⚔️ **Guerra do Abismo** começa em **30 minutos** (<t:1793059200:t> · <t:1793059200:R>)',
-      '📍 Sala: <#555>',
-      '✅ 2 · ❔ 1 · ❌ 0  (2 Clérigo)',
+
+    expect(card.content).toBe('@everyone');
+    expect(card.title).toBe('⚔️  Guerra do Abismo');
+    expect(card.description).toBe('⏳ Começa **em 30 minutos** · <t:1793059200:R>');
+    expect(card.fields).toEqual([
+      { name: '🕘 Horário', value: '**21:00** · Brasília', inline: true },
+      { name: '📍 Sala', value: '<#555>', inline: true },
+      {
+        name: '🙋 Presença',
+        value: '✅ **2** vão · ❔ **1** talvez · ❌ **0** não vão\n*2 Clérigo*',
+        inline: false,
+      },
     ]);
+    expect(card.footer).toBe('M4F1A · evento #12');
   });
 
-  it('says it started for the 0-minute reminder and skips the ping when disabled', () => {
-    const text = reminderContent(
+  it('turns red and says it started for the 0-minute reminder; no ping when disabled', () => {
+    const card = reminderCard(
+      { occurrence: { ...war, ping: false }, offsetMinutes: 0, rsvp: noVotes },
+      '',
+      SP,
+    );
+    expect(card.content).toBe('');
+    expect(card.description).toContain('Começou agora');
+    expect(card.color).toBe(0xe0303a);
+  });
+
+  it('shows boss respawns in purple without attendance', () => {
+    const card = reminderCard(
       {
-        occurrence: { ...war, ping: false },
-        offsetMinutes: 0,
-        rsvp: { yes: [], maybe: [], no: [] },
+        occurrence: { ...war, rsvp: false, voiceChannelId: null, description: '📍 Altgard' },
+        offsetMinutes: 30,
+        rsvp: noVotes,
       },
       '',
+      SP,
     );
-    expect(text).not.toContain('@everyone');
-    expect(text).toContain('**Guerra do Abismo** começou!');
+    expect(card.color).toBe(0x9b59d0);
+    expect(card.fields.map((f) => f.name)).toEqual(['🕘 Horário']);
+    expect(card.description).toContain('📍 Altgard');
   });
 });
 
 describe('agendaDescription', () => {
-  it('groups by day in São Paulo time', () => {
-    const bosses = { ...war, occurrenceId: 13, title: 'Chefes', emoji: '👹', voiceChannelId: null };
+  // Sunday 25/10 03:30 in São Paulo.
+  const now = new Date('2026-10-25T06:30:00Z');
+
+  it('groups by day with Hoje/Amanhã labels and Brasília times', () => {
     const nahma = {
       ...war,
-      occurrenceId: 14,
+      occurrenceId: 7,
       title: 'Nahma',
       emoji: '🐉',
-      startsAt: new Date('2026-10-31T00:00:00Z'), // Fri 30/10 21:00 BRT
+      voiceChannelId: null,
+      startsAt: new Date('2026-10-26T00:00:00Z'), // Sun 25/10 21:00 BRT
     };
-    const text = agendaDescription([war, bosses, nahma], 'America/Sao_Paulo');
+    const bosses = { ...war, occurrenceId: 13, title: 'Chefes', emoji: '👹', voiceChannelId: null };
+    const text = agendaDescription([nahma, war, bosses], SP, now);
+
     expect(text).toBe(
       [
-        '**seg, 26/10**',
-        '<t:1793059200:t> ⚔️ Guerra do Abismo · <#555> `#12`',
-        '<t:1793059200:t> 👹 Chefes `#13`',
+        'Próximos 7 dias · horários de Brasília',
         '',
-        '**sex, 30/10**',
-        '<t:1793404800:t> 🐉 Nahma · <#555> `#14`',
+        '🗓️ **Hoje** · domingo, 25/10',
+        '`21:00` 🐉 **Nahma** · <t:1792972800:R> · `#7`',
+        '',
+        '🗓️ **Amanhã** · segunda-feira, 26/10',
+        '`21:00` ⚔️ **Guerra do Abismo** · <#555> · <t:1793059200:R> · `#12`',
+        '`21:00` 👹 **Chefes** · <t:1793059200:R> · `#13`',
       ].join('\n'),
     );
   });
 
   it('says when there is nothing scheduled', () => {
-    expect(agendaDescription([], 'America/Sao_Paulo')).toBe('Nenhum evento nos próximos 7 dias.');
+    expect(agendaDescription([], SP, now)).toContain('Nenhum evento nos próximos 7 dias');
   });
 });
 

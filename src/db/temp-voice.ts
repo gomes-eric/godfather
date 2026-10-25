@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import type { RoomAccess } from '../core/voice-rooms.js';
 import type { Db } from './client.js';
 import { tempVoiceChannels } from './schema.js';
 
@@ -36,6 +37,22 @@ export class TempVoiceStore {
     this.db
       .update(tempVoiceChannels)
       .set({ ownerId })
+      .where(eq(tempVoiceChannels.channelId, channelId))
+      .run();
+  }
+
+  setAccess(channelId: string, access: RoomAccess): void {
+    this.db
+      .update(tempVoiceChannels)
+      .set({ locked: access.locked, hidden: access.hidden })
+      .where(eq(tempVoiceChannels.channelId, channelId))
+      .run();
+  }
+
+  setPanelMessage(channelId: string, messageId: string): void {
+    this.db
+      .update(tempVoiceChannels)
+      .set({ panelMessageId: messageId })
       .where(eq(tempVoiceChannels.channelId, channelId))
       .run();
   }

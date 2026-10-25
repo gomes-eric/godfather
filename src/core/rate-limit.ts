@@ -1,4 +1,4 @@
-/** Sliding-window limiter: at most `limit` calls per `windowMs` for each key (PLAN.md §8.1). */
+/** Sliding-window limiter: at most `limit` calls per `windowMs` for each key (MCP calls, voice rooms). */
 export class RateLimiter {
   private readonly calls = new Map<string, number[]>();
 

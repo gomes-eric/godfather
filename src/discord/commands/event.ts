@@ -64,7 +64,7 @@ export const eventCommand: SlashCommand = {
             .setName('voice')
             .setDescription('Voice room for the event')
             .setDescriptionLocalizations({ 'pt-BR': 'Sala de voz do evento' })
-            .addChannelTypes(ChannelType.GuildVoice),
+            .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice),
         )
         .addStringOption((o) =>
           o.setName('emoji').setDescription('Emoji shown in reminders').setMaxLength(32),

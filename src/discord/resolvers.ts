@@ -43,6 +43,7 @@ export function findMember(guild: Guild, input: string): Found<GuildMember> {
 
 const KIND_LABEL: Partial<Record<ChannelType, string>> = {
   [ChannelType.GuildVoice]: '🔊 ',
+  [ChannelType.GuildStageVoice]: '🎙️ ',
   [ChannelType.GuildCategory]: '📁 ',
   [ChannelType.GuildForum]: '📋 ',
 };

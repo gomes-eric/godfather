@@ -33,31 +33,54 @@ export function roomOverwrites(generator: RoleOverwrite[], ownerId: string): Rol
   ];
 }
 
-/**
- * Locking: nobody new can connect, except members with their own overwrite (the owner, people
- * already allowed). Every role overwrite moves Connect from allow to deny, and @everyone denies it.
- */
-export function lockOverwrites(current: RoleOverwrite[], everyoneId: string): RoleOverwrite[] {
-  const locked = current.map((o) =>
-    o.type === 'role' ? { ...o, allow: o.allow & ~P.Connect, deny: o.deny | P.Connect } : o,
-  );
-  return locked.some((o) => o.id === everyoneId)
-    ? locked
-    : [...locked, { id: everyoneId, type: 'role', allow: 0n, deny: P.Connect }];
+/** Who can find and join a room. Both off is the generator's own access. */
+export interface RoomAccess {
+  /** Nobody new can connect. */
+  locked: boolean;
+  /** Nobody new can even see the room in the channel list. */
+  hidden: boolean;
 }
 
-/** Unlocking: role overwrites go back to the generator's; member overwrites stay. */
-export function unlockOverwrites(
+/** What someone already in a locked or hidden room keeps, so a dropped connection can rejoin. */
+export const OCCUPANT_ALLOW = P.ViewChannel | P.Connect;
+
+/**
+ * Overwrites for a room in the given access mode. Role overwrites are rebuilt from the
+ * generator's (falling back to the room's own when the generator is gone): locking moves Connect
+ * to deny, hiding does the same with ViewChannel, and @everyone gets the deny if the generator had
+ * no overwrite for it. Member overwrites (owner, kicked people, earlier occupants) are kept, and
+ * whoever is in the room when it closes gets their own grant to stay and come back.
+ */
+export function accessOverwrites(
   current: RoleOverwrite[],
   generator: RoleOverwrite[],
+  everyoneId: string,
+  access: RoomAccess,
+  occupantIds: Iterable<string> = [],
 ): RoleOverwrite[] {
-  return [
-    ...generator.filter((o) => o.type === 'role'),
-    ...current.filter((o) => o.type === 'member'),
-  ];
+  const closed = (access.locked ? P.Connect : 0n) | (access.hidden ? P.ViewChannel : 0n);
+  const source = generator.length > 0 ? generator : current;
+  const roles = source
+    .filter((o) => o.type === 'role')
+    .map((o) => ({ ...o, allow: o.allow & ~closed, deny: o.deny | closed }));
+  if (closed !== 0n && !roles.some((o) => o.id === everyoneId)) {
+    roles.push({ id: everyoneId, type: 'role', allow: 0n, deny: closed });
+  }
+
+  const members = current.filter((o) => o.type === 'member');
+  if (closed !== 0n) {
+    for (const id of occupantIds) {
+      if (members.some((o) => o.id === id)) continue;
+      members.push({ id, type: 'member', allow: OCCUPANT_ALLOW, deny: 0n });
+    }
+  }
+  return [...roles, ...members];
 }
 
-/** Kicking from a room: their member overwrite denies Connect so they can't jump back in. */
+/**
+ * Kicking from a room: their member overwrite denies Connect and ViewChannel, so they can't jump
+ * back in and a hidden room stays hidden from them. Later lock/hide changes keep member overwrites.
+ */
 export function banFromRoom(current: RoleOverwrite[], userId: string): RoleOverwrite[] {
   const existing = current.find((o) => o.id === userId);
   const others = current.filter((o) => o.id !== userId);
@@ -66,8 +89,8 @@ export function banFromRoom(current: RoleOverwrite[], userId: string): RoleOverw
     {
       id: userId,
       type: 'member',
-      allow: (existing?.allow ?? 0n) & ~P.Connect,
-      deny: (existing?.deny ?? 0n) | P.Connect,
+      allow: (existing?.allow ?? 0n) & ~OCCUPANT_ALLOW,
+      deny: (existing?.deny ?? 0n) | OCCUPANT_ALLOW,
     },
   ];
 }
@@ -82,6 +105,20 @@ export function transferOwnership(
     ...current.filter((o) => o.id !== previousOwnerId && o.id !== newOwnerId),
     { id: newOwnerId, type: 'member', allow: OWNER_ALLOW, deny: 0n },
   ];
+}
+
+/** Discord lets a channel be renamed twice per 10 minutes; a third waits for the window. */
+export const RENAME_LIMIT = 2;
+export const RENAME_WINDOW_MS = 10 * 60_000;
+
+/**
+ * When the next rename of a channel can go through, given when its recent renames happened:
+ * `now` when there is budget left, otherwise the moment the oldest one leaves the window.
+ */
+export function nextRenameAt(history: readonly number[], now: number): number {
+  const recent = history.filter((at) => now - at < RENAME_WINDOW_MS).sort((a, b) => a - b);
+  if (recent.length < RENAME_LIMIT) return now;
+  return recent[recent.length - RENAME_LIMIT]! + RENAME_WINDOW_MS;
 }
 
 /**

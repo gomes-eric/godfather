@@ -48,7 +48,7 @@ const accessSchema = z.object({ view: accessLevel, write: accessLevel });
 
 const forumTagSchema = z.object({ name: z.string().min(1).max(20), emoji: z.string().optional() });
 
-export const CHANNEL_TYPES = ['text', 'announcement', 'voice', 'forum'] as const;
+export const CHANNEL_TYPES = ['text', 'announcement', 'voice', 'stage', 'forum'] as const;
 export type ChannelKind = (typeof CHANNEL_TYPES)[number];
 
 const channelSchema = z.object({
@@ -161,10 +161,20 @@ const settingsSchema = z.looseObject({
     botRole: key.optional(),
     message: z.string().min(1),
   }),
-  rules: z.object({ channel: key, message: z.string().min(1).max(4000) }),
+  rules: z.object({
+    channel: key,
+    title: z.string().max(256).optional(),
+    message: z.string().min(1).max(4000),
+  }),
   rolePicker: z.object({ channel: key, multipleClasses: z.boolean().default(false) }),
   audit: z.object({ channel: key }),
   musicGuard: z.object({ channel: key }),
+  voiceRooms: z
+    .object({
+      /** New join-to-create rooms per minute for the whole server; 0 = no limit. */
+      maxCreationsPerMinute: z.number().int().min(0).default(30),
+    })
+    .default({ maxCreationsPerMinute: 30 }),
   eventDefaults: z.object({
     announceChannel: key,
     agendaChannel: key,
@@ -272,7 +282,9 @@ export const serverConfigSchema = z
       }
     });
 
-    const voiceChannelKeys = new Set(channels.filter((c) => c.type === 'voice').map((c) => c.key));
+    const voiceChannelKeys = new Set(
+      channels.filter((c) => c.type === 'voice' || c.type === 'stage').map((c) => c.key),
+    );
     const templateKeys = config.eventTemplates.map((t) => t.key);
     for (const dup of duplicates(templateKeys)) {
       issue(['eventTemplates'], `duplicate event template key "${dup}"`);

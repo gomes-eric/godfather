@@ -49,6 +49,9 @@ export interface PanelButton {
   customId: string;
   label: string;
   emoji: string | null;
+  /** Buttons with the same row share a line (max 5 per line); unset rows fill lines of 5. */
+  row?: number;
+  style?: 'primary' | 'secondary' | 'success' | 'danger';
 }
 
 export interface DesiredPanel {

@@ -159,7 +159,7 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
         const messageId = await port.upsertPanel(
           requireId(channelIds, panel.channelKey, 'channel'),
           op.messageId,
-          panel,
+          { ...panel, description: linkChannels(panel.description, channelIds) },
         );
         store.set('message', panel.key, messageId, panel.fingerprint);
         return;
@@ -191,6 +191,14 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
     }
   }
   return result;
+}
+
+/** "{channel:general}" → "<#id>", so panel texts can link channels by their yaml key. */
+export function linkChannels(text: string, channelIds: Map<string, string>): string {
+  return text.replace(/\{channel:([a-z0-9-]+)\}/g, (match, key: string) => {
+    const id = channelIds.get(key);
+    return id ? `<#${id}>` : match;
+  });
 }
 
 /** Which channels /setup must check for its panel messages before planning. */

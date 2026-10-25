@@ -1,4 +1,5 @@
 import type { ManagedState } from '../db/managed-objects.js';
+import { PANEL_PREFIX } from './desired.js';
 import {
   EVERYONE,
   type ChannelSnapshot,
@@ -357,9 +358,12 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
         deleteOps.push({ type: 'deleteRole', key, id: role.id, name: role.name });
       }
     }
+    // Only /setup's own panels; other managed messages (e.g. the #agenda post) belong elsewhere.
     const panelKeys = new Set(desired.panels.map((p) => p.key));
     for (const [key, entry] of managed.message) {
-      if (!panelKeys.has(key)) deleteOps.push({ type: 'forgetMessage', key, id: entry.discordId });
+      if (key.startsWith(PANEL_PREFIX) && !panelKeys.has(key)) {
+        deleteOps.push({ type: 'forgetMessage', key, id: entry.discordId });
+      }
     }
   }
 
@@ -387,7 +391,8 @@ function channelChanges(
   const changes: string[] = [];
   if (existing.name !== channel.name) changes.push('name');
   if (parentId === undefined || existing.parentId !== parentId) changes.push('parent');
-  if (channel.kind !== 'voice' && (existing.topic ?? null) !== channel.topic) changes.push('topic');
+  const isVoice = channel.kind === 'voice' || channel.kind === 'stage';
+  if (!isVoice && (existing.topic ?? null) !== channel.topic) changes.push('topic');
   if (channel.kind === 'voice' && existing.userLimit !== channel.userLimit) {
     changes.push('userLimit');
   }

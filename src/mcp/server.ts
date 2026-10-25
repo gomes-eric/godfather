@@ -4,7 +4,7 @@ import type { Actor } from '../core/actor.js';
 import type { Logger } from '../logger.js';
 import type { TokenService } from '../services/token.service.js';
 import { buildInstructions } from './instructions.js';
-import { RateLimiter } from './rate-limit.js';
+import { RateLimiter } from '../core/rate-limit.js';
 import { registerTools, type McpServices } from './tools.js';
 
 const CALLS_PER_MINUTE = 60;
