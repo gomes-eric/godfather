@@ -1,0 +1,253 @@
+# Padrinho — declarative server layout for the M4F1A legion (Aion 2, Triniel LATAM, Asmodian).
+# Applied with `/setup`. Keys are English; display names are PT-BR.
+# Every item has a stable `key`: renaming `name` never recreates the Discord object.
+#
+# Access levels (minimum tier): everyone | soldier | officer | commander | bot | none
+#   everyone  = @everyone (includes Visitante)
+#   bot       = only Padrinho may write
+#   none      = nobody may write (used by #musica; slash commands still allowed)
+
+settings:
+  botName: Padrinho
+  locale: pt-BR
+  timezone: America/Sao_Paulo   # South America servers use São Paulo time (shugo.gg)
+  game:
+    name: Aion 2
+    server: Triniel
+    region: LATAM
+    faction: Asmodian
+  community:
+    enable: true
+    rulesChannel: rules
+    updatesChannel: officers
+  afk:
+    channel: afk
+    timeoutSeconds: 900
+  welcome:
+    channel: welcome
+    autoRole: visitor
+    message: |
+      Bem-vindo(a) à **M4F1A**, {member}! 🌹
+      Quer entrar na legião? Fale com a gente em {channel:recruitment}.
+      Leia as {channel:rules} antes de tudo.
+  rolePicker:
+    channel: role-picker
+    multipleClasses: false
+  audit:
+    channel: audit-log
+  musicGuard:
+    channel: music
+  eventDefaults:
+    announceChannel: event-alerts
+    agendaChannel: agenda
+    reminderOffsetsMinutes: [30, 0]
+    ping: everyone
+
+roles:
+  # Asmodian palette: blood crimson, abyss violet, ash and steel.
+  # Colors are mid-tone so names stay readable on Discord's dark theme.
+  # Hierarchy (top to bottom). The bot's own role must sit above all of these.
+  - key: commander
+    name: Comandante
+    tier: commander
+    color: "#E0303A"   # Asmodian crimson
+    hoist: true
+    permissions: [Administrator]
+  - key: officer
+    name: Oficial
+    tier: officer
+    maxMembers: 4
+    color: "#A855F7"   # abyss violet
+    hoist: true
+    permissions: [KickMembers, ModerateMembers, ManageMessages, ManageThreads, MoveMembers, MuteMembers]
+  - key: soldier
+    name: Soldado
+    tier: soldier
+    color: "#8B7FB8"   # dusk lavender
+    hoist: true
+  - key: visitor
+    name: Visitante
+    tier: visitor
+    color: "#7D7A8C"   # ash
+  # Shared role for every third-party bot (Jockie Music, Rythm, future ones).
+  # Padrinho assigns it automatically to any bot that joins.
+  - key: bots
+    name: Bot
+    color: "#6E7F99"   # steel
+    hoist: true
+  # Classes (self-assigned via buttons in #escolha-seu-cargo).
+  # Colors follow the in-game class icons (sampled from https://sistersofmercy.altervista.org/classes/):
+  # Guerreiro = blue, Batedor = green, Mago = purple, Sacerdote = pale gold.
+  # Each pair uses a deeper and a lighter shade so the two classes stay distinct.
+  - { key: class-gladiator,   name: Gladiador,      class: true, archetype: warrior, emoji: "⚔️", color: "#6EC6F5" }  # sky blue
+  - { key: class-templar,     name: Templário,      class: true, archetype: warrior, emoji: "🛡️", color: "#4A7BD0" }  # deep blue
+  - { key: class-assassin,    name: Assassino,      class: true, archetype: scout,   emoji: "🗡️", color: "#4FB286" }  # emerald
+  - { key: class-ranger,      name: Arqueiro,       class: true, archetype: scout,   emoji: "🏹", color: "#8EF5B7" }  # mint
+  - { key: class-sorcerer,    name: Mago,           class: true, archetype: mage,    emoji: "🔥", color: "#D291EF" }  # lilac
+  - { key: class-spiritmaster, name: Espiritualista, class: true, archetype: mage,   emoji: "👻", color: "#9B59D0" }  # deep purple
+  - { key: class-cleric,      name: Clérigo,        class: true, archetype: priest,  emoji: "✨", color: "#E6C46A" }  # gold
+  - { key: class-chanter,     name: Encantador,     class: true, archetype: priest,  emoji: "📿", color: "#EEE6A8" }  # cream
+
+categories:
+  - key: info
+    name: 📜 INFORMAÇÕES
+    access: { view: everyone, write: bot }
+    channels:
+      - { key: rules,       type: text, name: regras }
+      - { key: announcements, type: announcement, name: anuncios, access: { write: officer } }
+      - { key: welcome,     type: text, name: boas-vindas }
+      - { key: role-picker, type: text, name: escolha-seu-cargo }
+
+  - key: legion
+    name: 📣 M4F1A
+    access: { view: soldier, write: soldier }
+    channels:
+      - { key: event-alerts, type: text, name: avisos-eventos, access: { write: bot } }
+      - { key: agenda,       type: text, name: agenda,         access: { write: bot } }
+      - { key: general,      type: text, name: geral }
+      - { key: off-topic,    type: text, name: off-topic }
+      - { key: clips,        type: text, name: prints-e-clips }
+      - { key: builds,       type: text, name: builds-e-equips }
+
+  - key: knowledge
+    name: 📚 CONHECIMENTO
+    access: { view: soldier, write: soldier }
+    channels:
+      - key: tutorials
+        type: forum
+        name: tutoriais
+        topic: Guias da legião. Qualquer membro pode postar — escolha pelo menos uma tag.
+        requireTag: true
+        tags:
+          - { name: Gladiador, emoji: "⚔️" }
+          - { name: Templário, emoji: "🛡️" }
+          - { name: Assassino, emoji: "🗡️" }
+          - { name: Arqueiro, emoji: "🏹" }
+          - { name: Mago, emoji: "🔥" }
+          - { name: Espiritualista, emoji: "👻" }
+          - { name: Clérigo, emoji: "✨" }
+          - { name: Encantador, emoji: "📿" }
+          - { name: PvE }
+          - { name: PvP }
+          - { name: Abismo }
+          - { name: Dungeon }
+          - { name: Crafting }
+          - { name: Iniciantes }
+
+  - key: operations
+    name: ⚔️ OPERAÇÕES
+    access: { view: soldier, write: soldier }
+    channels:
+      - { key: abyss-text,  type: text,  name: abismo }
+      - { key: siege-text,  type: text,  name: siege }
+      - { key: raids-text,  type: text,  name: raids-e-dungeons }
+      - { key: abyss-voice, type: voice, name: Abismo }
+      - { key: siege-voice, type: voice, name: Siege }
+
+  - key: voice-rooms
+    name: 🔊 SALAS DE VOZ
+    access: { view: soldier, write: soldier }
+    # Generator channels live in `voiceGenerators` below; /setup creates them here.
+
+  - key: music
+    name: 🎵 MÚSICA
+    access: { view: soldier, write: none }
+    channels:
+      - key: music
+        type: text
+        name: musica
+        topic: Só comandos de música (/play, /skip...). Mensagens comuns são apagadas.
+        allowSlashCommands: soldier
+
+  - key: recruitment
+    name: 🤝 RECRUTAMENTO
+    access: { view: everyone, write: everyone }
+    channels:
+      - { key: recruitment, type: text, name: recrutamento }
+      - { key: visitor-qa,  type: text, name: duvidas-visitantes }
+
+  - key: officers
+    name: 🛡️ OFICIAIS
+    access: { view: officer, write: officer }
+    channels:
+      - { key: officers,      type: text,  name: oficiais }
+      - { key: audit-log,     type: text,  name: audit-log, access: { write: bot } }
+      - { key: meeting-voice, type: voice, name: Reunião }
+
+  - key: afk
+    name: 🌙 AFK
+    access: { view: soldier, write: none }
+    channels:
+      - { key: afk, type: voice, name: AFK }
+
+# Bots (Jockie Music, Rythm, future ones) may join any voice channel.
+# Restricting the music bots' slash commands to #musica is a manual step (Server Settings → Integrations).
+voiceAccess:
+  - role: bots
+    allow: [ViewChannel, Connect, Speak]
+    scope: all-voice
+
+# Join-to-create generators (handled by Padrinho, no third-party bot).
+# nameTemplate: {n} is the lowest free number, zero-padded to 2 digits.
+# userLimit: 0 = unlimited.
+voiceGenerators:
+  - { key: gen-abyss,   category: voice-rooms, name: "➕ Abismo",  nameTemplate: "Abismo {n}",  userLimit: 20 }
+  - { key: gen-dungeon, category: voice-rooms, name: "➕ Dungeon", nameTemplate: "Dungeon {n}", userLimit: 5 }
+  - { key: gen-bosses,  category: voice-rooms, name: "➕ Bosses",  nameTemplate: "Bosses {n}",  userLimit: 20 }
+  - { key: gen-social,  category: voice-rooms, name: "➕ Social",  nameTemplate: "Social {n}",  userLimit: 0 }
+  - { key: gen-duo,     category: voice-rooms, name: "➕ Duo",     nameTemplate: "Duo {n}",     userLimit: 2 }
+
+# Recurring events. Times are America/Sao_Paulo (Brasília).
+# Verified against https://shugo.gg/pt-br/timers (South America) on 2026-10-25.
+# days: mon tue wed thu fri sat sun | daily
+eventTemplates:
+  - key: abyss-war
+    title: Guerra do Abismo — Cerco de Artefatos
+    emoji: "⚔️"
+    days: [mon, thu, sat]
+    time: "21:00"
+    voiceChannel: abyss-voice
+    enabled: true
+  - key: abyss-bosses
+    title: Chefes do Cerco (Tamasa, Argo, Kairah)
+    emoji: "👹"
+    days: [mon, thu, sat]
+    time: "21:30"
+    voiceChannel: abyss-voice
+    enabled: true
+  - key: weekly-boss-nahma
+    title: Boss Semanal — Senhor Guardião Nahma
+    emoji: "🐉"
+    days: [fri, sun]
+    time: "21:00"
+    voiceChannel: siege-voice
+    enabled: true
+
+# Respawn-based field bosses (no fixed clock time; see PLAN.md §6.11).
+# Respawn times come from the questlog.gg feed, with manual/AI overrides taking precedence.
+# questlogId: Asmodian versions only (Altgard = 1110xx; the 1010xx ids are the Elyos versions).
+fieldBosses:
+  source:
+    provider: questlog
+    enabled: true            # turn off if questlog.gg withdraws permission or the endpoint breaks
+    serverId: 2403           # Triniel (South America)
+    pollIntervalSeconds: 180
+    staleAfterHours: 6       # older readings trigger a warning in #audit-log
+  reminderOffsetsMinutes: [30, 0]
+  bosses:
+    - key: gartua
+      title: Boss Diário — Gartua Imortal
+      emoji: "💀"
+      region: Altgard
+      level: 51
+      questlogId: 111021
+      respawnMinutes: null   # unknown; required only for `/boss killed` (learned later)
+      enabled: true
+    - key: lagta
+      title: Boss Diário — Brigadeiro Lagta
+      emoji: "💀"
+      region: Altgard
+      level: 48
+      questlogId: 111022
+      respawnMinutes: null
+      enabled: true

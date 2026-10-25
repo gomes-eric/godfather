@@ -1,0 +1,16 @@
+services:
+  padrinho:
+    build: .
+    image: padrinho:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /data/padrinho.db
+      SERVER_CONFIG_PATH: /app/server.yaml
+    volumes:
+      - ./data:/data
+      - ./server.yaml:/app/server.yaml
+    ports:
+      # Only reachable from the host; Tailscale Funnel exposes it publicly (PLAN.md §11.3).
+      - '127.0.0.1:8080:8080'
