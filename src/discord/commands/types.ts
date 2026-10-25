@@ -12,6 +12,7 @@ import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
 import type { SetupService } from '../../services/setup.service.js';
+import type { VoiceService } from '../../services/voice.service.js';
 import type { GuildDirectory } from '../directory.js';
 import type { ConfirmationStore } from '../interactions/confirmation.js';
 
@@ -25,6 +26,7 @@ export interface CommandContext {
   members: MemberService;
   moderation: ModerationService;
   messages: MessageService;
+  voice: VoiceService;
   runAction: ActionRunner;
   confirmations: ConfirmationStore;
   resolveActor(userId: string): Promise<Actor>;

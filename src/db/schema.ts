@@ -19,6 +19,22 @@ export const managedObjects = sqliteTable(
   (table) => [primaryKey({ columns: [table.kind, table.key] })],
 );
 
+// Temporary voice rooms created by the join-to-create generators (PLAN.md §6.6). Persisted so a
+// restart can clean up empty rooms and keep managing occupied ones.
+export const tempVoiceChannels = sqliteTable(
+  'temp_voice_channels',
+  {
+    channelId: text('channel_id').primaryKey(),
+    generatorKey: text('generator_key').notNull(),
+    number: integer('number').notNull(),
+    ownerId: text('owner_id').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(unixepoch('subsec') * 1000)`),
+  },
+  (table) => [index('temp_voice_generator_idx').on(table.generatorKey)],
+);
+
 // Every write action, from slash commands or MCP, is recorded here (PLAN.md §6.10).
 export const auditLog = sqliteTable(
   'audit_log',

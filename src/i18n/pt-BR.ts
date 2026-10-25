@@ -128,6 +128,24 @@ export const ptBR = {
     notText: 'Esse canal não aceita mensagens.',
   },
 
+  voice: {
+    notInRoom: 'Entre numa sala temporária (criada por um ➕) para usar este comando.',
+    notOwner:
+      'Só o dono da sala (ou um Oficial) pode fazer isso. Se o dono saiu, use `/voice claim`.',
+    ownerPresent: 'O dono ainda está na sala. Só um Oficial pode tomar a posse.',
+    alreadyOwner: 'Você já é o dono desta sala.',
+    cannotKickSelf: 'Você não pode expulsar a si mesmo.',
+    notInThisRoom: 'Essa pessoa não está nesta sala.',
+    renamed: (name: string) => `✏️ Sala renomeada para **${name}**.`,
+    limited: (limit: number) =>
+      limit === 0 ? '♾️ Sala sem limite de pessoas.' : `👥 Limite da sala: **${limit}** pessoas.`,
+    locked: '🔒 Sala trancada: ninguém novo entra.',
+    unlocked: '🔓 Sala destrancada.',
+    kicked: (name: string) => `👢 **${name}** foi removido da sala e não pode voltar.`,
+    claimed: '👑 Agora você é o dono desta sala.',
+    cooldown: 'Calma! Espere alguns segundos antes de criar outra sala.',
+  },
+
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
   },

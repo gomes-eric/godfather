@@ -5,6 +5,7 @@ import { createActionRunner } from './core/action.js';
 import { AuditLog } from './core/audit.js';
 import { openDatabase } from './db/client.js';
 import { ManagedObjectStore } from './db/managed-objects.js';
+import { TempVoiceStore } from './db/temp-voice.js';
 import { resolveActor } from './discord/actor.js';
 import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
 import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/client.js';
@@ -12,6 +13,7 @@ import { commands } from './discord/commands/index.js';
 import { createDirectory } from './discord/directory.js';
 import { createDiscordGuildPort } from './discord/guild-port.js';
 import { attachMemberJoinListener } from './discord/listeners/member-join.js';
+import { attachVoiceStateListener } from './discord/listeners/voice-state.js';
 import { createConfirmationStore } from './discord/interactions/confirmation.js';
 import { attachInteractionRouter } from './discord/interactions/router.js';
 import { registerGuildCommands } from './discord/register-commands.js';
@@ -22,6 +24,7 @@ import { MemberService } from './services/member.service.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
 import { SetupService } from './services/setup.service.js';
+import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
 
 async function main(): Promise<void> {
@@ -79,6 +82,20 @@ async function main(): Promise<void> {
       createDiscordAuditPublisher(directory, () => config.get().settings.audit.channel, logger),
     );
 
+    const voice = new VoiceService({
+      guild,
+      config,
+      managed,
+      rooms: new TempVoiceStore(database.db),
+      runAction,
+      logger,
+    });
+    attachVoiceStateListener(client, guild.id, voice, logger);
+    voice
+      .sweep()
+      .then((swept) => logger.info(swept, 'temp voice rooms swept'))
+      .catch((error: unknown) => logger.warn({ err: error }, 'temp voice sweep failed'));
+
     attachInteractionRouter(client, commands, {
       guild,
       logger,
@@ -89,6 +106,7 @@ async function main(): Promise<void> {
       members: new MemberService({ guild, directory, config, runAction }),
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
+      voice,
       runAction,
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),

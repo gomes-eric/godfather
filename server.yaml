@@ -113,6 +113,13 @@ categories:
       - { key: welcome,     type: text, name: boas-vindas }
       - { key: role-picker, type: text, name: escolha-seu-cargo }
 
+  - key: recruitment
+    name: 🤝 RECRUTAMENTO
+    access: { view: everyone, write: everyone }
+    channels:
+      - { key: recruitment, type: text, name: recrutamento }
+      - { key: visitor-qa,  type: text, name: duvidas-visitantes }
+
   - key: legion
     name: 📣 M4F1A
     access: { view: soldier, write: soldier }
@@ -173,13 +180,6 @@ categories:
         name: musica
         topic: Só comandos de música (/play, /skip...). Mensagens comuns são apagadas.
         allowSlashCommands: soldier
-
-  - key: recruitment
-    name: 🤝 RECRUTAMENTO
-    access: { view: everyone, write: everyone }
-    channels:
-      - { key: recruitment, type: text, name: recrutamento }
-      - { key: visitor-qa,  type: text, name: duvidas-visitantes }
 
   - key: officers
     name: 🛡️ OFICIAIS
