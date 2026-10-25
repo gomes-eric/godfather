@@ -2,7 +2,13 @@ import type { Guild, GuildMember } from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
-import { decideDemotion, decidePromotion, rolesForTier } from '../core/member-rules.js';
+import {
+  decideDemotion,
+  decidePartner,
+  decidePromotion,
+  rolesForPartner,
+  rolesForTier,
+} from '../core/member-rules.js';
 import type { Tier } from '../core/tiers.js';
 import { memberTier } from '../discord/actor.js';
 import type { GuildDirectory } from '../discord/directory.js';
@@ -109,11 +115,57 @@ export class MemberService {
       confirm,
       preview,
       execute: async () => {
-        const current = [...member.roles.cache.keys()].filter((id) => id !== guild.id);
+        // Joining the legion ends a partnership: Parceiro is for people who don't play.
+        const partnerId = this.partnerRoleId();
+        const current = [...member.roles.cache.keys()].filter(
+          (id) => id !== guild.id && !(to !== 'visitor' && id === partnerId),
+        );
         await member.roles.set(rolesForTier(current, to, tierRoles));
         return direction === 'promote'
           ? t.promoted(name, ptBR.tier(to))
           : t.demoted(name, ptBR.tier(to));
+      },
+    });
+  }
+
+  private partnerRoleId(): string | undefined {
+    const key = this.deps.config.get().settings.partnerRole;
+    return key ? this.deps.directory.roleId(key) : undefined;
+  }
+
+  /** Gives Parceiro to someone who doesn't play (in place of Visitante), or takes it back. */
+  async partner(actor: Actor, userId: string, remove: boolean): Promise<ServiceOutcome<string>> {
+    const { guild, directory, runAction } = this.deps;
+    const partnerId = this.partnerRoleId();
+    if (!partnerId) return rejected(t.noPartnerRole);
+    const member = await this.fetchMember(userId);
+    if (!member) return rejected(t.notMember);
+
+    const refusal = decidePartner({
+      actorId: actor.userId,
+      targetId: member.id,
+      targetIsBot: member.user.bot,
+      targetIsOwner: guild.ownerId === member.id,
+      targetTier: memberTier(member, directory),
+      isPartner: member.roles.cache.has(partnerId),
+      remove,
+    });
+    if (refusal) return rejected(t.refusals[refusal] ?? refusal);
+    if (!member.manageable) return rejected(t.botCannot);
+
+    const name = member.displayName;
+    return runAction({
+      actor,
+      action: 'member.partner',
+      target: name,
+      params: { userId: member.id, remove },
+      preview: remove ? t.unpartnered(name) : t.partnered(name),
+      execute: async () => {
+        const current = [...member.roles.cache.keys()].filter((id) => id !== guild.id);
+        await member.roles.set(
+          rolesForPartner(current, partnerId, this.tierRoles().visitor, remove),
+        );
+        return remove ? t.unpartnered(name) : t.partnered(name);
       },
     });
   }

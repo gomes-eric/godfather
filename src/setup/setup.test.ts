@@ -7,7 +7,7 @@ import { ManagedObjectStore } from '../db/managed-objects.js';
 import { applySetup, panelMessagesToCheck } from './applier.js';
 import { buildDesiredState, PANEL_KEYS } from './desired.js';
 import type { DesiredState } from './model.js';
-import { planSetup } from './planner.js';
+import { planSetup, samePermissions } from './planner.js';
 import { FakeGuild } from './testing/fake-guild.js';
 
 const repoConfig = loadServerConfig(fileURLToPath(new URL('../../server.yaml', import.meta.url)));
@@ -86,7 +86,7 @@ describe('/setup reconciliation', () => {
     expect(order).toEqual(repoConfig.roles.map((r) => r.name));
   });
 
-  it('gives #musica slash commands but no messages for soldiers', async () => {
+  it('lets soldiers type commands and run slash commands in #musica, but not visitors', async () => {
     await setup(buildDesiredState(repoConfig));
     const soldierId = store.get('role', 'soldier')!.discordId;
     const musica = guild.channels.find((c) => c.name === 'musica')!;
@@ -94,7 +94,8 @@ describe('/setup reconciliation', () => {
     const everyone = musica.overwrites.find((o) => o.id === guild.everyoneRoleId)!;
     const soldier = musica.overwrites.find((o) => o.id === soldierId)!;
     expect(everyone.deny & P.SendMessages).toBe(P.SendMessages);
-    expect(soldier.allow & P.SendMessages).toBe(0n);
+    // Soldiers type Jockie's m! commands; the music guard deletes anything else.
+    expect(soldier.allow & P.SendMessages).toBe(P.SendMessages);
     expect(soldier.allow & P.UseApplicationCommands).toBe(P.UseApplicationCommands);
   });
 
@@ -174,12 +175,45 @@ describe('/setup reconciliation', () => {
       {
         color: 0xe0303a,
         hoist: true,
-        permissions: P.Administrator,
+        // Discord keeps other bits ticked next to Administrator; they change nothing.
+        permissions: P.Administrator | P.ManageGuild | P.SendMessages,
       },
     );
 
     const { plan: p } = await setup(buildDesiredState(repoConfig));
     expect(p.warnings).toEqual([]);
+  });
+
+  it('lets Parceiro into the social channels only', async () => {
+    await setup(buildDesiredState(repoConfig));
+    const partnerId = store.get('role', 'partner')!.discordId;
+    const canView = (name: string) => {
+      const channel = guild.channels.find((c) => c.name === name)!;
+      const own = channel.overwrites.find((o) => o.id === partnerId);
+      return ((own?.allow ?? 0n) & P.ViewChannel) !== 0n;
+    };
+
+    for (const name of ['geral', 'off-topic', 'prints-e-clips', 'Geral', 'musica', 'AFK']) {
+      expect(canView(name), name).toBe(true);
+    }
+    for (const name of [
+      'builds-e-equips',
+      'eventos',
+      'agenda',
+      'Evento',
+      'tutoriais',
+      'oficiais',
+    ]) {
+      expect(canView(name), name).toBe(false);
+    }
+    const social = guild.channels.find(
+      (c) => c.id === store.get('channel', 'gen-social')?.discordId,
+    )!;
+    expect(social.overwrites.some((o) => o.id === partnerId)).toBe(true);
+    const dungeon = guild.channels.find(
+      (c) => c.id === store.get('channel', 'gen-dungeon')?.discordId,
+    )!;
+    expect(dungeon.overwrites.some((o) => o.id === partnerId)).toBe(false);
   });
 
   it('gives Administrator roles no channel overwrites', async () => {
@@ -254,5 +288,14 @@ describe('/setup reconciliation', () => {
 
     expect(desired.categories.some((c) => c.key === 'afk')).toBe(false);
     expect(desired.unmanagedKeys.category.has('afk')).toBe(true);
+  });
+});
+
+describe('samePermissions', () => {
+  it('treats any two Administrator sets as equal, and compares the rest exactly', () => {
+    expect(samePermissions(P.Administrator, P.Administrator | P.BanMembers)).toBe(true);
+    expect(samePermissions(P.Administrator, P.BanMembers)).toBe(false);
+    expect(samePermissions(P.KickMembers, P.KickMembers | P.BanMembers)).toBe(false);
+    expect(samePermissions(P.KickMembers, P.KickMembers)).toBe(true);
   });
 });

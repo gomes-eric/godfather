@@ -42,6 +42,21 @@ export const memberCommand: SlashCommand = {
     )
     .addSubcommand((sub) =>
       sub
+        .setName('partner')
+        .setDescription('Make someone who does not play a Parceiro (or take it back)')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Torna Parceiro alguém que não joga (ou tira o cargo)',
+        })
+        .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true))
+        .addBooleanOption((o) =>
+          o
+            .setName('remove')
+            .setDescription('Take Parceiro away and go back to Visitante')
+            .setDescriptionLocalizations({ 'pt-BR': 'Tira o Parceiro e volta para Visitante' }),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
         .setName('info')
         .setDescription('Show a member’s rank, classes and dates')
         .setDescriptionLocalizations({ 'pt-BR': 'Mostra cargo, classes e datas de um membro' })
@@ -58,6 +73,13 @@ export const memberCommand: SlashCommand = {
     if (sub === 'promote') {
       await runWithConfirmation(interaction, ctx.confirmations, () =>
         ctx.members.promote(actor, user.id, rank),
+      );
+      return;
+    }
+    if (sub === 'partner') {
+      const remove = interaction.options.getBoolean('remove') ?? false;
+      await runWithConfirmation(interaction, ctx.confirmations, () =>
+        ctx.members.partner(actor, user.id, remove),
       );
       return;
     }

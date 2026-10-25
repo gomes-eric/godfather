@@ -20,6 +20,21 @@ describe('computeOverwrites', () => {
     expect(o.soldier).toBeUndefined();
   });
 
+  it('asSoldier roles get exactly what the soldier tier gets, and nothing above it', () => {
+    const o = byTarget(
+      computeOverwrites({
+        kind: 'text',
+        view: 'soldier',
+        write: 'officer',
+        tierRoleKeys,
+        asSoldierRoleKeys: ['partner'],
+      }),
+    );
+
+    expect(o.partner?.allow).toBe(P.ViewChannel | P.ReadMessageHistory);
+    expect(o.partner?.allow).toBe(o.soldier?.allow);
+  });
+
   it('members-only channel: hidden from everyone, open to soldier and above', () => {
     const o = byTarget(
       computeOverwrites({ kind: 'text', view: 'soldier', write: 'soldier', tierRoleKeys }),

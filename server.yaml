@@ -23,14 +23,24 @@ settings:
   afk:
     channel: afk
     timeoutSeconds: 900
+  # Given and taken with /member partner (by Oficiais): friends who don't play.
+  partnerRole: partner
   welcome:
     channel: welcome
     autoRole: visitor
     botRole: bots            # every bot that joins gets this role instead of autoRole
+    # Posted as a card; {member} mentions the newcomer, {channel:<key>} becomes a link.
+    title: 🌹 Bem-vindo(a) à M4F1A!
     message: |
-      Bem-vindo(a) à **M4F1A**, {member}! 🌹
-      Quer entrar na legião? Fale com a gente em {channel:recruitment}.
-      Leia as {channel:rules} antes de tudo.
+      {member}, que bom ter você por aqui!
+      Somos uma legião **Asmodiana** do **Triniel** (Aion 2 LATAM).
+    steps:
+      - name: 📜 Leia as regras
+        value: Tudo começa em {channel:rules}.
+      - name: 🤝 Quer entrar na legião?
+        value: Apresente-se em {channel:recruitment} e fale com um Oficial.
+      - name: ❓ Ficou com dúvida?
+        value: Pergunte em {channel:visitor-qa}, a gente responde.
   # Posted (and kept up to date) by /setup in #regras. {channel:<key>} becomes a clickable link.
   rules:
     channel: rules
@@ -78,6 +88,8 @@ settings:
     channel: audit-log
   musicGuard:
     channel: music
+    # Jockie Music reads text commands (m!p, m!s...); messages starting with these stay.
+    commandPrefixes: ["m!"]
   # Safety net for the ➕ Criar generators: new rooms per minute for the whole server (0 = no limit).
   # There is no per-person wait; leaving a room to create another just swaps them.
   voiceRooms:
@@ -109,6 +121,12 @@ roles:
     name: Soldado
     tier: soldier
     color: "#8B7FB8"   # dusk lavender
+    hoist: true
+  # Friends who don't play: they chat and hang out in voice, outside the tier ladder.
+  # Channels let them in with access.asSoldier.
+  - key: partner
+    name: Parceiro
+    color: "#C98A6B"   # copper
     hoist: true
   - key: visitor
     name: Visitante
@@ -150,16 +168,17 @@ categories:
       - { key: recruitment, type: text, name: recrutamento }
       - { key: visitor-qa,  type: text, name: duvidas-visitantes }
 
+  # asSoldier: roles that get what Soldado gets here; a channel's [] leaves them out.
   - key: legion
     name: 📣 M4F1A
-    access: { view: soldier, write: soldier }
+    access: { view: soldier, write: soldier, asSoldier: [partner] }
     channels:
       - { key: general,      type: text, name: geral }
       - { key: off-topic,    type: text, name: off-topic }
       - { key: clips,        type: text, name: prints-e-clips }
-      - { key: builds,       type: text, name: builds-e-equips }
-      - { key: event-alerts, type: text, name: eventos, access: { write: bot } }
-      - { key: agenda,       type: text, name: agenda,  access: { write: bot } }
+      - { key: builds,       type: text, name: builds-e-equips, access: { asSoldier: [] } }
+      - { key: event-alerts, type: text, name: eventos, access: { write: bot, asSoldier: [] } }
+      - { key: agenda,       type: text, name: agenda,  access: { write: bot, asSoldier: [] } }
 
   - key: knowledge
     name: 📚 CONHECIMENTO
@@ -189,12 +208,13 @@ categories:
   # Fixed rooms everyone shares.
   - key: voice-rooms
     name: 🔊 SALAS GERAIS
-    access: { view: soldier, write: soldier }
+    access: { view: soldier, write: soldier, asSoldier: [partner] }
     channels:
       - { key: general-voice, type: voice, name: Geral }
       - key: event-stage
         type: stage
         name: Evento
+        access: { asSoldier: [] }
         # Stage moderators (who bring people up to speak) need Manage Channels on the stage.
         allow:
           - role: officer
@@ -212,18 +232,20 @@ categories:
     access: { view: soldier, write: soldier }
   - key: social-rooms
     name: 🍻 SALAS SOCIAL
-    access: { view: soldier, write: soldier }
+    access: { view: soldier, write: soldier, asSoldier: [partner] }
 
   - key: music
     name: 🎵 MÚSICA
-    access: { view: soldier, write: none }
+    access: { view: soldier, write: none, asSoldier: [partner] }
     channels:
       - key: music
         type: text
         name: musica
-        topic: Só comandos de música (/play, /skip...). Mensagens comuns são apagadas.
+        topic: "Só comandos de música: Jockie (m!p, m!s...) e Rythm (/play, /skip...). Outras mensagens são apagadas."
+        # People write here only to type Jockie's m! commands; the music guard deletes the rest.
+        access: { write: soldier }
         allowSlashCommands: soldier
-        # Music bots post "now playing" here; people only run slash commands.
+        # Music bots post "now playing" here.
         allow:
           - role: bots
             permissions: [ViewChannel, SendMessages, EmbedLinks, ReadMessageHistory]
@@ -238,7 +260,7 @@ categories:
 
   - key: afk
     name: 🌙 AFK
-    access: { view: soldier, write: none }
+    access: { view: soldier, write: none, asSoldier: [partner] }
     channels:
       - { key: afk, type: voice, name: AFK }
 

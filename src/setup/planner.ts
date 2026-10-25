@@ -1,3 +1,4 @@
+import { PermissionFlagsBits } from 'discord.js';
 import type { ManagedState } from '../db/managed-objects.js';
 import { PANEL_PREFIX } from './desired.js';
 import {
@@ -12,6 +13,15 @@ import {
   type SetupPlan,
   type SetupWarning,
 } from './model.js';
+
+/**
+ * Administrator grants everything, so two sets that both include it are the same in effect; the
+ * other bits Discord keeps alongside it (it ticks them all on a new admin role) don't matter.
+ */
+export function samePermissions(a: bigint, b: bigint): boolean {
+  const admin = PermissionFlagsBits.Administrator;
+  return a === b || ((a & admin) !== 0n && (b & admin) !== 0n);
+}
 
 export interface PlanInput {
   desired: DesiredState;
@@ -98,7 +108,7 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     if (existing.color !== role.color) changes.push('color');
     if (existing.hoist !== role.hoist) changes.push('hoist');
     if (existing.mentionable !== role.mentionable) changes.push('mentionable');
-    if (existing.permissions !== role.permissions) changes.push('permissions');
+    if (!samePermissions(existing.permissions, role.permissions)) changes.push('permissions');
 
     // The bot can't edit roles above its own (e.g. Comandante, kept at the top on purpose).
     // It still tracks the role; it only warns when the role differs from server.yaml.

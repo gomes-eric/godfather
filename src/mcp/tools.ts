@@ -347,6 +347,17 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     },
   );
   tool(
+    'partner_member',
+    'Torna Parceiro (amigo que não joga) um Visitante, ou com remove=true tira o Parceiro e volta para Visitante.',
+    { member, remove: z.boolean().optional().describe('true para tirar o cargo') },
+    async (args) => {
+      const id = memberId(args.member);
+      return typeof id === 'string'
+        ? fromOutcome(await s.members.partner(actor, id, args.remove === true))
+        : id;
+    },
+  );
+  tool(
     'kick_member',
     'Expulsa um membro (destrutivo).',
     { member, reason, confirm },

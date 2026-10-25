@@ -94,6 +94,43 @@ export function checkModerationTarget(input: {
  * Roles a member should have after moving to `to`: every tier role (and Visitante) removed,
  * then the new tier's role added. Other roles (classes, Bot) are kept.
  */
+export type PartnerRefusal =
+  'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | 'alreadyPartner' | 'notPartner' | 'inLegion';
+
+/**
+ * Parceiro is for people who don't play: only someone outside the legion (Visitante) can become
+ * one, and removing it sends them back to Visitante.
+ */
+export function decidePartner(input: {
+  actorId: string;
+  targetId: string;
+  targetIsBot: boolean;
+  targetIsOwner: boolean;
+  targetTier: Tier;
+  isPartner: boolean;
+  remove: boolean;
+}): PartnerRefusal | null {
+  if (input.targetIsBot) return 'targetIsBot';
+  if (input.targetIsOwner) return 'targetIsOwner';
+  if (input.targetId === input.actorId) return 'targetIsSelf';
+  if (input.remove) return input.isPartner ? null : 'notPartner';
+  if (input.isPartner) return 'alreadyPartner';
+  if (input.targetTier !== 'visitor') return 'inLegion';
+  return null;
+}
+
+/** Roles after giving or taking Parceiro: it swaps with Visitante. */
+export function rolesForPartner(
+  currentRoleIds: string[],
+  partnerRoleId: string,
+  visitorRoleId: string | undefined,
+  remove: boolean,
+): string[] {
+  const kept = currentRoleIds.filter((id) => id !== partnerRoleId && id !== visitorRoleId);
+  if (remove) return visitorRoleId ? [...kept, visitorRoleId] : kept;
+  return [...kept, partnerRoleId];
+}
+
 export function rolesForTier(
   currentRoleIds: string[],
   to: Tier,

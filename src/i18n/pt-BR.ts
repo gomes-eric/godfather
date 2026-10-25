@@ -52,6 +52,7 @@ export const ptBR = {
       'member.timeout': '🔇 Timeout',
       'member.promote': '⬆️ Promoção',
       'member.demote': '⬇️ Rebaixamento',
+      'member.partner': '🤝 Parceiro',
       'channel.create': '➕ Canal criado',
       'channel.edit': '✏️ Canal editado',
       'channel.delete': '🗑️ Canal apagado',
@@ -157,7 +158,15 @@ export const ptBR = {
       cannotManageTier: 'Você só pode mover pessoas para cargos abaixo do seu.',
       officerLimit: 'O limite de Oficiais já foi atingido (o mesmo do jogo).',
       targetTooHigh: 'Você só pode moderar quem está abaixo do seu cargo.',
+      alreadyPartner: 'Essa pessoa já é Parceiro.',
+      notPartner: 'Essa pessoa não é Parceiro.',
+      inLegion:
+        'Essa pessoa já é da legião. Parceiro é para quem não joga; rebaixe para Visitante antes, se for o caso.',
     } as Record<string, string>,
+    noPartnerRole: 'O cargo de Parceiro não está configurado (settings.partnerRole). Rode /setup.',
+    partnered: (name: string) =>
+      `🤝 **${name}** agora é **Parceiro**: pode conversar e usar a voz com a legião.`,
+    unpartnered: (name: string) => `↩️ **${name}** deixou de ser Parceiro e voltou a Visitante.`,
     notMember: 'Essa pessoa não está no servidor.',
     missingRole: (tier: string) => `O cargo **${tier}** ainda não existe. Rode /setup.`,
     botCannot:
@@ -203,6 +212,10 @@ export const ptBR = {
     notText: 'Esse canal não aceita mensagens.',
   },
 
+  welcome: {
+    ping: (id: string) => `👋 <@${id}>`,
+    footer: (count: number) => `Você é o membro nº ${count} · M4F1A`,
+  },
   voice: {
     notInRoom: 'Entre numa sala temporária (criada por um ➕) para usar este comando.',
     notOwner:
@@ -361,8 +374,10 @@ export const ptBR = {
   },
 
   music: {
-    notice: (channelId: string) =>
-      `🎵 Em <#${channelId}> só vale comando de música (\`/play\`, \`/skip\`...). Sua mensagem foi apagada para o canal ficar limpo.`,
+    notice: (channelId: string, prefixes: readonly string[]) => {
+      const examples = [...prefixes.map((p) => `\`${p}play\``), '`/play`'].join(', ');
+      return `🎵 Em <#${channelId}> só vale comando de música (${examples}...). Sua mensagem foi apagada para o canal ficar limpo.`;
+    },
   },
 
   resolve: {

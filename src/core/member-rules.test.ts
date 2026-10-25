@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   checkModerationTarget,
   decideDemotion,
+  decidePartner,
   decidePromotion,
+  rolesForPartner,
   rolesForTier,
 } from './member-rules.js';
 
@@ -132,6 +134,45 @@ describe('rolesForTier', () => {
     expect(rolesForTier(['s', 'class-cleric'], 'visitor', tierRoles)).toEqual([
       'class-cleric',
       'v',
+    ]);
+  });
+});
+
+describe('decidePartner', () => {
+  const base = {
+    actorId: 'officer',
+    targetId: 'friend',
+    targetIsBot: false,
+    targetIsOwner: false,
+    targetTier: 'visitor' as const,
+    isPartner: false,
+    remove: false,
+  };
+
+  it('makes a Visitante a Parceiro and takes it back', () => {
+    expect(decidePartner(base)).toBeNull();
+    expect(decidePartner({ ...base, isPartner: true, remove: true })).toBeNull();
+  });
+
+  it('refuses legion members, repeats, bots, the owner and oneself', () => {
+    expect(decidePartner({ ...base, targetTier: 'soldier' })).toBe('inLegion');
+    expect(decidePartner({ ...base, isPartner: true })).toBe('alreadyPartner');
+    expect(decidePartner({ ...base, remove: true })).toBe('notPartner');
+    expect(decidePartner({ ...base, targetIsBot: true })).toBe('targetIsBot');
+    expect(decidePartner({ ...base, targetIsOwner: true })).toBe('targetIsOwner');
+    expect(decidePartner({ ...base, targetId: 'officer' })).toBe('targetIsSelf');
+  });
+});
+
+describe('rolesForPartner', () => {
+  it('swaps Visitante for Parceiro and back, keeping other roles', () => {
+    expect(rolesForPartner(['visitor', 'class'], 'partner', 'visitor', false)).toEqual([
+      'class',
+      'partner',
+    ]);
+    expect(rolesForPartner(['partner', 'class'], 'partner', 'visitor', true)).toEqual([
+      'class',
+      'visitor',
     ]);
   });
 });

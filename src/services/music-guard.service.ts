@@ -27,10 +27,16 @@ export class NoticeThrottle {
 
 /**
  * Messages that stay in #musica: anything from a bot (music bots answering, slash command
- * replies) and Discord's own system messages. Everything a person types is removed.
+ * replies), Discord's own system messages, and text commands for a music bot (`m!play ...`).
+ * Anything else a person types is removed.
  */
-export function keepInMusicChannel(message: { authorIsBot: boolean; system: boolean }): boolean {
-  return message.authorIsBot || message.system;
+export function keepInMusicChannel(
+  message: { authorIsBot: boolean; system: boolean; content: string },
+  commandPrefixes: readonly string[],
+): boolean {
+  if (message.authorIsBot || message.system) return true;
+  const text = message.content.trimStart().toLowerCase();
+  return commandPrefixes.some((prefix) => text.startsWith(prefix.toLowerCase()));
 }
 
 const USER_TYPES = new Set([MessageType.Default, MessageType.Reply]);
@@ -45,12 +51,18 @@ export class MusicGuardService {
 
   async onMessage(message: Message): Promise<void> {
     if (!message.inGuild()) return;
-    const channel = this.deps.directory.channelByKey(
-      this.deps.config.get().settings.musicGuard.channel,
-    );
+    const { musicGuard } = this.deps.config.get().settings;
+    const channel = this.deps.directory.channelByKey(musicGuard.channel);
     if (!channel || message.channelId !== channel.id) return;
     if (
-      keepInMusicChannel({ authorIsBot: message.author.bot, system: !USER_TYPES.has(message.type) })
+      keepInMusicChannel(
+        {
+          authorIsBot: message.author.bot,
+          system: !USER_TYPES.has(message.type),
+          content: message.content,
+        },
+        musicGuard.commandPrefixes,
+      )
     ) {
       return;
     }
@@ -61,7 +73,9 @@ export class MusicGuardService {
       'removed a non-command message from #musica',
     );
     if (this.throttle.take(message.author.id)) {
-      await message.author.send(ptBR.music.notice(channel.id)).catch(() => undefined); // DMs may be closed
+      await message.author
+        .send(ptBR.music.notice(channel.id, musicGuard.commandPrefixes))
+        .catch(() => undefined); // DMs may be closed
     }
   }
 }

@@ -44,7 +44,15 @@ const roleSchema = z.object({
   managed: z.boolean().default(true),
 });
 
-const accessSchema = z.object({ view: accessLevel, write: accessLevel });
+const accessSchema = z.object({
+  view: accessLevel,
+  write: accessLevel,
+  /**
+   * Roles outside the tier ladder that get whatever Soldado gets here, e.g. Parceiro in the social
+   * channels. A channel's own list replaces its category's; `[]` leaves them out.
+   */
+  asSoldier: z.array(key).optional(),
+});
 
 const forumTagSchema = z.object({ name: z.string().min(1).max(20), emoji: z.string().optional() });
 
@@ -154,12 +162,20 @@ const settingsSchema = z.looseObject({
       message: `timeoutSeconds must be one of ${AFK_TIMEOUTS.join(', ')}`,
     }),
   }),
+  /** Role /member partner gives to people who don't play (they keep it instead of Visitante). */
+  partnerRole: key.optional(),
   welcome: z.object({
     channel: key,
     autoRole: key,
     /** Role given to every bot that joins (Jockie, Rythm, ...) instead of autoRole. */
     botRole: key.optional(),
-    message: z.string().min(1),
+    title: z.string().max(256).optional(),
+    message: z.string().min(1).max(4000),
+    /** Shown as numbered fields under the message: what a newcomer should do first. */
+    steps: z
+      .array(z.object({ name: z.string().min(1).max(256), value: z.string().min(1).max(1024) }))
+      .max(25)
+      .default([]),
   }),
   rules: z.object({
     channel: key,
@@ -168,7 +184,11 @@ const settingsSchema = z.looseObject({
   }),
   rolePicker: z.object({ channel: key, multipleClasses: z.boolean().default(false) }),
   audit: z.object({ channel: key }),
-  musicGuard: z.object({ channel: key }),
+  musicGuard: z.object({
+    channel: key,
+    /** Text commands people may type, e.g. Jockie Music's "m!". Matched case-insensitively. */
+    commandPrefixes: z.array(z.string().min(1).max(10)).default([]),
+  }),
   voiceRooms: z
     .object({
       /** New join-to-create rooms per minute for the whole server; 0 = no limit. */
@@ -261,9 +281,26 @@ export const serverConfigSchema = z
         `unknown role key "${config.settings.welcome.autoRole}"`,
       );
     }
+    const partnerRole = config.settings.partnerRole;
+    if (partnerRole !== undefined && !roleKeys.includes(partnerRole)) {
+      issue(['settings', 'partnerRole'], `unknown role key "${partnerRole}"`);
+    }
     const botRole = config.settings.welcome.botRole;
     if (botRole !== undefined && !roleKeys.includes(botRole)) {
       issue(['settings', 'welcome', 'botRole'], `unknown role key "${botRole}"`);
+    }
+    const checkAsSoldier = (path: string, list: string[] | undefined) => {
+      for (const roleKey of list ?? []) {
+        if (!roleKeys.includes(roleKey)) {
+          issue(['categories'], `${path} asSoldier has unknown role key "${roleKey}"`);
+        }
+      }
+    };
+    for (const category of config.categories) {
+      checkAsSoldier(`category "${category.key}"`, category.access.asSoldier);
+      for (const channel of category.channels) {
+        checkAsSoldier(`channel "${channel.key}"`, channel.access?.asSoldier);
+      }
     }
     channels.forEach((channel) => {
       for (const extra of channel.allow) {
@@ -325,6 +362,18 @@ export function tierRoleNames(config: ServerConfig): Partial<Record<RankedTier, 
     if (role.tier && role.tier !== 'visitor') names[role.tier] = role.name;
   }
   return names;
+}
+
+/** Roles that stand in for Soldado somewhere (asSoldier), e.g. Parceiro. */
+export function soldierLikeRoleKeys(config: ServerConfig): string[] {
+  const keys = new Set<string>();
+  for (const category of config.categories) {
+    for (const key of category.access.asSoldier ?? []) keys.add(key);
+    for (const channel of category.channels) {
+      for (const key of channel.access?.asSoldier ?? []) keys.add(key);
+    }
+  }
+  return [...keys];
 }
 
 /** Role keys for each ranked tier, e.g. { officer: "officer" }. */

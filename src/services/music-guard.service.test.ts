@@ -2,10 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { keepInMusicChannel, NoticeThrottle } from './music-guard.service.js';
 
 describe('keepInMusicChannel', () => {
-  it('keeps bot messages and system messages, removes what people type', () => {
-    expect(keepInMusicChannel({ authorIsBot: true, system: false })).toBe(true);
-    expect(keepInMusicChannel({ authorIsBot: false, system: true })).toBe(true);
-    expect(keepInMusicChannel({ authorIsBot: false, system: false })).toBe(false);
+  const person = { authorIsBot: false, system: false };
+
+  it('keeps bot messages and system messages, removes chatter', () => {
+    expect(keepInMusicChannel({ authorIsBot: true, system: false, content: 'oi' }, [])).toBe(true);
+    expect(keepInMusicChannel({ authorIsBot: false, system: true, content: '' }, [])).toBe(true);
+    expect(keepInMusicChannel({ ...person, content: 'que música boa' }, ['m!'])).toBe(false);
+  });
+
+  it('keeps text commands for the configured prefixes, in any case', () => {
+    for (const content of ['m!p never gonna', 'm!s', '  M!Queue']) {
+      expect(keepInMusicChannel({ ...person, content }, ['m!']), content).toBe(true);
+    }
+    expect(keepInMusicChannel({ ...person, content: 'm!p x' }, [])).toBe(false);
+    expect(keepInMusicChannel({ ...person, content: 'olha m!p' }, ['m!'])).toBe(false);
   });
 });
 

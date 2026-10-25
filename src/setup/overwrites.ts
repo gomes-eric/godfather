@@ -54,6 +54,8 @@ export interface OverwriteInput {
   slashCommands?: AccessLevel;
   /** Role key per tier, e.g. { soldier: "soldier" }. */
   tierRoleKeys: Partial<Record<RankedTier, string>>;
+  /** Roles that get whatever the soldier tier gets here (server.yaml `asSoldier`). */
+  asSoldierRoleKeys?: string[];
   /** Fixed allows on top of the access rules, e.g. the Bot role in every voice channel. */
   extraAllows?: { roleKey: string; allow: bigint }[];
 }
@@ -88,6 +90,9 @@ export function computeOverwrites(input: OverwriteInput): DesiredOverwrite[] {
     entry(EVERYONE).deny |= permissions;
     for (const [tier, roleKey] of Object.entries(input.tierRoleKeys) as [RankedTier, string][]) {
       if (TIER_LEVELS[tier] >= LEVEL_RANK[level]) entry(roleKey).allow |= permissions;
+    }
+    if (level === 'soldier') {
+      for (const roleKey of input.asSoldierRoleKeys ?? []) entry(roleKey).allow |= permissions;
     }
   }
 

@@ -27,6 +27,7 @@ export const ACTION_POLICIES = {
   'member.timeout': policy('officer'),
   'member.promote': policy('officer'),
   'member.demote': policy('officer', { destructive: true }),
+  'member.partner': policy('officer'),
   'member.read': policy('officer', { audited: false }),
 
   'channel.create': policy('commander'),
@@ -57,7 +58,10 @@ export const ACTION_POLICIES = {
   'boss.read': policy('soldier', { audited: false }),
   'boss.override': policy('officer'),
 
-  'voice.own.manage': policy('soldier'),
+  // Self-service on your own room: owning it is the real check (VoiceService), so Parceiros
+  // can run their Social rooms. Not audited, like other self-service clicks; an officer acting
+  // on someone else's room (voice.temp.manage) still is.
+  'voice.own.manage': policy('visitor', { audited: false }),
   'voice.temp.manage': policy('officer'),
   'voice.generator.upsert': policy('commander'),
   'voice.generator.delete': policy('commander', { destructive: true }),

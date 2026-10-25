@@ -94,6 +94,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: category.access.view,
           write: category.access.write,
           tierRoleKeys: tiers,
+          asSoldierRoleKeys: category.access.asSoldier ?? [],
           ...(hasVoice && { extraAllows: voiceAllows }),
         }),
       };
@@ -116,6 +117,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: access.view,
           write: access.write,
           tierRoleKeys: tiers,
+          asSoldierRoleKeys: access.asSoldier ?? [],
           ...(channel.allowSlashCommands && { slashCommands: channel.allowSlashCommands }),
           extraAllows: [
             ...(isVoice ? voiceAllows : []),
@@ -147,6 +149,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: category.access.view,
           write: category.access.write,
           tierRoleKeys: tiers,
+          asSoldierRoleKeys: category.access.asSoldier ?? [],
           extraAllows: voiceAllows,
         }),
         tags: [],
