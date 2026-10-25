@@ -1,6 +1,16 @@
 import { serve } from '@hono/node-server';
+import { ConfigError, loadServerConfig } from './config/loader.js';
+import { createActionRunner } from './core/action.js';
+import { AuditLog } from './core/audit.js';
 import { openDatabase } from './db/client.js';
+import { resolveActor } from './discord/actor.js';
+import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
 import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/client.js';
+import { commands } from './discord/commands/index.js';
+import { createNameDirectory } from './discord/directory.js';
+import { createConfirmationStore } from './discord/interactions/confirmation.js';
+import { attachInteractionRouter } from './discord/interactions/router.js';
+import { registerGuildCommands } from './discord/register-commands.js';
 import { EnvError, loadEnv } from './env.js';
 import { createHttpApp } from './http/app.js';
 import { createLogger } from './logger.js';
@@ -9,9 +19,14 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const logger = createLogger(env);
 
+  const config = loadServerConfig(env.SERVER_CONFIG_PATH);
+  logger.info({ path: env.SERVER_CONFIG_PATH }, 'server config loaded');
+
   const database = openDatabase(env.DATABASE_PATH);
   logger.info({ path: env.DATABASE_PATH }, 'database ready');
 
+  const audit = new AuditLog(database.db, logger);
+  const runAction = createActionRunner(audit);
   const client = createDiscordClient();
 
   const app = createHttpApp({
@@ -38,19 +53,40 @@ async function main(): Promise<void> {
   process.once('SIGTERM', () => void stop('SIGTERM'));
 
   try {
-    await connectDiscord(client, {
+    const guild = await connectDiscord(client, {
       token: env.DISCORD_TOKEN,
       guildId: env.DISCORD_GUILD_ID,
       logger,
     });
+
+    const directory = createNameDirectory(guild, () => config);
+    audit.setPublisher(
+      createDiscordAuditPublisher(directory, () => config.settings.audit.channel, logger),
+    );
+
+    attachInteractionRouter(client, commands, {
+      guild,
+      logger,
+      audit,
+      runAction,
+      confirmations: createConfirmationStore(),
+      resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),
+    });
+    await registerGuildCommands({
+      token: env.DISCORD_TOKEN,
+      clientId: env.DISCORD_CLIENT_ID,
+      guildId: guild.id,
+      commands,
+      logger,
+    });
   } catch (error) {
-    logger.fatal({ err: error }, 'could not connect to Discord');
+    logger.fatal({ err: error }, 'could not start the Discord side of the bot');
     process.exitCode = 1;
     await stop('startup failure');
   }
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof EnvError ? error.message : error);
+  console.error(error instanceof EnvError || error instanceof ConfigError ? error.message : error);
   process.exitCode = 1;
 });
