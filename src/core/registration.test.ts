@@ -3,6 +3,7 @@ import {
   checkGameName,
   normalizeGameName,
   registrationNickname,
+  rolesWithClass,
   stripClassEmoji,
 } from './registration.js';
 
@@ -25,5 +26,23 @@ describe('registration', () => {
   it('strips a class emoji the nickname already has', () => {
     expect(stripClassEmoji('⚔️ Padrinho', ['🛡️', '⚔️'])).toBe('Padrinho');
     expect(stripClassEmoji('Padrinho', ['⚔️'])).toBe('Padrinho');
+  });
+});
+
+describe('rolesWithClass', () => {
+  const classes = ['assassin', 'cleric', 'mage'];
+
+  it('keeps the class once when the member already has it (registering again)', () => {
+    expect(rolesWithClass(['soldier', 'assassin'], 'assassin', classes)).toEqual([
+      'soldier',
+      'assassin',
+    ]);
+  });
+
+  it('swaps another class for the chosen one and keeps other roles', () => {
+    expect(rolesWithClass(['soldier', 'cleric', 'mage'], 'assassin', classes)).toEqual([
+      'soldier',
+      'assassin',
+    ]);
   });
 });

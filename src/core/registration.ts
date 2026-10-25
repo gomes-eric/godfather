@@ -32,3 +32,16 @@ export function stripClassEmoji(nickname: string, classEmojis: readonly string[]
   }
   return nickname;
 }
+
+/**
+ * The member's roles with exactly one class: every class role goes, then the chosen one is added
+ * once. Discord rejects a role list that names the same role twice (someone registering again).
+ */
+export function rolesWithClass(
+  currentRoleIds: readonly string[],
+  classRoleId: string,
+  allClassRoleIds: readonly string[],
+): string[] {
+  const classes = new Set([...allClassRoleIds, classRoleId]);
+  return [...currentRoleIds.filter((id) => !classes.has(id)), classRoleId];
+}

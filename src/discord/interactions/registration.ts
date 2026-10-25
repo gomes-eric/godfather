@@ -12,6 +12,7 @@ import {
   checkGameName,
   normalizeGameName,
   registrationNickname,
+  rolesWithClass,
   stripClassEmoji,
 } from '../../core/registration.js';
 import { ptBR } from '../../i18n/pt-BR.js';
@@ -126,15 +127,11 @@ export async function handleRegisterModal(
     preview: nickname,
     execute: async () => {
       const member = await ctx.guild.members.fetch(interaction.user.id);
-      const otherClassIds = new Set(
-        roles.map((r) => ctx.directory.roleId(r.key)).filter((id) => id !== chosenId),
-      );
-      await member.roles.set([
-        ...member.roles.cache
-          .filter((r) => r.id !== ctx.guild.id && !otherClassIds.has(r.id))
-          .keys(),
-        chosenId,
-      ]);
+      const classIds = roles
+        .map((r) => ctx.directory.roleId(r.key))
+        .filter((id): id is string => id !== undefined);
+      const current = [...member.roles.cache.keys()].filter((id) => id !== ctx.guild.id);
+      await member.roles.set(rolesWithClass(current, chosenId, classIds));
       ctx.registrations.save({
         userId: member.id,
         characterId: character.id,
