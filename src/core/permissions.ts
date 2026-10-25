@@ -4,18 +4,18 @@ export interface ActionPolicy {
   minTier: Tier;
   /** Requires `confirm: true`; without it the action only returns a preview (PLAN.md §5.3). */
   destructive: boolean;
-  /** Read-only actions are authorized but not written to the audit log. */
-  readOnly: boolean;
+  /** Whether the action is written to the audit log. Reads and self-service clicks are not. */
+  audited: boolean;
 }
 
 function policy(
   minTier: Tier,
-  options: { destructive?: boolean; readOnly?: boolean } = {},
+  options: { destructive?: boolean; audited?: boolean } = {},
 ): ActionPolicy {
   return {
     minTier,
     destructive: options.destructive ?? false,
-    readOnly: options.readOnly ?? false,
+    audited: options.audited ?? true,
   };
 }
 
@@ -27,7 +27,7 @@ export const ACTION_POLICIES = {
   'member.timeout': policy('officer'),
   'member.promote': policy('officer'),
   'member.demote': policy('officer', { destructive: true }),
-  'member.read': policy('officer', { readOnly: true }),
+  'member.read': policy('officer', { audited: false }),
 
   'channel.create': policy('commander'),
   'channel.edit': policy('commander'),
@@ -36,21 +36,23 @@ export const ACTION_POLICIES = {
   'role.edit': policy('commander'),
   'role.delete': policy('commander', { destructive: true }),
   'role.assign': policy('commander'),
+  // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
+  'class.select': policy('visitor', { audited: false }),
 
   'message.send': policy('officer'),
   'message.edit': policy('officer'),
   'message.delete': policy('officer'),
   'message.purge': policy('officer', { destructive: true }),
-  'message.read': policy('officer', { readOnly: true }),
+  'message.read': policy('officer', { audited: false }),
 
   'event.create': policy('officer'),
   'event.edit': policy('officer'),
   'event.cancel': policy('officer', { destructive: true }),
   'event.template.edit': policy('officer'),
   'event.rsvp': policy('soldier'),
-  'event.read': policy('soldier', { readOnly: true }),
+  'event.read': policy('soldier', { audited: false }),
 
-  'boss.read': policy('soldier', { readOnly: true }),
+  'boss.read': policy('soldier', { audited: false }),
   'boss.override': policy('officer'),
 
   'voice.own.manage': policy('soldier'),
@@ -58,7 +60,7 @@ export const ACTION_POLICIES = {
   'voice.generator.upsert': policy('commander'),
   'voice.generator.delete': policy('commander', { destructive: true }),
 
-  'setup.plan': policy('commander', { readOnly: true }),
+  'setup.plan': policy('commander', { audited: false }),
   'setup.apply': policy('commander', { destructive: true }),
   'config.reload': policy('commander'),
 
@@ -66,7 +68,7 @@ export const ACTION_POLICIES = {
   'mcp.token.revoke.own': policy('officer'),
   'mcp.token.revoke.any': policy('commander'),
 
-  'audit.read': policy('officer', { readOnly: true }),
+  'audit.read': policy('officer', { audited: false }),
 } as const satisfies Record<string, ActionPolicy>;
 
 export type ActionName = keyof typeof ACTION_POLICIES;

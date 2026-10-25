@@ -1,20 +1,32 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ConfigError, loadServerConfig, parseServerConfig } from './loader.js';
-import { channelNameByKey, tierRoleNames } from './schema.js';
+import { channelNameByKey, tierRoleKeys, tierRoleNames } from './schema.js';
 
 const repoServerYaml = fileURLToPath(new URL('../../server.yaml', import.meta.url));
 
-const minimal = `
+export const minimalYaml = `
 settings:
-  audit: { channel: audit-log }
+  botName: Padrinho
+  timezone: America/Sao_Paulo
+  community: { enable: true, rulesChannel: rules, updatesChannel: staff }
+  afk: { channel: afk, timeoutSeconds: 900 }
+  welcome: { channel: rules, autoRole: visitor, message: "Oi {member}" }
+  rules: { channel: rules, message: "Seja legal." }
+  rolePicker: { channel: rules }
+  audit: { channel: staff }
+  musicGuard: { channel: rules }
 roles:
-  - { key: commander, name: Comandante, tier: commander }
+  - { key: commander, name: Comandante, tier: commander, color: "#E0303A", permissions: [Administrator] }
+  - { key: visitor, name: Visitante, tier: visitor }
 categories:
-  - key: officers
-    name: OFICIAIS
+  - key: main
+    name: MAIN
+    access: { view: everyone, write: everyone }
     channels:
-      - { key: audit-log, name: audit-log }
+      - { key: rules, type: text, name: regras }
+      - { key: staff, type: text, name: staff, access: { view: commander } }
+      - { key: afk, type: voice, name: AFK }
 `;
 
 describe('server.yaml', () => {
@@ -26,26 +38,67 @@ describe('server.yaml', () => {
       officer: 'Oficial',
       soldier: 'Soldado',
     });
+    expect(tierRoleKeys(config)).toEqual({
+      commander: 'commander',
+      officer: 'officer',
+      soldier: 'soldier',
+    });
     expect(channelNameByKey(config, config.settings.audit.channel)).toBe('audit-log');
+    expect(config.voiceGenerators.map((g) => g.key)).toContain('gen-abyss');
   });
 
-  it('keeps keys the schema does not know about yet', () => {
-    const config = parseServerConfig(`${minimal}\nvoiceGenerators: []\n`);
-    expect(config).toHaveProperty('voiceGenerators', []);
+  it('parses colors into numbers and applies defaults', () => {
+    const config = parseServerConfig(minimalYaml);
+    const commander = config.roles[0];
+
+    expect(commander?.color).toBe(0xe0303a);
+    expect(commander?.hoist).toBe(false);
+    expect(config.settings.rolePicker.multipleClasses).toBe(false);
+    expect(config.voiceGenerators).toEqual([]);
   });
 
-  it('rejects an audit channel key that does not exist', () => {
-    expect(() => parseServerConfig(minimal.replace('channel: audit-log', 'channel: nope'))).toThrow(
-      /settings\.audit\.channel: unknown channel key "nope"/,
-    );
+  it('keeps sections later phases own', () => {
+    const config = parseServerConfig(`${minimalYaml}\neventTemplates: []\n`);
+    expect(config).toHaveProperty('eventTemplates', []);
+  });
+
+  it('rejects a settings channel key that does not exist', () => {
+    expect(() =>
+      parseServerConfig(
+        minimalYaml.replace('audit: { channel: staff }', 'audit: { channel: nope }'),
+      ),
+    ).toThrow(/settings\.audit\.channel: "nope" is not a channel key/);
+  });
+
+  it('rejects an AFK channel that is not a voice channel', () => {
+    expect(() =>
+      parseServerConfig(minimalYaml.replace('afk: { channel: afk', 'afk: { channel: rules')),
+    ).toThrow(/settings\.afk\.channel/);
   });
 
   it('rejects two roles with the same tier', () => {
-    const duplicated = minimal.replace(
-      '  - { key: commander, name: Comandante, tier: commander }',
-      '  - { key: a, name: A, tier: officer }\n  - { key: b, name: B, tier: officer }',
+    expect(() =>
+      parseServerConfig(
+        minimalYaml.replace(
+          '{ key: visitor, name: Visitante, tier: visitor }',
+          '{ key: x, name: X, tier: commander }',
+        ),
+      ),
+    ).toThrow(/tier "commander" is assigned to more than one role/);
+  });
+
+  it('rejects unknown Discord permissions', () => {
+    expect(() => parseServerConfig(minimalYaml.replace('[Administrator]', '[BeAwesome]'))).toThrow(
+      /unknown Discord permission/,
     );
-    expect(() => parseServerConfig(duplicated)).toThrow(/tier "officer" is assigned to more/);
+  });
+
+  it('rejects duplicate channel keys', () => {
+    expect(() =>
+      parseServerConfig(
+        minimalYaml.replace('{ key: afk, type: voice', '{ key: rules, type: voice'),
+      ),
+    ).toThrow(/duplicate channel key "rules"/);
   });
 
   it('reports malformed YAML as a ConfigError', () => {

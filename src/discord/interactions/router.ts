@@ -2,6 +2,7 @@ import { Events, MessageFlags, type Client, type Interaction } from 'discord.js'
 import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
+import { handleRolePickerButton } from './role-picker.js';
 
 async function replyWithError(interaction: Interaction, content: string): Promise<void> {
   if (!interaction.isRepliable()) return;
@@ -38,7 +39,10 @@ export function attachInteractionRouter(
       }
 
       if (interaction.isButton()) {
-        await handleConfirmationButton(interaction, ctx.confirmations);
+        const handled =
+          (await handleConfirmationButton(interaction, ctx.confirmations)) ||
+          (await handleRolePickerButton(interaction, ctx));
+        if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');
       }
     } catch (error) {
       ctx.logger.error(

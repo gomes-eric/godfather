@@ -1,30 +1,35 @@
 import { serve } from '@hono/node-server';
-import { ConfigError, loadServerConfig } from './config/loader.js';
+import { ConfigError } from './config/loader.js';
+import { ConfigStore } from './config/store.js';
 import { createActionRunner } from './core/action.js';
 import { AuditLog } from './core/audit.js';
 import { openDatabase } from './db/client.js';
+import { ManagedObjectStore } from './db/managed-objects.js';
 import { resolveActor } from './discord/actor.js';
 import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
 import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/client.js';
 import { commands } from './discord/commands/index.js';
-import { createNameDirectory } from './discord/directory.js';
+import { createDirectory } from './discord/directory.js';
+import { createDiscordGuildPort } from './discord/guild-port.js';
 import { createConfirmationStore } from './discord/interactions/confirmation.js';
 import { attachInteractionRouter } from './discord/interactions/router.js';
 import { registerGuildCommands } from './discord/register-commands.js';
 import { EnvError, loadEnv } from './env.js';
 import { createHttpApp } from './http/app.js';
 import { createLogger } from './logger.js';
+import { SetupService } from './services/setup.service.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const logger = createLogger(env);
 
-  const config = loadServerConfig(env.SERVER_CONFIG_PATH);
+  const config = new ConfigStore(env.SERVER_CONFIG_PATH);
   logger.info({ path: env.SERVER_CONFIG_PATH }, 'server config loaded');
 
   const database = openDatabase(env.DATABASE_PATH);
   logger.info({ path: env.DATABASE_PATH }, 'database ready');
 
+  const managed = new ManagedObjectStore(database.db);
   const audit = new AuditLog(database.db, logger);
   const runAction = createActionRunner(audit);
   const client = createDiscordClient();
@@ -59,15 +64,18 @@ async function main(): Promise<void> {
       logger,
     });
 
-    const directory = createNameDirectory(guild, () => config);
+    const directory = createDirectory(guild, managed, () => config.get());
     audit.setPublisher(
-      createDiscordAuditPublisher(directory, () => config.settings.audit.channel, logger),
+      createDiscordAuditPublisher(directory, () => config.get().settings.audit.channel, logger),
     );
 
     attachInteractionRouter(client, commands, {
       guild,
       logger,
+      config,
+      directory,
       audit,
+      setup: new SetupService(createDiscordGuildPort(guild), managed, config),
       runAction,
       confirmations: createConfirmationStore(),
       resolveActor: (userId) => resolveActor(guild, directory, userId, 'slash'),

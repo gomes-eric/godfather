@@ -33,7 +33,7 @@ export function createActionRunner(audit: Pick<AuditLog, 'record'>): ActionRunne
     const { actor, action, target, params } = request;
     const policy = getPolicy(action);
     const record = async (result: 'ok' | 'denied' | 'error' | 'confirmation_required') => {
-      if (!policy.readOnly) {
+      if (policy.audited) {
         await audit.record({
           actor,
           action,

@@ -30,6 +30,20 @@ settings:
       Bem-vindo(a) à **M4F1A**, {member}! 🌹
       Quer entrar na legião? Fale com a gente em {channel:recruitment}.
       Leia as {channel:rules} antes de tudo.
+  # Posted (and kept up to date) by /setup in #regras. Draft: edit freely.
+  rules:
+    channel: rules
+    message: |
+      # 📜 Regras da M4F1A
+
+      **1. Respeito acima de tudo.** Sem ofensas, preconceito ou assédio — dentro e fora do jogo.
+      **2. A legião vem primeiro.** Em guerras e chefes, siga a call dos oficiais.
+      **3. Sem spam ou divulgação** de outros servidores, vendas ou links suspeitos.
+      **4. Use o canal certo.** Música só em #musica, guias no fórum de tutoriais.
+      **5. Nada de conteúdo NSFW** ou que viole os termos do Discord e do Aion 2.
+      **6. Problemas com alguém?** Fale com um Oficial em vez de discutir no chat.
+
+      O descumprimento pode levar a advertência, timeout ou remoção da legião.
   rolePicker:
     channel: role-picker
     multipleClasses: false

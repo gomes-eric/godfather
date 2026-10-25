@@ -27,9 +27,9 @@ describe('authorize', () => {
     });
   });
 
-  it('never lets a visitor perform any write action', () => {
+  it('never lets a visitor perform any audited action', () => {
     for (const [action, policy] of Object.entries(ACTION_POLICIES)) {
-      if (!policy.readOnly) {
+      if (policy.audited) {
         expect(authorize('visitor', action as ActionName).allowed, action).toBe(false);
       }
     }
@@ -56,9 +56,9 @@ describe('destructive actions', () => {
     ]);
   });
 
-  it('are never read-only', () => {
+  it('are always audited', () => {
     for (const [action, policy] of Object.entries(ACTION_POLICIES)) {
-      expect(policy.destructive && policy.readOnly, action).toBe(false);
+      expect(policy.destructive && !policy.audited, action).toBe(false);
     }
   });
 });

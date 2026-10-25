@@ -33,17 +33,29 @@ function outcomeMessage(
 
 /**
  * Runs an operation for a slash command. Destructive actions first get an ephemeral preview
- * with Confirmar/Cancelar buttons; the button handler below finishes the job.
+ * with Confirmar/Cancelar buttons; the button handler below finishes the job. Works whether or
+ * not the command already deferred its (ephemeral) reply.
  */
 export async function runWithConfirmation(
   interaction: ChatInputCommandInteraction,
   store: ConfirmationStore,
   operation: ConfirmableOperation,
 ): Promise<void> {
+  const respond = async (payload: {
+    content: string;
+    components?: ActionRowBuilder<ButtonBuilder>[];
+  }) => {
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(payload);
+    } else {
+      await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+    }
+  };
+
   const outcome = await operation(false);
 
   if (outcome.status !== 'confirmation_required') {
-    await interaction.reply({ content: outcomeMessage(outcome), flags: MessageFlags.Ephemeral });
+    await respond({ content: outcomeMessage(outcome) });
     return;
   }
 
@@ -58,11 +70,7 @@ export async function runWithConfirmation(
       .setLabel(ptBR.confirmation.cancelButton)
       .setStyle(ButtonStyle.Secondary),
   );
-  await interaction.reply({
-    content: ptBR.confirmation.prompt(outcome.preview),
-    components: [buttons],
-    flags: MessageFlags.Ephemeral,
-  });
+  await respond({ content: ptBR.confirmation.prompt(outcome.preview), components: [buttons] });
 }
 
 /** Handles Confirmar/Cancelar clicks. Returns false if the button is not a confirmation button. */
