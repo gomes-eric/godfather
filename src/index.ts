@@ -39,6 +39,8 @@ import { SetupService } from './services/setup.service.js';
 import { TokenService } from './services/token.service.js';
 import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
+import { PatchNotesService } from './services/patch-notes.service.js';
+import { PatchNoteStore } from './db/patch-notes.js';
 import { GameCharacterService } from './services/game-character.service.js';
 import { CharacterStore } from './db/characters.js';
 
@@ -148,12 +150,20 @@ async function main(): Promise<void> {
       logger,
       sources: [bosses],
     });
+    const patchNotes = new PatchNotesService({
+      config,
+      directory,
+      store: new PatchNoteStore(database.db),
+      logger,
+    });
     stopScheduler = () => {
       scheduler.stop();
       bosses.stop();
+      patchNotes.stop();
     };
     scheduler.start();
     bosses.start();
+    patchNotes.start();
 
     // Shared by slash commands and MCP tools: both adapters call the same services.
     const services = {

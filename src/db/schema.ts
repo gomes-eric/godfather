@@ -145,6 +145,15 @@ export const mcpTokens = sqliteTable('mcp_tokens', {
   revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
 });
 
+// Steam patch-note posts already posted in #patch-notes (messageId null = skipped on first run).
+export const postedPatchNotes = sqliteTable('posted_patch_notes', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id'),
+  postedAt: integer('posted_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+});
+
 // The in-game character each member registered in #registro (one per member).
 export const registeredCharacters = sqliteTable('registered_characters', {
   userId: text('user_id').primaryKey(),

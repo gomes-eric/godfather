@@ -187,6 +187,16 @@ const settingsSchema = z.looseObject({
    * #registro form is how it changes. Administrators are not affected.
    */
   lockNicknames: z.boolean().default(false),
+  /** #patch-notes: the game's patch notes from its Steam announcements, in Portuguese. */
+  patchNotes: z
+    .object({
+      channel: key,
+      steamAppId: z.number().int().positive(),
+      /** An announcement is posted when its title contains one of these (any case). */
+      titleMatches: z.array(z.string().min(1)).min(1),
+      pollMinutes: z.number().int().min(5).default(15),
+    })
+    .optional(),
   /** Where #registro and /perfil look characters up on the official Aion 2 site. */
   characters: z.object({
     /** Search region: la = South America. */
@@ -273,6 +283,15 @@ export const serverConfigSchema = z
       [['settings', 'rolePicker', 'channel'], config.settings.rolePicker.channel, textChannelKeys],
       [['settings', 'audit', 'channel'], config.settings.audit.channel, textChannelKeys],
       [['settings', 'musicGuard', 'channel'], config.settings.musicGuard.channel, textChannelKeys],
+      ...(config.settings.patchNotes
+        ? [
+            [
+              ['settings', 'patchNotes', 'channel'],
+              config.settings.patchNotes.channel,
+              textChannelKeys,
+            ] satisfies [string[], string, Set<string>],
+          ]
+        : []),
       [
         ['settings', 'characters', 'recruitmentChannel'],
         config.settings.characters.recruitmentChannel,

@@ -57,6 +57,13 @@
       "when": 1792961281188,
       "tag": "0007_registered_characters",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792967618171,
+      "tag": "0008_posted_patch_notes",
+      "breakpoints": true
     }
   ]
 }

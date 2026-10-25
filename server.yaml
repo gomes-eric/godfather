@@ -85,6 +85,11 @@ settings:
       📝 Registre seu personagem em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
   # Nobody changes their own nickname by hand: #registro sets it (Comandantes are not affected).
   lockNicknames: true
+  # The game's patch notes, read from its Steam announcements (in Portuguese) every 15 minutes.
+  patchNotes:
+    channel: patch-notes
+    steamAppId: 3393110       # AION 2 on Steam
+    titleMatches: ["Notas da Atualização", "Patch Notes"]
   # Characters are read from the official Aion 2 site (the same data shugo.gg shows).
   # Triniel (South America, Asmodian side) is server 2403.
   characters:
@@ -192,6 +197,7 @@ categories:
       - { key: builds,       type: text, name: builds-e-equips, access: { asSoldier: [] } }
       - { key: event-alerts, type: text, name: eventos, access: { write: bot, asSoldier: [] } }
       - { key: agenda,       type: text, name: agenda,  access: { write: bot, asSoldier: [] } }
+      - { key: patch-notes,  type: text, name: patch-notes, topic: "Notas de atualização do Aion 2, postadas pelo Padrinho assim que saem na Steam.", access: { write: bot, asSoldier: [] } }
 
   - key: knowledge
     name: 📚 CONHECIMENTO

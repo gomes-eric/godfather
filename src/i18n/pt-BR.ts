@@ -167,6 +167,14 @@ export const ptBR = {
       `✅ Classe **${className}** marcada. O Discord não me deixa mudar o seu apelido (seu cargo está acima do meu): troque para **${nickname}** em *Editar perfil do servidor*.`,
   },
 
+  patchNotes: {
+    author: 'AION 2 · Atualização',
+    intro: 'Saiu uma nova atualização do jogo.',
+    seeDetails: 'Detalhes na Steam.',
+    button: 'Ler as notas completas',
+    footer: 'Publicado na Steam',
+  },
+
   profile: {
     level: (level: number) => `Nível ${level}`,
     legion: (legion: string) => `🏰 Legião **${legion}**`,
