@@ -11,7 +11,19 @@ import { memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { findChannel, findMember } from '../discord/resolvers.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { classRoles } from '../config/schema.js';
+import { itemLabel, sameLegion } from '../core/game-character.js';
+import type { ApplicationStore } from '../db/applications.js';
+import type { CharacterStore } from '../db/characters.js';
 import type { ChannelService } from '../services/channel.service.js';
+import {
+  GameApiError,
+  type CharacterSheet,
+  type GameCharacterService,
+} from '../services/game-character.service.js';
+import type { LegionCheckService } from '../services/legion-check.service.js';
+import type { RecruitmentDesk } from '../services/recruitment-desk.service.js';
+import type { RegistrationService } from '../services/registration.service.js';
 import { parseDays, type EventService } from '../services/event.service.js';
 import type { FieldBossService } from '../services/field-boss.service.js';
 import type { MemberService } from '../services/member.service.js';
@@ -35,6 +47,14 @@ export interface McpServices {
   bosses: FieldBossService;
   channels: ChannelService;
   roles: RoleService;
+  /** Characters on the official Aion 2 site. */
+  characters: GameCharacterService;
+  /** Which character each member has. */
+  registrations: CharacterStore;
+  registration: RegistrationService;
+  applications: ApplicationStore;
+  recruitmentDesk: RecruitmentDesk;
+  legion: LegionCheckService;
   /** Whether the bot has the Message Content intent (needed by read_messages). */
   messageContent: boolean;
 }
@@ -578,6 +598,165 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     async (args) => fromOutcome(await s.bosses.clear(actor, args.boss)),
   );
 
+  // ---- Characters, registration, recruitment and the legion -----------------------------------
+
+  const sheetJson = ({ profile, equipment }: CharacterSheet) => ({
+    ...profile,
+    equipment: equipment.map((item) => ({ slot: item.slot, item: itemLabel(item) })),
+  });
+  tool(
+    'get_character',
+    'Personagem do Aion 2 no site oficial: classe, nível, poder de combate, nível de item, legião e equipamentos. Passe o nome do personagem ou um membro do Discord com personagem registrado.',
+    {
+      name: z.string().optional().describe('Nome exato do personagem no jogo'),
+      member: z.string().optional().describe('Membro do Discord com personagem registrado'),
+    },
+    async (args) =>
+      fromOutcome(
+        await s
+          .runAction({
+            actor,
+            action: 'character.read',
+            preview: 'character.read',
+            execute: async (): Promise<string | ReturnType<typeof sheetJson>> => {
+              if (args.name) {
+                const ref = await s.characters.find(args.name);
+                return ref
+                  ? sheetJson(await s.characters.sheet(ref))
+                  : ptBR.profile.notFound(args.name);
+              }
+              if (!args.member) return 'Passe name ou member.';
+              const found = findMember(s.guild, args.member);
+              if (!found.ok) return found.reason;
+              const registered = s.registrations.get(found.value.id);
+              if (!registered) return ptBR.profile.memberNotRegistered(found.value.id);
+              return sheetJson(
+                await s.characters.sheet({
+                  id: registered.characterId,
+                  serverId: registered.serverId,
+                }),
+              );
+            },
+          })
+          .catch(gameFailure),
+      ),
+  );
+  tool(
+    'list_registered_characters',
+    'Membros do Discord com personagem registrado, com classe, poder, legião vista na última conferência e se ainda estão no servidor.',
+    {},
+    async () =>
+      fromOutcome(
+        await s.runAction({
+          actor,
+          action: 'character.read',
+          preview: 'character.read',
+          execute: async () => {
+            const { legion } = s.config.get().settings.characters;
+            const classes = new Map(classRoles(s.config.get()).map((r) => [r.key, r.name]));
+            return s.registrations
+              .all()
+              .sort((a, b) => (b.combatPower ?? -1) - (a.combatPower ?? -1))
+              .map((row) => {
+                const member = s.guild.members.cache.get(row.userId);
+                return {
+                  character: row.name,
+                  class: classes.get(row.classKey) ?? row.classKey,
+                  combatPower: row.combatPower,
+                  itemLevel: row.itemLevel,
+                  legion: row.legion || null,
+                  inLegion: sameLegion(row.legion, legion),
+                  member: member?.displayName ?? null,
+                  userId: row.userId,
+                  checkedAt: row.checkedAt?.toISOString() ?? null,
+                };
+              });
+          },
+        }),
+      ),
+  );
+  tool(
+    'register_character',
+    'Registra o personagem de um membro, como uma ficha aprovada: cargo da classe, apelido "emoji Nome", personagem guardado para /perfil e #ranking, e Soldado se ele for Visitante.',
+    { member, character: z.string().describe('Nome exato do personagem no jogo') },
+    async (args) =>
+      withMember(args.member, (id) => s.registration.register(actor, id, args.character)),
+  );
+  tool(
+    'list_applications',
+    'Fichas de recrutamento (as mais novas primeiro), com o id usado em decide_application.',
+    { status: z.enum(['pending', 'approved', 'rejected', 'all']).default('pending') },
+    async ({ status }) =>
+      fromOutcome(
+        await s.runAction({
+          actor,
+          action: 'recruit.read',
+          preview: 'recruit.read',
+          execute: async () =>
+            s.applications.list(status === 'all' ? undefined : status).map((a) => ({
+              id: a.id,
+              status: a.status,
+              character: a.characterName,
+              class: a.className,
+              level: a.level,
+              combatPower: a.combatPower,
+              itemLevel: a.itemLevel,
+              legion: a.legion || null,
+              member: s.guild.members.cache.get(a.userId)?.displayName ?? a.userId,
+              schedule: a.schedule,
+              reason: a.reason,
+              createdAt: a.createdAt.toISOString(),
+              decidedBy: a.decidedBy,
+            })),
+        }),
+      ),
+  );
+  tool(
+    'decide_application',
+    'Aprova ou recusa uma ficha de recrutamento. Aprovar registra o personagem, dá Soldado e dá as boas-vindas no canal; o card no #recrutamento é atualizado.',
+    { id: z.number().int(), approve: z.boolean() },
+    async (args) =>
+      fromOutcome(await s.recruitmentDesk.decide(actor, args.id, args.approve), (application) =>
+        text(
+          `Ficha #${application.id} (${application.characterName}): ${application.status === 'approved' ? 'aprovada' : 'recusada'}.`,
+        ),
+      ),
+  );
+  tool(
+    'run_legion_check',
+    'Roda agora a conferência diária: relê cada personagem no site oficial, atualiza classe e apelido, avisa no canal dos oficiais quem saiu ou entrou na legião e refaz o #ranking. Leva alguns segundos por membro.',
+    {},
+    async () =>
+      fromOutcome(
+        await s.runAction({
+          actor,
+          action: 'legion.check',
+          preview: 'legion.check',
+          execute: async () => {
+            const report = await s.legion.check();
+            return report.length > 0 ? report.join('\n') : 'Conferência feita: nada mudou.';
+          },
+        }),
+      ),
+  );
+  tool(
+    'refresh_ranking',
+    'Refaz o card do #ranking com os números guardados (sem consultar o site oficial).',
+    {},
+    async () =>
+      fromOutcome(
+        await s.runAction({
+          actor,
+          action: 'legion.check',
+          preview: 'legion.check',
+          execute: async () => {
+            await s.legion.refreshRanking();
+            return '#ranking atualizado.';
+          },
+        }),
+      ),
+  );
+
   // ---- Voice generators and server.yaml ------------------------------------------------------
 
   tool('list_voice_generators', 'Geradores de salas de voz (➕) do server.yaml.', {}, async () =>
@@ -632,6 +811,28 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       ),
   );
 
+  tool(
+    'reload_server_config',
+    'Relê o server.yaml do disco sem reiniciar o bot (como /config reload). Um arquivo inválido é recusado e a configuração atual continua.',
+    {},
+    async () =>
+      fromOutcome(
+        await s
+          .runAction({
+            actor,
+            action: 'config.reload',
+            target: 'server.yaml',
+            preview: 'config.reload',
+            execute: async () => {
+              const config = s.config.reload();
+              const channels = config.categories.reduce((n, c) => n + c.channels.length, 0);
+              return ptBR.config.reloaded(config.roles.length, channels);
+            },
+          })
+          .catch(configFailure),
+      ),
+  );
+
   tool('get_server_config', 'Conteúdo atual do server.yaml (já validado).', {}, async () =>
     fromOutcome(
       await s.runAction({
@@ -679,6 +880,12 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       );
     },
   );
+}
+
+/** The official Aion 2 site didn't answer: a refusal the user can retry, not a crash. */
+function gameFailure(error: unknown): ServiceOutcome<never> {
+  if (error instanceof GameApiError) return rejected(ptBR.profile.apiDown);
+  throw error;
 }
 
 function configFailure(error: unknown): ServiceOutcome<string> {

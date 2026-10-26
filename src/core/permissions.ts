@@ -31,6 +31,8 @@ export const ACTION_POLICIES = {
   // The daily legion check updating a member's class role and nickname (the bot itself).
   'member.sync': policy('commander'),
   'member.read': policy('officer', { audited: false }),
+  // An officer registering someone's character by hand: class role, nickname and Soldado.
+  'member.register': policy('officer'),
 
   'channel.create': policy('commander'),
   'channel.edit': policy('commander'),
@@ -43,6 +45,9 @@ export const ACTION_POLICIES = {
   // Recruitment: a Visitante applies; an officer approves (registers them, makes them Soldado).
   'recruit.apply': policy('visitor', { audited: false }),
   'recruit.decide': policy('officer'),
+  'recruit.read': policy('officer', { audited: false }),
+  // Running the daily legion check (or rebuilding #ranking) now instead of waiting for it.
+  'legion.check': policy('officer'),
 
   // Party finder: anyone in the legion opens and joins groups; the leader or an officer closes.
   'party.create': policy('soldier', { audited: false }),

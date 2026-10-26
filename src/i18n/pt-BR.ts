@@ -55,6 +55,8 @@ export const ptBR = {
       'member.partner': '🤝 Parceiro',
       'member.sync': '🔄 Sincronizado com o jogo',
       'recruit.decide': '🤝 Ficha de recrutamento',
+      'member.register': '🎮 Personagem registrado',
+      'legion.check': '🔎 Conferência da legião',
       'channel.create': '➕ Canal criado',
       'channel.edit': '✏️ Canal editado',
       'channel.delete': '🗑️ Canal apagado',
@@ -181,6 +183,23 @@ export const ptBR = {
         `🎉 <@${id}>, sua entrada na **${legion}** foi aprovada! Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`,
         `🎮 Falta só aceitar o convite da **${legion}** no jogo: um Oficial vai te convidar.`,
       ].join('\n'),
+  },
+
+  registration: {
+    noClassRole: (className: string) =>
+      `A classe **${className}** não tem um cargo no server.yaml, então não sei qual cargo dar.`,
+    /** Reason in Discord's audit log for a registration done by an officer. */
+    reason: (officer: string) => `Registro feito por ${officer}`,
+    preview: (member: string, character: string) =>
+      `Registrar **${character}** para ${member} (classe, apelido e Soldado se for Visitante).`,
+    done: (member: string, character: string, nickname: string | null, promoted: boolean) =>
+      [
+        `✅ **${character}** registrado para ${member}.`,
+        nickname
+          ? `Apelido: **${nickname}**.`
+          : 'O apelido não foi trocado (dono do servidor ou cargo acima do bot).',
+        ...(promoted ? ['Agora é **Soldado**.'] : []),
+      ].join(' '),
   },
 
   party: {

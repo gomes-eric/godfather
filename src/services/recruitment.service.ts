@@ -1,8 +1,6 @@
-import { classRoles, type RoleConfig } from '../config/schema.js';
-import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
-import { matchClass, type CharacterProfile } from '../core/game-character.js';
+import type { CharacterProfile } from '../core/game-character.js';
 import type { Application, ApplicationStore } from '../db/applications.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
@@ -10,12 +8,11 @@ const t = ptBR.recruitment;
 
 /**
  * Recruitment applications: a Visitante sends the form, officers approve or refuse it. The rules
- * live here; posting the cards and registering the character is the Discord adapter's job.
+ * live here; posting the cards and registering the character is RecruitmentDesk's job.
  */
 export class RecruitmentService {
   constructor(
     private readonly deps: {
-      config: ConfigStore;
       store: ApplicationStore;
       runAction: ActionRunner;
     },
@@ -82,10 +79,5 @@ export class RecruitmentService {
 
   attachMessage(id: number, messageId: string): void {
     this.deps.store.setMessage(id, messageId);
-  }
-
-  /** The class role for the game's class name, e.g. "Clérigo". */
-  classRole(className: string): RoleConfig | undefined {
-    return matchClass(className, classRoles(this.deps.config.get()));
   }
 }

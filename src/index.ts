@@ -42,7 +42,9 @@ import { ModerationService } from './services/moderation.service.js';
 import { MusicGuardService } from './services/music-guard.service.js';
 import { PartyService } from './services/party.service.js';
 import { PatchNotesService } from './services/patch-notes.service.js';
+import { RecruitmentDesk } from './services/recruitment-desk.service.js';
 import { RecruitmentService } from './services/recruitment.service.js';
+import { RegistrationService } from './services/registration.service.js';
 import { ReminderScheduler } from './services/reminder.scheduler.js';
 import { RoleService } from './services/role.service.js';
 import { SetupService } from './services/setup.service.js';
@@ -185,6 +187,19 @@ async function main(): Promise<void> {
     for (const job of jobs) job.start();
 
     // Shared by slash commands and MCP tools: both adapters call the same services.
+    const members = new MemberService({ guild, directory, config, runAction });
+    const registration = new RegistrationService({
+      guild,
+      config,
+      directory,
+      registrations,
+      characters,
+      members,
+      legion,
+      runAction,
+      logger,
+    });
+    const applications = new ApplicationStore(database.db);
     const services = {
       guild,
       config,
@@ -192,25 +207,33 @@ async function main(): Promise<void> {
       audit,
       runAction,
       setup: new SetupService(createDiscordGuildPort(guild), managed, config),
-      members: new MemberService({ guild, directory, config, runAction }),
+      members,
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
       events: new EventService({ store: eventStore, scheduler, config, runAction }),
       bosses,
       channels: new ChannelService({ guild, managed, runAction }),
       roles: new RoleService({ guild, directory, config, runAction }),
+      characters,
+      registrations,
+      registration,
+      applications,
+      recruitmentDesk: new RecruitmentDesk({
+        guild,
+        config,
+        directory,
+        recruitment: new RecruitmentService({ store: applications, runAction }),
+        applications,
+        registration,
+        logger,
+      }),
+      legion,
     };
 
-    const applications = new ApplicationStore(database.db);
     attachInteractionRouter(client, commands, {
       ...services,
       logger,
       voice,
-      characters,
-      registrations,
-      legion,
-      applications,
-      recruitment: new RecruitmentService({ config, store: applications, runAction }),
       parties: new PartyService({
         guild,
         directory,

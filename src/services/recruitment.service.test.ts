@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { ApplicationStore } from '../db/applications.js';
@@ -28,9 +27,6 @@ function setup() {
   const db = openDatabase(':memory:');
   const store = new ApplicationStore(db.db);
   const service = new RecruitmentService({
-    config: {
-      get: () => ({ roles: [{ key: 'class-cleric', name: 'Clérigo', class: true, emoji: '✨' }] }),
-    } as unknown as ConfigStore,
     store,
     runAction: (async (r: { execute: () => Promise<unknown> }) => ({
       status: 'ok',
@@ -73,9 +69,5 @@ describe('RecruitmentService', () => {
       status: 'rejected',
       reason: 'Essa ficha já foi decidida.',
     });
-  });
-
-  it('finds the class role from the game class name', () => {
-    expect(setup().service.classRole('CLERIGO')?.key).toBe('class-cleric');
   });
 });

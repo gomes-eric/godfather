@@ -29,6 +29,17 @@ export class ApplicationStore {
       .get();
   }
 
+  /** Newest first; every status when none is given. */
+  list(status?: Application['status'], limit = 50): Application[] {
+    return this.db
+      .select()
+      .from(applications)
+      .where(status ? eq(applications.status, status) : undefined)
+      .orderBy(desc(applications.createdAt))
+      .limit(limit)
+      .all();
+  }
+
   setMessage(id: number, messageId: string): void {
     this.db.update(applications).set({ messageId }).where(eq(applications.id, id)).run();
   }

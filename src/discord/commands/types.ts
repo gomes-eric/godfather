@@ -14,7 +14,8 @@ import type { FieldBossService } from '../../services/field-boss.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
 import type { LegionCheckService } from '../../services/legion-check.service.js';
 import type { PartyService } from '../../services/party.service.js';
-import type { RecruitmentService } from '../../services/recruitment.service.js';
+import type { RecruitmentDesk } from '../../services/recruitment-desk.service.js';
+import type { RegistrationService } from '../../services/registration.service.js';
 import type { ApplicationStore } from '../../db/applications.js';
 import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
@@ -46,8 +47,10 @@ export interface CommandContext {
   legion: LegionCheckService;
   /** Party finder (/party). */
   parties: PartyService;
-  /** "Quero entrar na legião" applications. */
-  recruitment: RecruitmentService;
+  /** Ties members to their characters (class role, nickname, Soldado). */
+  registration: RegistrationService;
+  /** "Quero entrar na legião": posting applications and carrying out decisions. */
+  recruitmentDesk: RecruitmentDesk;
   applications: ApplicationStore;
   tokens: TokenService;
   /** Public URL of the MCP endpoint, shown with new tokens. */

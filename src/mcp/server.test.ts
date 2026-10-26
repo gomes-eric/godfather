@@ -1,4 +1,4 @@
-import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +37,33 @@ describe('MCP endpoint', () => {
       },
     });
     // Only the pieces these tools touch; the rest needs a live Discord guild.
-    const services = { config, runAction, messageContent: false } as unknown as McpServices;
+    const applications = {
+      list: () => [
+        {
+          id: 7,
+          status: 'pending',
+          characterName: 'Padrinho',
+          className: 'Clérigo',
+          level: 45,
+          combatPower: 100,
+          itemLevel: 2000,
+          legion: '',
+          userId: 'u1',
+          schedule: 'Noites',
+          reason: 'Abismo',
+          createdAt: new Date(),
+          decidedBy: null,
+        },
+      ],
+    };
+    const guild = { members: { cache: new Map() } };
+    const services = {
+      config,
+      runAction,
+      applications,
+      guild,
+      messageContent: false,
+    } as unknown as McpServices;
     handler = createMcpHandler({
       tokens: { verify: (token) => (token === TOKEN ? { userId: 'padrinho', tokenId: 1 } : null) },
       resolveActor: async (userId, harness): Promise<Actor> => ({
@@ -87,6 +113,12 @@ describe('MCP endpoint', () => {
         'apply_server_config',
         'set_boss_respawn',
         'upsert_voice_generator',
+        'get_character',
+        'register_character',
+        'list_applications',
+        'decide_application',
+        'run_legion_check',
+        'reload_server_config',
       ]),
     );
     expect(client.getInstructions()).toContain('M4F1A');
@@ -147,6 +179,30 @@ describe('MCP endpoint', () => {
     });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain('Comandante');
+  });
+
+  it('reloads server.yaml after a hand edit', async () => {
+    writeFileSync(path, readFileSync(path, 'utf8').replace(/legion: M4F1A/, 'legion: M4F1A Nova'));
+    expect(config.get().settings.characters.legion).toBe('M4F1A');
+
+    const client = await connect();
+    const result = await client.callTool({ name: 'reload_server_config', arguments: {} });
+
+    expect(result.isError).toBeFalsy();
+    expect(config.get().settings.characters.legion).toBe('M4F1A Nova');
+    expect(audit[0]).toMatchObject({ action: 'config.reload', result: 'ok' });
+  });
+
+  it('lists recruitment applications for officers only', async () => {
+    const client = await connect();
+    const result = await client.callTool({ name: 'list_applications', arguments: {} });
+    expect(JSON.parse(textOf(result))).toEqual([
+      expect.objectContaining({ id: 7, character: 'Padrinho', status: 'pending' }),
+    ]);
+
+    tier = 'soldier';
+    const denied = await (await connect()).callTool({ name: 'list_applications', arguments: {} });
+    expect(denied.isError).toBe(true);
   });
 
   it('limits each token to 60 calls per minute', async () => {
