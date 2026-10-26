@@ -149,19 +149,21 @@ describe('/setup reconciliation', () => {
   });
 
   it('leaves a role above the bot alone, warns about its differences, and still converges', async () => {
-    const commanderId = guild.addRoleAboveBot('Comandante');
+    const commanderId = guild.addRoleAboveBot('Fundador');
 
     const first = await setup(buildDesiredState(repoConfig));
     expect(first.plan.warnings).toEqual([
       {
         type: 'roleAboveBot',
-        key: 'commander',
-        name: 'Comandante',
-        changes: ['color', 'hoist', 'permissions'],
+        key: 'owner',
+        name: 'Fundador',
+        changes: ['color', 'permissions'],
       },
     ]);
     expect(first.result.failures).toEqual([]);
-    expect(store.get('role', 'commander')?.discordId).toBe(commanderId);
+    expect(store.get('role', 'owner')?.discordId).toBe(commanderId);
+    // Comandante is an ordinary role below the bot now, so /setup creates and manages it.
+    expect(guild.roles.some((r) => r.name === 'Comandante')).toBe(true);
 
     const second = await plan(buildDesiredState(repoConfig));
     expect(second.plan.ops).toEqual([]);
@@ -169,12 +171,12 @@ describe('/setup reconciliation', () => {
   });
 
   it('does not warn about a role above the bot that already matches the yaml', async () => {
-    const commanderId = guild.addRoleAboveBot('Comandante');
+    const commanderId = guild.addRoleAboveBot('Fundador');
     Object.assign(
       guild.roles.find((r) => r.id === commanderId)!,
       {
-        color: 0xe0303a,
-        hoist: true,
+        color: 0xf1c40f,
+        hoist: false,
         // Discord keeps other bits ticked next to Administrator; they change nothing.
         permissions: P.Administrator | P.ManageGuild | P.SendMessages,
       },
@@ -229,7 +231,7 @@ describe('/setup reconciliation', () => {
   });
 
   it('gives Administrator roles no channel overwrites', async () => {
-    const commanderId = guild.addRoleAboveBot('Comandante');
+    const commanderId = guild.addRoleAboveBot('Fundador');
     await setup(buildDesiredState(repoConfig));
 
     const withCommander = guild.channels.filter((c) =>

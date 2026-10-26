@@ -125,11 +125,18 @@ settings:
 roles:
   # Asmodian palette: blood crimson, abyss violet, ash and steel.
   # Colors are mid-tone so names stay readable on Discord's dark theme.
-  # Hierarchy (top to bottom). The bot's own role must sit above all of these.
+  # Hierarchy (top to bottom). Fundador sits above the bot's own role; every other role below it.
+  # The server owner only. Padrinho can't edit a role above its own, so /setup only warns when
+  # it differs from this; the owner always counts as the commander tier, so it needs no tier.
+  - key: owner
+    name: Fundador
+    color: "#F1C40F"   # gold, set by hand in Discord
+    hoist: false
+    permissions: [Administrator]
   - key: commander
     name: Comandante
     tier: commander
-    color: "#E0303A"   # Asmodian crimson
+    color: "#D9485F"   # rose red, Asmodian crimson family
     hoist: true
     permissions: [Administrator]
   - key: officer
