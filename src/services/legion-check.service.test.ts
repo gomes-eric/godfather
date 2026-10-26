@@ -69,7 +69,14 @@ function setup(profile: { name: string; className: string; legion: string }) {
     id: 'guild',
     ownerId: 'owner',
     client: { user: { id: 'bot' } },
-    members: { fetch: async () => member, cache: new Map([['u1', member]]) },
+    members: {
+      // A list fetch answers with who is in the server; the cache starts empty, as after a restart.
+      fetch: async (arg?: unknown) =>
+        typeof arg === 'object' && arg !== null && 'user' in arg
+          ? new Map([['u1', member]])
+          : member,
+      cache: new Map(),
+    },
   };
   const directory = {
     channelByKey: (key: string) => channel(key),

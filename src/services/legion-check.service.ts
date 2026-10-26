@@ -188,11 +188,14 @@ export class LegionCheckService {
       : undefined;
     if (!channel) return;
 
-    const rows = registrations
-      .all()
-      .filter(
-        (row) => sameLegion(row.legion, settings.legion) && guild.members.cache.has(row.userId),
-      )
+    // Ask Discord who is still in the server: the member cache only holds those seen since startup.
+    const inLegion = registrations.all().filter((row) => sameLegion(row.legion, settings.legion));
+    const present =
+      inLegion.length > 0
+        ? await guild.members.fetch({ user: inLegion.map((row) => row.userId) })
+        : new Map<string, unknown>();
+    const rows = inLegion
+      .filter((row) => present.has(row.userId))
       .map((row) => ({
         name: row.name,
         classEmoji: this.classEmoji(row.classKey),
