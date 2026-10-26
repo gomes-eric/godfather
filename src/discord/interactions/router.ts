@@ -2,6 +2,7 @@ import { Events, MessageFlags, type Client, type Interaction } from 'discord.js'
 import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
+import { handlePartyButton } from '../commands/party.js';
 import { handleSayModal } from '../commands/say.js';
 import { handleRegisterButton, handleRegisterModal } from './registration.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
@@ -45,6 +46,7 @@ export function attachInteractionRouter(
         const handled =
           (await handleConfirmationButton(interaction, ctx.confirmations)) ||
           (await handleRegisterButton(interaction, ctx)) ||
+          (await handlePartyButton(interaction, ctx)) ||
           (await handleRsvpButton(interaction, ctx)) ||
           (await handleRoomPanelButton(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');

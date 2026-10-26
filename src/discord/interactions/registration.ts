@@ -135,6 +135,9 @@ export async function handleRegisterModal(
         name: character.name,
         serverId: character.serverId,
         classKey: chosen.key,
+        legion: character.legion,
+        combatPower: character.combatPower,
+        itemLevel: character.itemLevel,
       });
       // Discord never lets a bot rename the server owner or anyone ranked above it.
       if (member.id === ctx.guild.ownerId || !member.manageable) {
@@ -162,5 +165,8 @@ export async function handleRegisterModal(
     next = t.notInLegion(lookup.legion, character.legion, recruitment?.id);
   }
   await interaction.editReply(`${outcome.value}\n${next}`);
+  ctx.legion
+    .refreshRanking()
+    .catch((error: unknown) => ctx.logger.warn({ err: error }, 'ranking refresh failed'));
   return true;
 }

@@ -28,6 +28,8 @@ export const ACTION_POLICIES = {
   'member.promote': policy('officer'),
   'member.demote': policy('officer', { destructive: true }),
   'member.partner': policy('officer'),
+  // The daily legion check updating a member's class role and nickname (the bot itself).
+  'member.sync': policy('commander'),
   'member.read': policy('officer', { audited: false }),
 
   'channel.create': policy('commander'),
@@ -40,6 +42,11 @@ export const ACTION_POLICIES = {
   // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
   'member.register': policy('visitor', { audited: false }),
   'character.read': policy('visitor', { audited: false }),
+
+  // Party finder: anyone in the legion opens and joins groups; the leader or an officer closes.
+  'party.create': policy('soldier', { audited: false }),
+  'party.join': policy('soldier', { audited: false }),
+  'party.close': policy('soldier', { audited: false }),
 
   'message.send': policy('officer'),
   'message.edit': policy('officer'),

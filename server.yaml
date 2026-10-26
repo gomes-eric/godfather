@@ -99,6 +99,10 @@ settings:
     # (The site shows only the legion's name, not the in-game rank: Oficiais are promoted by hand.)
     legion: M4F1A
     recruitmentChannel: recruitment
+    # Once a day every registered character is re-read: new class/name → role and nickname
+    # updated; left or joined the legion → reported in reportChannel. Then #ranking is rebuilt.
+    reportChannel: officers
+    rankingChannel: ranking
   # #registro panel: in-game name → class (read from the game) and nickname "⚔️ Nome".
   rolePicker:
     channel: role-picker
@@ -198,6 +202,7 @@ categories:
       - { key: event-alerts, type: text, name: eventos, access: { write: bot, asSoldier: [] } }
       - { key: agenda,       type: text, name: agenda,  access: { write: bot, asSoldier: [] } }
       - { key: patch-notes,  type: text, name: patch-notes, topic: "Notas de atualização do Aion 2, postadas pelo Padrinho assim que saem na Steam.", access: { write: bot, asSoldier: [] } }
+      - { key: ranking,      type: text, name: ranking, topic: "Membros da legião por poder de combate, atualizado todo dia pelo Padrinho. Registre-se no #registro para aparecer.", access: { write: bot, asSoldier: [] } }
 
   - key: knowledge
     name: 📚 CONHECIMENTO

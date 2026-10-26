@@ -4,6 +4,15 @@ import { registeredCharacters } from './schema.js';
 
 export type RegisteredCharacter = typeof registeredCharacters.$inferSelect;
 
+/** What the official site shows about a character right now. */
+export interface CharacterSnapshot {
+  name: string;
+  classKey: string;
+  legion: string;
+  combatPower: number | null;
+  itemLevel: number | null;
+}
+
 export class CharacterStore {
   constructor(private readonly db: Db) {}
 
@@ -15,22 +24,33 @@ export class CharacterStore {
       .get();
   }
 
+  all(): RegisteredCharacter[] {
+    return this.db.select().from(registeredCharacters).all();
+  }
+
   /** Registering again replaces the previous character. */
-  save(entry: Omit<RegisteredCharacter, 'updatedAt'>): void {
-    const updatedAt = new Date();
+  save(
+    entry: Pick<RegisteredCharacter, 'userId' | 'characterId' | 'serverId'> & CharacterSnapshot,
+  ): void {
+    const now = new Date();
+    const row = { ...entry, checkedAt: now, updatedAt: now };
     this.db
       .insert(registeredCharacters)
-      .values({ ...entry, updatedAt })
-      .onConflictDoUpdate({
-        target: registeredCharacters.userId,
-        set: {
-          characterId: entry.characterId,
-          name: entry.name,
-          serverId: entry.serverId,
-          classKey: entry.classKey,
-          updatedAt,
-        },
-      })
+      .values(row)
+      .onConflictDoUpdate({ target: registeredCharacters.userId, set: row })
       .run();
+  }
+
+  /** Records what the daily check saw, keeping the registration itself. */
+  updateSnapshot(userId: string, snapshot: CharacterSnapshot): void {
+    this.db
+      .update(registeredCharacters)
+      .set({ ...snapshot, checkedAt: new Date() })
+      .where(eq(registeredCharacters.userId, userId))
+      .run();
+  }
+
+  remove(userId: string): void {
+    this.db.delete(registeredCharacters).where(eq(registeredCharacters.userId, userId)).run();
   }
 }

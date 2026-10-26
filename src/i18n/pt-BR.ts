@@ -53,6 +53,7 @@ export const ptBR = {
       'member.promote': '⬆️ Promoção',
       'member.demote': '⬇️ Rebaixamento',
       'member.partner': '🤝 Parceiro',
+      'member.sync': '🔄 Sincronizado com o jogo',
       'channel.create': '➕ Canal criado',
       'channel.edit': '✏️ Canal editado',
       'channel.delete': '🗑️ Canal apagado',
@@ -165,6 +166,50 @@ export const ptBR = {
       `✅ Registrado! Seu apelido agora é **${nickname}** e sua classe é **${className}**.`,
     registeredNoNick: (nickname: string, className: string) =>
       `✅ Classe **${className}** marcada. O Discord não me deixa mudar o seu apelido (seu cargo está acima do meu): troque para **${nickname}** em *Editar perfil do servidor*.`,
+  },
+
+  party: {
+    stateEmoji: { open: '🎯', full: '✅', closed: '🔒' },
+    state: {
+      open: '🟢 Vagas abertas: clique em **Entrar**.',
+      full: '✅ **Grupo completo!**',
+      closed: '🔒 Grupo fechado.',
+    },
+    when: (startsAt: string) => `🕘 **${startsAt}**`,
+    leader: (id: string) => `👑 Líder: <@${id}>`,
+    slots: (taken: number, total: number) => `👥 Vagas · ${taken}/${total}`,
+    freeSlot: '— vaga livre',
+    footer: (id: number) => `Grupo #${id} · o líder ou um Oficial fecha o grupo`,
+    footerClosed: 'Grupo encerrado',
+    join: 'Entrar',
+    leave: 'Sair',
+    close: 'Fechar',
+    filled: (activity: string, ids: string[]) =>
+      `✅ **${activity}**: grupo completo! ${ids.map((id) => `<@${id}>`).join(' ')}`,
+    noChannel: 'Não consigo postar o grupo neste canal.',
+    gone: 'Esse grupo não existe mais.',
+    alreadyClosed: 'Esse grupo já foi fechado.',
+    alreadyIn: 'Você já está nesse grupo.',
+    full: 'O grupo já está completo.',
+    notIn: 'Você não está nesse grupo.',
+    ownerCantLeave: 'Você é o líder: use **Fechar** para encerrar o grupo.',
+    onlyOwnerCloses: 'Só o líder do grupo (ou um Oficial) pode fechar.',
+  },
+
+  legionCheck: {
+    reportTitle: '🔎 Conferência diária da legião',
+    renamed: (id: string, from: string, to: string) =>
+      `✏️ <@${id}> trocou de nome no jogo: **${from}** → **${to}** (apelido atualizado).`,
+    classChanged: (id: string, from: string, to: string) =>
+      `🔄 <@${id}> mudou de classe: **${from}** → **${to}** (cargo atualizado).`,
+    left: (id: string, name: string, legion: string, now: string) =>
+      `🚪 <@${id}> (**${name}**) saiu da **${legion}** no jogo${now ? ` e agora está na **${now}**` : ''}. Use \`/member demote\` se for o caso.`,
+    joined: (id: string, name: string, legion: string, promoted: boolean) =>
+      `🛡️ <@${id}> (**${name}**) entrou na **${legion}** no jogo${promoted ? ' e virou Soldado' : ''}.`,
+    rankingTitle: (legion: string) => `🏆 Ranking da ${legion}`,
+    rankingIntro: 'Por poder de combate · ⚔️ poder de combate · 🎚️ nível de item',
+    rankingEmpty: 'Ninguém registrado ainda. Registre seu personagem no #registro.',
+    rankingFooter: 'Atualizado todo dia · só membros registrados no #registro',
   },
 
   patchNotes: {
@@ -576,6 +621,16 @@ export const ptBR = {
         ],
       },
       {
+        title: '🎯 Grupos',
+        entries: [
+          {
+            usage: '/party',
+            text: 'Abre um grupo para masmorra, boss ou Abismo; a galera entra pelo botão',
+            tier: 'soldier',
+          },
+        ],
+      },
+      {
         title: '🔊 Sua sala de voz',
         entries: [
           {
@@ -671,6 +726,11 @@ export const ptBR = {
       {
         title: '💡 Sem comando',
         entries: [
+          {
+            usage: '#ranking',
+            text: 'A legião por poder de combate, atualizada todo dia',
+            tier: 'soldier',
+          },
           {
             usage: '#registro',
             text: 'Registre seu personagem (classe e legião vêm do jogo)',

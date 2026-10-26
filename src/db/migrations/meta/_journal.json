@@ -64,6 +64,20 @@
       "when": 1792967618171,
       "tag": "0008_posted_patch_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792975901997,
+      "tag": "0009_character_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792976111847,
+      "tag": "0010_parties",
+      "breakpoints": true
     }
   ]
 }

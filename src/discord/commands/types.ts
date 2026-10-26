@@ -12,6 +12,8 @@ import type { Logger } from '../../logger.js';
 import type { EventService } from '../../services/event.service.js';
 import type { FieldBossService } from '../../services/field-boss.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
+import type { LegionCheckService } from '../../services/legion-check.service.js';
+import type { PartyService } from '../../services/party.service.js';
 import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
@@ -38,6 +40,10 @@ export interface CommandContext {
   characters: GameCharacterService;
   /** Who registered which character in #registro. */
   registrations: CharacterStore;
+  /** Daily legion check and the #ranking board. */
+  legion: LegionCheckService;
+  /** Party finder (/party). */
+  parties: PartyService;
   tokens: TokenService;
   /** Public URL of the MCP endpoint, shown with new tokens. */
   mcpUrl: string;

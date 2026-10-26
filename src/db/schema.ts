@@ -154,6 +154,35 @@ export const postedPatchNotes = sqliteTable('posted_patch_notes', {
     .default(sql`(unixepoch('subsec') * 1000)`),
 });
 
+// Party finder (/party): a card with join buttons, and who joined it.
+export const parties = sqliteTable('parties', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  channelId: text('channel_id').notNull(),
+  messageId: text('message_id'),
+  ownerId: text('owner_id').notNull(),
+  activity: text('activity').notNull(),
+  slots: integer('slots').notNull(),
+  startsAt: text('starts_at'),
+  closed: integer('closed', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+});
+
+export const partyMembers = sqliteTable(
+  'party_members',
+  {
+    partyId: integer('party_id')
+      .notNull()
+      .references(() => parties.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(unixepoch('subsec') * 1000)`),
+  },
+  (table) => [primaryKey({ columns: [table.partyId, table.userId] })],
+);
+
 // The in-game character each member registered in #registro (one per member).
 export const registeredCharacters = sqliteTable('registered_characters', {
   userId: text('user_id').primaryKey(),
@@ -161,6 +190,11 @@ export const registeredCharacters = sqliteTable('registered_characters', {
   name: text('name').notNull(),
   serverId: integer('server_id').notNull(),
   classKey: text('class_key').notNull(),
+  /** What the official site showed at the last registration or daily check. */
+  legion: text('legion').notNull().default(''),
+  combatPower: integer('combat_power'),
+  itemLevel: integer('item_level'),
+  checkedAt: integer('checked_at', { mode: 'timestamp_ms' }),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(unixepoch('subsec') * 1000)`),

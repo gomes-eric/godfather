@@ -6,6 +6,7 @@ import { eventCommand } from './event.js';
 import { helpCommand } from './help.js';
 import { memberCommand } from './member.js';
 import { modCommand } from './mod.js';
+import { partyCommand } from './party.js';
 import { profileCommand } from './profile.js';
 import { sayCommand } from './say.js';
 import { setupCommand } from './setup.js';
@@ -24,6 +25,7 @@ export const commands: SlashCommand[] = [
   eventCommand,
   bossCommand,
   profileCommand,
+  partyCommand,
   mcpCommand,
   auditCommand,
 ];

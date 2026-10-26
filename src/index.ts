@@ -43,6 +43,9 @@ import { PatchNotesService } from './services/patch-notes.service.js';
 import { PatchNoteStore } from './db/patch-notes.js';
 import { GameCharacterService } from './services/game-character.service.js';
 import { CharacterStore } from './db/characters.js';
+import { LegionCheckService } from './services/legion-check.service.js';
+import { PartyService } from './services/party.service.js';
+import { PartyStore } from './db/parties.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -182,10 +185,38 @@ async function main(): Promise<void> {
       roles: new RoleService({ guild, directory, config, runAction }),
     };
 
+    const characters = new GameCharacterService({ config, logger });
+    const registrations = new CharacterStore(database.db);
+    const legion = new LegionCheckService({
+      guild,
+      config,
+      directory,
+      managed,
+      registrations,
+      characters,
+      members: services.members,
+      runAction,
+      logger,
+    });
+    legion.start();
+    const stopLegion = stopScheduler;
+    stopScheduler = () => {
+      stopLegion?.();
+      legion.stop();
+    };
+
     attachInteractionRouter(client, commands, {
       ...services,
-      characters: new GameCharacterService({ config, logger }),
-      registrations: new CharacterStore(database.db),
+      characters,
+      registrations,
+      legion,
+      parties: new PartyService({
+        guild,
+        config,
+        directory,
+        store: new PartyStore(database.db),
+        runAction,
+      }),
       logger,
       voice,
       tokens,

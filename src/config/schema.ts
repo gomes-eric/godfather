@@ -208,6 +208,10 @@ const settingsSchema = z.looseObject({
      */
     legion: z.string().min(1),
     recruitmentChannel: key,
+    /** Daily check: officers get what changed (left the legion, new class…) here. */
+    reportChannel: key.optional(),
+    /** Board of registered legion members by combat power, rebuilt after each daily check. */
+    rankingChannel: key.optional(),
   }),
   /** #registro: the panel where people register their in-game name and main class. */
   rolePicker: z.object({ channel: key }),
@@ -292,6 +296,18 @@ export const serverConfigSchema = z
             ] satisfies [string[], string, Set<string>],
           ]
         : []),
+      ...(['reportChannel', 'rankingChannel'] as const).flatMap((field) => {
+        const value = config.settings.characters[field];
+        return value
+          ? [
+              [['settings', 'characters', field], value, textChannelKeys] satisfies [
+                string[],
+                string,
+                Set<string>,
+              ],
+            ]
+          : [];
+      }),
       [
         ['settings', 'characters', 'recruitmentChannel'],
         config.settings.characters.recruitmentChannel,
