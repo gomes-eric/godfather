@@ -11,6 +11,8 @@ export interface SendOptions {
   allowMentions?: boolean;
 }
 
+const PLAIN_MAX = 2000;
+
 /** Messages sent as the bot (PLAN.md §6.3). */
 export class MessageService {
   constructor(private readonly deps: { guild: Guild; runAction: ActionRunner }) {}
@@ -35,11 +37,10 @@ export class MessageService {
       params: { channelId, text, ...options },
       preview: text,
       execute: async () => {
-        if (options.title) {
-          const embed = new EmbedBuilder()
-            .setTitle(options.title)
-            .setDescription(text)
-            .setColor(options.color ?? 0xa855f7);
+        // A plain message holds 2000 characters; longer text (from the /say form) goes as an embed.
+        if (options.title || text.length > PLAIN_MAX) {
+          const embed = new EmbedBuilder().setDescription(text).setColor(options.color ?? 0xa855f7);
+          if (options.title) embed.setTitle(options.title);
           await channel.send({ embeds: [embed], allowedMentions });
         } else {
           await channel.send({ content: text, allowedMentions });

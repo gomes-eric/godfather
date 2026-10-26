@@ -483,6 +483,12 @@ export const ptBR = {
 
   say: {
     sent: (channel: string) => `📨 Mensagem enviada em **#${channel}**.`,
+    modalTitle: 'Mensagem do Padrinho',
+    titleLabel: 'Título (opcional)',
+    titleHint: 'Com título, a mensagem sai como card',
+    titlePlaceholder: 'Ex.: Guerra do Abismo hoje',
+    textLabel: 'Mensagem',
+    textPlaceholder: 'Escreva aqui. Enter quebra a linha.',
   },
 
   config: {
@@ -638,7 +644,11 @@ export const ptBR = {
           { usage: '/mod kick', text: 'Expulsa alguém do servidor', tier: 'officer' },
           { usage: '/mod purge', text: 'Apaga mensagens recentes de um canal', tier: 'officer' },
           { usage: '/mod ban · unban', text: 'Bane ou desbane alguém', tier: 'commander' },
-          { usage: '/say', text: 'Envia uma mensagem como o Padrinho', tier: 'officer' },
+          {
+            usage: '/say',
+            text: 'Envia uma mensagem como o Padrinho (sem texto, abre um formulário)',
+            tier: 'officer',
+          },
           { usage: '/audit', text: 'Últimas ações registradas no log', tier: 'officer' },
         ],
       },
