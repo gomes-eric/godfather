@@ -1,11 +1,7 @@
-import {
-  EmbedBuilder,
-  MessageFlags,
-  SlashCommandBuilder,
-  type SlashCommandStringOption,
-} from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder, type SlashCommandStringOption } from 'discord.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { outcomeMessage } from '../interactions/confirmation.js';
+import { COLORS } from '../colors.js';
+import { failureText, outcomeText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.bosses;
@@ -78,21 +74,15 @@ export const bossCommand: SlashCommand = {
         execute: async () => ctx.bosses.status().map((status) => ctx.bosses.describe(status)),
       });
       if (outcome.status !== 'ok') {
-        const content =
-          outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-        await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+        await replyPrivately(interaction, failureText(outcome));
         return;
       }
       const lines = [...outcome.value, ...(ctx.bosses.feedEnabled() ? [] : ['', t.feedOff])];
       const embed = new EmbedBuilder()
         .setTitle(t.listTitle)
-        .setColor(0xe0303a)
+        .setColor(COLORS.crimson)
         .setDescription(lines.join('\n'));
-      await interaction.reply({
-        embeds: [embed],
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      });
+      await replyPrivately(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
       return;
     }
 
@@ -103,11 +93,8 @@ export const bossCommand: SlashCommand = {
         : sub === 'killed'
           ? await ctx.bosses.killed(actor, boss)
           : await ctx.bosses.clear(actor, boss);
-    const content =
-      outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-    await interaction.reply({
-      content,
-      flags: MessageFlags.Ephemeral,
+    await replyPrivately(interaction, {
+      content: outcomeText(outcome),
       allowedMentions: { parse: [] },
     });
   },

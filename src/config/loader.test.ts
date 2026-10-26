@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ConfigError, loadServerConfig, parseServerConfig } from './loader.js';
-import { channelNameByKey, tierRoleKeys, tierRoleNames } from './schema.js';
+import { channelNameByKey, tierRoleKeys } from './schema.js';
 
 const repoServerYaml = fileURLToPath(new URL('../../server.yaml', import.meta.url));
 
@@ -34,11 +34,6 @@ describe('server.yaml', () => {
   it('the repository file is valid', () => {
     const config = loadServerConfig(repoServerYaml);
 
-    expect(tierRoleNames(config)).toEqual({
-      commander: 'Comandante',
-      officer: 'Oficial',
-      soldier: 'Soldado',
-    });
     expect(tierRoleKeys(config)).toEqual({
       commander: 'commander',
       officer: 'officer',

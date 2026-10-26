@@ -1,9 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import type { RoomAccess } from '../core/voice-rooms.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { COLORS } from './colors.js';
+import { customId, parseCustomId } from './custom-id.js';
 
 const t = ptBR.voice.panel;
-const PANEL_COLOR = 0x7c3aed;
 
 /** Buttons are `room:<action>:<roomId>`; the room id rides along so a click names its room. */
 export const ROOM_PREFIX = 'room:';
@@ -11,17 +12,8 @@ export const ROOM_PREFIX = 'room:';
 export const ROOM_MODAL_PREFIX = 'room-modal:';
 export const ROOM_KICK_PREFIX = 'room-kick:';
 
-export const PANEL_ACTIONS = [
-  'lock',
-  'unlock',
-  'hide',
-  'unhide',
-  'limit',
-  'rename',
-  'kick',
-  'claim',
-] as const;
-export type PanelAction = (typeof PANEL_ACTIONS)[number];
+export type PanelAction =
+  'lock' | 'unlock' | 'hide' | 'unhide' | 'limit' | 'rename' | 'kick' | 'claim';
 
 export interface RoomPanelView extends RoomAccess {
   roomId: string;
@@ -29,23 +21,18 @@ export interface RoomPanelView extends RoomAccess {
   userLimit: number;
 }
 
-export function panelCustomId(action: PanelAction, roomId: string): string {
-  return `${ROOM_PREFIX}${action}:${roomId}`;
-}
-
 /** `room:lock:123` → { action: 'lock', roomId: '123' }; anything else → undefined. */
 export function parsePanelCustomId(
-  customId: string,
+  id: string,
   prefix: string,
 ): { action: string; roomId: string } | undefined {
-  if (!customId.startsWith(prefix)) return undefined;
-  const [action, roomId] = customId.slice(prefix.length).split(':');
+  const [action, roomId] = parseCustomId(id, prefix) ?? [];
   return action && roomId ? { action, roomId } : undefined;
 }
 
 function button(action: PanelAction, roomId: string, emoji: string, label: string) {
   return new ButtonBuilder()
-    .setCustomId(panelCustomId(action, roomId))
+    .setCustomId(customId(ROOM_PREFIX, action, roomId))
     .setEmoji(emoji)
     .setLabel(label)
     .setStyle(ButtonStyle.Secondary);
@@ -67,7 +54,7 @@ export function roomPanel(view: RoomPanelView): {
   ].join(' · ');
 
   const embed = new EmbedBuilder()
-    .setColor(PANEL_COLOR)
+    .setColor(COLORS.violet)
     .setTitle(t.title)
     .setDescription([t.owner(view.ownerId), state, '', t.help].join('\n'));
 

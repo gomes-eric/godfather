@@ -8,24 +8,15 @@ import {
   type EquipmentItem,
 } from '../core/game-character.js';
 import type { Logger } from '../logger.js';
+import { fetchJson, type FetchJson } from './fetch-json.js';
 
 const SEARCH_URL = 'https://api-search.plaync.com/aion2global/search/v2/character';
 const API_URL = 'https://aion2.plaync.com/api/character';
 /** The game updates a profile when the character logs out; half an hour is fresh enough. */
 const CACHE_MS = 30 * 60_000;
 
+/** The official site didn't answer, or answered something unexpected. */
 export class GameApiError extends Error {}
-
-type FetchJson = (url: string) => Promise<unknown>;
-
-async function defaultFetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Padrinho/0.1 (M4F1A Discord bot)', Accept: 'application/json' },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new GameApiError(`${response.status} from ${new URL(url).host}`);
-  return response.json();
-}
 
 export interface CharacterSheet {
   profile: CharacterProfile;
@@ -49,7 +40,7 @@ export class GameCharacterService {
       now?: () => number;
     },
   ) {
-    this.fetchJson = deps.fetchJson ?? defaultFetchJson;
+    this.fetchJson = deps.fetchJson ?? fetchJson;
     this.now = deps.now ?? Date.now;
   }
 

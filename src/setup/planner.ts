@@ -1,7 +1,8 @@
 import { PermissionFlagsBits } from 'discord.js';
+import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 import type { ManagedState } from '../db/managed-objects.js';
-import { lockedNicknamePermissions } from './overwrites.js';
 import { PANEL_PREFIX } from './desired.js';
+import { lockedNicknamePermissions } from './overwrites.js';
 import {
   EVERYONE,
   type ChannelSnapshot,
@@ -9,7 +10,6 @@ import {
   type DesiredOverwrite,
   type DesiredState,
   type GuildSnapshot,
-  type OverwriteSnapshot,
   type SetupOp,
   type SetupPlan,
   type SetupWarning,
@@ -148,7 +148,7 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     ...[...roleIds.values()].filter((id): id is string => id !== undefined),
   ]);
 
-  const overwritesMatch = (wanted: DesiredOverwrite[], current: OverwriteSnapshot[]): boolean => {
+  const overwritesMatch = (wanted: DesiredOverwrite[], current: PermissionOverwrite[]): boolean => {
     const resolved = new Map<string, { allow: bigint; deny: bigint }>();
     for (const o of wanted) {
       const id = o.target === EVERYONE ? snapshot.everyoneRoleId : roleIds.get(o.target);

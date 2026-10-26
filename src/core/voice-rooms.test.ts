@@ -1,5 +1,6 @@
 import { PermissionFlagsBits as P } from 'discord.js';
 import { describe, expect, it } from 'vitest';
+import type { PermissionOverwrite } from './permission-overwrite.js';
 import { openDatabase } from '../db/client.js';
 import { TempVoiceStore } from '../db/temp-voice.js';
 import {
@@ -14,7 +15,6 @@ import {
   roomOverwrites,
   RENAME_WINDOW_MS,
   transferOwnership,
-  type RoleOverwrite,
 } from './voice-rooms.js';
 
 describe('numbering', () => {
@@ -81,7 +81,7 @@ describe('RoomAllocator', () => {
 
 describe('room overwrites', () => {
   const everyone = 'everyone';
-  const generator: RoleOverwrite[] = [
+  const generator: PermissionOverwrite[] = [
     { id: everyone, type: 'role', allow: 0n, deny: P.ViewChannel | P.Connect },
     { id: 'soldier', type: 'role', allow: P.ViewChannel | P.Connect | P.Speak, deny: 0n },
   ];

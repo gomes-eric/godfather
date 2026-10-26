@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { PermissionFlagsBits } from 'discord.js';
 import { channelNameByKey, tierRoleKeys, type ServerConfig } from '../config/schema.js';
+import { COLORS } from '../discord/colors.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
@@ -12,9 +13,6 @@ export const PANEL_KEYS = {
   rules: 'panel-rules',
   recruitment: 'panel-recruitment',
 } as const;
-
-const RULES_COLOR = 0xe0303a;
-const RECRUITMENT_COLOR = 0x4fb286;
 
 function permissionBits(names: (keyof typeof PermissionFlagsBits)[]): bigint {
   return names.reduce((bits, name) => bits | PermissionFlagsBits[name], 0n);
@@ -143,7 +141,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       channelName: channelNameByKey(config, config.settings.rules.channel) ?? '',
       title: config.settings.rules.title ?? null,
       description: config.settings.rules.message.trim(),
-      color: RULES_COLOR,
+      color: COLORS.crimson,
       buttons: [],
     }),
     ...(config.settings.recruitment
@@ -154,7 +152,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
             channelName: channelNameByKey(config, config.settings.recruitment.channel) ?? '',
             title: ptBR.panels.recruitmentTitle(config.settings.characters.legion),
             description: ptBR.panels.recruitmentIntro(config.settings.characters.legion),
-            color: RECRUITMENT_COLOR,
+            color: COLORS.green,
             buttons: [
               {
                 customId: RECRUIT_APPLY_ID,

@@ -1,6 +1,9 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import type { AuditResult } from '../../core/audit.js';
+import { unixSeconds } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
+import { COLORS } from '../colors.js';
+import { failureText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const DEFAULT_LIMIT = 10;
@@ -32,27 +35,20 @@ export const auditCommand: SlashCommand = {
     });
 
     if (outcome.status !== 'ok') {
-      const content =
-        outcome.status === 'denied' ? ptBR.errors.denied(outcome.requiredTier) : outcome.preview;
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      await replyPrivately(interaction, failureText(outcome));
       return;
     }
 
     const lines = outcome.value.map((row) => {
-      const at = Math.floor(row.at.getTime() / 1000);
       const target = row.target ? ` → ${row.target}` : '';
-      return `<t:${at}:R> · \`${row.action}\`${target} · <@${row.actorId}> · ${ptBR.audit.result(row.result as AuditResult)}`;
+      return `<t:${unixSeconds(row.at)}:R> · \`${row.action}\`${target} · <@${row.actorId}> · ${ptBR.audit.result(row.result as AuditResult)}`;
     });
 
     const embed = new EmbedBuilder()
       .setTitle(ptBR.audit.listTitle)
-      .setColor(0xa855f7)
+      .setColor(COLORS.brand)
       .setDescription(lines.length > 0 ? lines.join('\n') : ptBR.audit.empty);
 
-    await interaction.reply({
-      embeds: [embed],
-      flags: MessageFlags.Ephemeral,
-      allowedMentions: { parse: [] },
-    });
+    await replyPrivately(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
   },
 };

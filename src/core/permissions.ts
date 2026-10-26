@@ -39,8 +39,6 @@ export const ACTION_POLICIES = {
   'role.edit': policy('commander'),
   'role.delete': policy('commander', { destructive: true }),
   'role.assign': policy('commander'),
-  // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
-  'member.register': policy('visitor', { audited: false }),
   'character.read': policy('visitor', { audited: false }),
   // Recruitment: a Visitante applies; an officer approves (registers them, makes them Soldado).
   'recruit.apply': policy('visitor', { audited: false }),
@@ -52,8 +50,6 @@ export const ACTION_POLICIES = {
   'party.close': policy('soldier', { audited: false }),
 
   'message.send': policy('officer'),
-  'message.edit': policy('officer'),
-  'message.delete': policy('officer'),
   'message.purge': policy('officer', { destructive: true }),
   'message.read': policy('officer', { audited: false }),
 

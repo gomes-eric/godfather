@@ -1,20 +1,21 @@
 import { MessageFlags, type ButtonInteraction, type ModalSubmitInteraction } from 'discord.js';
 import type { CharacterProfile } from '../../core/game-character.js';
-import { registerCharacter } from '../character-registration.js';
 import { normalizeGameName } from '../../core/registration.js';
 import type { Application } from '../../db/applications.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { GameApiError } from '../../services/game-character.service.js';
+import { RECRUIT_APPLY_ID } from '../../setup/desired.js';
+import { registerCharacter } from '../character-registration.js';
 import type { CommandContext } from '../commands/types.js';
+import { numericPart, parseCustomId } from '../custom-id.js';
 import {
   applicationCard,
   applicationModal,
-  RECRUIT_APPLY_ID,
   RECRUIT_DECIDE_PREFIX,
   RECRUIT_FIELDS,
   RECRUIT_MODAL_ID,
 } from '../recruitment.js';
-import { outcomeMessage } from './confirmation.js';
+import { failureText, replyPrivately } from '../replies.js';
 
 const t = ptBR.recruitment;
 
@@ -43,6 +44,73 @@ function characterOf(application: Application): CharacterProfile {
   };
 }
 
+/** "Quero entrar na legião": opens the form, unless they are in already or wait for a decision. */
+async function openApplication(interaction: ButtonInteraction, ctx: CommandContext) {
+  const actor = await ctx.resolveActor(interaction.user.id);
+  const problem =
+    actor.tier !== 'visitor'
+      ? t.alreadyMember
+      : ctx.applications.pendingFor(actor.userId)
+        ? t.alreadyPending
+        : null;
+  if (problem) {
+    await replyPrivately(interaction, `⚠️ ${problem}`);
+    return;
+  }
+  await interaction.showModal(applicationModal(ctx.registrations.get(actor.userId)?.name));
+}
+
+/**
+ * An officer's Aprovar/Recusar. Approving registers the character (class role, nickname) and
+ * makes them Soldado, then welcomes them in the channel (no DMs).
+ */
+async function decide(
+  interaction: ButtonInteraction,
+  ctx: CommandContext,
+  id: number,
+  approve: boolean,
+) {
+  const actor = await ctx.resolveActor(interaction.user.id);
+  const pending = ctx.applications.get(id);
+  const member = pending && (await ctx.guild.members.fetch(pending.userId).catch(() => null));
+  if (approve && pending && !member) {
+    await replyPrivately(interaction, `⚠️ ${t.leftServer}`);
+    return;
+  }
+
+  let nickname: string | null = null;
+  const outcome = await ctx.recruitment.decide(actor, id, approve, async (application) => {
+    const classRole = ctx.recruitment.classRole(application.className);
+    if (member && classRole) {
+      nickname = await registerCharacter(
+        ctx,
+        member,
+        characterOf(application),
+        classRole,
+        t.approvedReason,
+      );
+    }
+    await ctx.members.promote(actor, application.userId, 'soldier');
+  });
+  if (outcome.status !== 'ok') {
+    await replyPrivately(interaction, failureText(outcome));
+    return;
+  }
+
+  const decided = outcome.value;
+  await interaction.update({ ...(await cardFor(ctx, decided)), allowedMentions: { parse: [] } });
+  if (decided.status !== 'approved') return;
+  const settings = ctx.config.get().settings;
+  const channel = ctx.directory.channelByKey(settings.recruitment!.announceChannel);
+  await channel?.send({
+    content: t.welcome(decided.userId, settings.characters.legion, nickname),
+    allowedMentions: { users: [decided.userId] },
+  });
+  ctx.legion
+    .refreshRanking()
+    .catch((error: unknown) => ctx.logger.warn({ err: error }, 'ranking refresh failed'));
+}
+
 /** "Quero entrar na legião" and the officers' Aprovar/Recusar. Returns false for other buttons. */
 export async function handleRecruitButton(
   interaction: ButtonInteraction,
@@ -51,74 +119,14 @@ export async function handleRecruitButton(
   if (!ctx.config.get().settings.recruitment) return false;
 
   if (interaction.customId === RECRUIT_APPLY_ID) {
-    const actor = await ctx.resolveActor(interaction.user.id);
-    const problem =
-      actor.tier !== 'visitor'
-        ? t.alreadyMember
-        : ctx.applications.pendingFor(actor.userId)
-          ? t.alreadyPending
-          : null;
-    if (problem) {
-      await interaction.reply({ content: `⚠️ ${problem}`, flags: MessageFlags.Ephemeral });
-      return true;
-    }
-    await interaction.showModal(applicationModal(ctx.registrations.get(actor.userId)?.name));
+    await openApplication(interaction, ctx);
     return true;
   }
 
-  if (!interaction.customId.startsWith(RECRUIT_DECIDE_PREFIX)) return false;
-  const [action, rawId] = interaction.customId.slice(RECRUIT_DECIDE_PREFIX.length).split(':');
-  const id = Number(rawId);
-  if ((action !== 'approve' && action !== 'reject') || !Number.isInteger(id)) return false;
-
-  const actor = await ctx.resolveActor(interaction.user.id);
-  const application = ctx.applications.get(id);
-  if (action === 'approve' && application) {
-    const member = await ctx.guild.members.fetch(application.userId).catch(() => null);
-    if (!member) {
-      await interaction.reply({ content: `⚠️ ${t.leftServer}`, flags: MessageFlags.Ephemeral });
-      return true;
-    }
-  }
-
-  let nickname: string | null = null;
-  const outcome = await ctx.recruitment.decide(actor, id, action === 'approve', async (app) => {
-    const classRole = ctx.recruitment.classRole(app.className);
-    if (classRole) {
-      const result = await registerCharacter(
-        ctx,
-        app.userId,
-        characterOf(app),
-        classRole,
-        'Ficha de recrutamento aprovada',
-      );
-      if (result.nicknameSet) nickname = result.nickname;
-    }
-    await ctx.members.promote(actor, app.userId, 'soldier');
-  });
-  if (outcome.status !== 'ok') {
-    await interaction.reply({
-      content:
-        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-      flags: MessageFlags.Ephemeral,
-    });
-    return true;
-  }
-
-  const decided = outcome.value;
-  await interaction.update({ ...(await cardFor(ctx, decided)), allowedMentions: { parse: [] } });
-  // Approved: they are Soldado now; tell them in the channel (no DMs) what is left to do.
-  if (decided.status === 'approved') {
-    const settings = ctx.config.get().settings;
-    const channel = ctx.directory.channelByKey(settings.recruitment!.announceChannel);
-    await channel?.send({
-      content: t.welcome(decided.userId, settings.characters.legion, nickname),
-      allowedMentions: { users: [decided.userId] },
-    });
-    ctx.legion
-      .refreshRanking()
-      .catch((error: unknown) => ctx.logger.warn({ err: error }, 'ranking refresh failed'));
-  }
+  const [action, rawId] = parseCustomId(interaction.customId, RECRUIT_DECIDE_PREFIX) ?? [];
+  const id = numericPart(rawId);
+  if ((action !== 'approve' && action !== 'reject') || id === undefined) return false;
+  await decide(interaction, ctx, id, action === 'approve');
   return true;
 }
 
@@ -153,9 +161,7 @@ export async function handleRecruitModal(
   const actor = await ctx.resolveActor(interaction.user.id);
   const outcome = await ctx.recruitment.apply(actor, { character, reason, schedule });
   if (outcome.status !== 'ok') {
-    await interaction.editReply(
-      outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-    );
+    await interaction.editReply(failureText(outcome));
     return true;
   }
 

@@ -1,4 +1,5 @@
 import { PermissionFlagsBits as P } from 'discord.js';
+import type { PermissionOverwrite } from './permission-overwrite.js';
 
 // Pure rules for the join-to-create voice rooms (PLAN.md §6.6).
 
@@ -15,18 +16,14 @@ export function roomName(template: string, n: number): string {
   return template.replaceAll('{n}', String(n).padStart(2, '0'));
 }
 
-export interface RoleOverwrite {
-  id: string;
-  type: 'role' | 'member';
-  allow: bigint;
-  deny: bigint;
-}
-
 /** Room owners can rename, set the limit and move people; moderators get no extra power here. */
 export const OWNER_ALLOW = P.ViewChannel | P.Connect | P.Speak | P.ManageChannels | P.MoveMembers;
 
 /** Overwrites for a new room: the generator's, plus owner powers for whoever created it. */
-export function roomOverwrites(generator: RoleOverwrite[], ownerId: string): RoleOverwrite[] {
+export function roomOverwrites(
+  generator: PermissionOverwrite[],
+  ownerId: string,
+): PermissionOverwrite[] {
   return [
     ...generator.filter((o) => o.id !== ownerId),
     { id: ownerId, type: 'member', allow: OWNER_ALLOW, deny: 0n },
@@ -52,12 +49,12 @@ export const OCCUPANT_ALLOW = P.ViewChannel | P.Connect;
  * whoever is in the room when it closes gets their own grant to stay and come back.
  */
 export function accessOverwrites(
-  current: RoleOverwrite[],
-  generator: RoleOverwrite[],
+  current: PermissionOverwrite[],
+  generator: PermissionOverwrite[],
   everyoneId: string,
   access: RoomAccess,
   occupantIds: Iterable<string> = [],
-): RoleOverwrite[] {
+): PermissionOverwrite[] {
   const closed = (access.locked ? P.Connect : 0n) | (access.hidden ? P.ViewChannel : 0n);
   const source = generator.length > 0 ? generator : current;
   const roles = source
@@ -81,7 +78,7 @@ export function accessOverwrites(
  * Kicking from a room: their member overwrite denies Connect and ViewChannel, so they can't jump
  * back in and a hidden room stays hidden from them. Later lock/hide changes keep member overwrites.
  */
-export function banFromRoom(current: RoleOverwrite[], userId: string): RoleOverwrite[] {
+export function banFromRoom(current: PermissionOverwrite[], userId: string): PermissionOverwrite[] {
   const existing = current.find((o) => o.id === userId);
   const others = current.filter((o) => o.id !== userId);
   return [
@@ -97,10 +94,10 @@ export function banFromRoom(current: RoleOverwrite[], userId: string): RoleOverw
 
 /** Moving ownership: owner powers leave the previous owner and go to the new one. */
 export function transferOwnership(
-  current: RoleOverwrite[],
+  current: PermissionOverwrite[],
   previousOwnerId: string,
   newOwnerId: string,
-): RoleOverwrite[] {
+): PermissionOverwrite[] {
   return [
     ...current.filter((o) => o.id !== previousOwnerId && o.id !== newOwnerId),
     { id: newOwnerId, type: 'member', allow: OWNER_ALLOW, deny: 0n },

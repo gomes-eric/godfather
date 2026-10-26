@@ -12,7 +12,7 @@ export interface Candidate {
 export type Resolution =
   { ok: true; id: string } | { ok: false; reason: 'none' | 'ambiguous'; options: string[] };
 
-export function normalizeName(value: string): string {
+function normalizeName(value: string): string {
   return value
     .toLowerCase()
     .normalize('NFD')

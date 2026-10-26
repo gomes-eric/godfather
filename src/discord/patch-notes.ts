@@ -1,9 +1,9 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { summarizePatchNote, type PatchNote } from '../core/patch-notes.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { COLORS } from './colors.js';
 
 const t = ptBR.patchNotes;
-const COLOR = 0x5b8def;
 
 /** An emoji for a section, from words in its title. */
 function sectionEmoji(title: string): string {
@@ -26,7 +26,7 @@ export function patchNoteMessage(note: PatchNote): {
 } {
   const summary = summarizePatchNote(note);
   const embed = new EmbedBuilder()
-    .setColor(COLOR)
+    .setColor(COLORS.blue)
     .setAuthor({ name: t.author })
     .setTitle(`📜 ${summary.name}`.slice(0, 256))
     .setURL(note.url)

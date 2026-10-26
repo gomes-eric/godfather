@@ -1,12 +1,24 @@
 import { ChannelType, type Guild, type TextChannel } from 'discord.js';
-import { channelNameByKey, tierRoleKeys, type ServerConfig } from '../config/schema.js';
+import {
+  channelNameByKey,
+  classRoles,
+  tierRoleKeys,
+  type RoleConfig,
+  type ServerConfig,
+} from '../config/schema.js';
 import type { RankedTier, TierRoleIds } from '../core/tiers.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 
 /** Resolves configured roles and channels to live Discord objects. */
 export interface GuildDirectory {
-  tierRoleIds(): TierRoleIds;
   roleId(key: string): string | undefined;
+  tierRoleIds(): TierRoleIds;
+  /** Visitante, which sits below the ranked tiers. */
+  visitorRoleId(): string | undefined;
+  /** Ids of every class role that exists in Discord. */
+  classRoleIds(): string[];
+  /** The member's class roles, in server.yaml order. */
+  classesOf(member: { roles: { cache: { has(id: string): boolean } } }): RoleConfig[];
   channelByKey(key: string): TextChannel | undefined;
 }
 
@@ -36,6 +48,24 @@ export function createDirectory(
         if (id) ids[tier] = id;
       }
       return ids;
+    },
+
+    visitorRoleId() {
+      const key = config().roles.find((r) => r.tier === 'visitor')?.key;
+      return key ? roleId(key) : undefined;
+    },
+
+    classRoleIds() {
+      return classRoles(config())
+        .map((role) => roleId(role.key))
+        .filter((id): id is string => id !== undefined);
+    },
+
+    classesOf(member) {
+      return classRoles(config()).filter((role) => {
+        const id = roleId(role.key);
+        return id !== undefined && member.roles.cache.has(id);
+      });
     },
 
     channelByKey(key) {

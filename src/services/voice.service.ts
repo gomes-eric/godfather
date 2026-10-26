@@ -1,9 +1,7 @@
 import {
   ChannelType,
-  OverwriteType,
   type Guild,
   type GuildMember,
-  type VoiceBasedChannel,
   type VoiceChannel,
   type VoiceState,
 } from 'discord.js';
@@ -22,11 +20,11 @@ import {
   roomName,
   roomOverwrites,
   transferOwnership,
-  type RoleOverwrite,
   type RoomAccess,
 } from '../core/voice-rooms.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 import type { TempRoom, TempVoiceStore } from '../db/temp-voice.js';
+import { readOverwrites, toDiscordOverwrites } from '../discord/overwrites.js';
 import { roomPanel, type RoomPanelView } from '../discord/room-panel.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
@@ -56,24 +54,6 @@ interface Deps {
   rooms: TempVoiceStore;
   runAction: ActionRunner;
   logger: Logger;
-}
-
-function readOverwrites(channel: VoiceBasedChannel): RoleOverwrite[] {
-  return channel.permissionOverwrites.cache.map((o) => ({
-    id: o.id,
-    type: o.type === OverwriteType.Member ? ('member' as const) : ('role' as const),
-    allow: o.allow.bitfield,
-    deny: o.deny.bitfield,
-  }));
-}
-
-function toDiscord(overwrites: RoleOverwrite[]) {
-  return overwrites.map((o) => ({
-    id: o.id,
-    type: o.type === 'member' ? OverwriteType.Member : OverwriteType.Role,
-    allow: o.allow,
-    deny: o.deny,
-  }));
 }
 
 /** The access a lock/unlock/hide/unhide leaves the room in. */
@@ -172,7 +152,7 @@ export class VoiceService {
         type: ChannelType.GuildVoice,
         parent: generatorChannel.parentId,
         userLimit: generator.userLimit,
-        permissionOverwrites: toDiscord(
+        permissionOverwrites: toDiscordOverwrites(
           roomOverwrites(readOverwrites(generatorChannel), member.id),
         ),
         position: (previous ?? generatorChannel).rawPosition + 1,
@@ -380,14 +360,16 @@ export class VoiceService {
       case 'kick': {
         const member = channel.members.get(command.userId);
         await channel.permissionOverwrites.set(
-          toDiscord(banFromRoom(readOverwrites(channel), command.userId)),
+          toDiscordOverwrites(banFromRoom(readOverwrites(channel), command.userId)),
         );
         await member?.voice.disconnect('Kicked from temp room');
         return t.kicked(member?.displayName ?? command.userId);
       }
       case 'claim':
         await channel.permissionOverwrites.set(
-          toDiscord(transferOwnership(readOverwrites(channel), room.ownerId, actor.userId)),
+          toDiscordOverwrites(
+            transferOwnership(readOverwrites(channel), room.ownerId, actor.userId),
+          ),
         );
         this.deps.rooms.setOwner(room.channelId, actor.userId);
         await this.refreshPanel(room.channelId);
@@ -400,7 +382,7 @@ export class VoiceService {
     const generatorId = this.deps.managed.get('channel', room.generatorKey)?.discordId;
     const generator = generatorId ? this.voiceChannel(generatorId) : undefined;
     await channel.permissionOverwrites.set(
-      toDiscord(
+      toDiscordOverwrites(
         accessOverwrites(
           readOverwrites(channel),
           generator ? readOverwrites(generator) : [],

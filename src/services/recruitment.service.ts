@@ -1,3 +1,4 @@
+import { classRoles, type RoleConfig } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
@@ -83,10 +84,8 @@ export class RecruitmentService {
     this.deps.store.setMessage(id, messageId);
   }
 
-  classRole(className: string) {
-    return matchClass(
-      className,
-      this.deps.config.get().roles.filter((role) => role.class && role.emoji),
-    );
+  /** The class role for the game's class name, e.g. "Clérigo". */
+  classRole(className: string): RoleConfig | undefined {
+    return matchClass(className, classRoles(this.deps.config.get()));
   }
 }

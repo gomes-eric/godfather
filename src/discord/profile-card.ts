@@ -1,11 +1,11 @@
 import { EmbedBuilder } from 'discord.js';
-import type { ServerConfig } from '../config/schema.js';
+import { classRoles, type ServerConfig } from '../config/schema.js';
 import { itemLabel, matchClass, type EquipmentGroup } from '../core/game-character.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { CharacterSheet } from '../services/game-character.service.js';
+import { COLORS } from './colors.js';
 
 const t = ptBR.profile;
-const DEFAULT_COLOR = 0xa855f7;
 const GROUPS: { group: EquipmentGroup[]; name: string }[] = [
   { group: ['weapons'], name: t.weapons },
   { group: ['armor'], name: t.armor },
@@ -22,7 +22,7 @@ export function profileCard(
   look: { classEmoji?: string; color?: number; serverName: string },
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(look.color || DEFAULT_COLOR)
+    .setColor(look.color || COLORS.brand)
     .setTitle(profile.name)
     .setDescription(
       [
@@ -50,13 +50,10 @@ export function profileCard(
 
 /** The profile card with the class emoji and color from server.yaml. */
 export function characterCard(sheet: CharacterSheet, config: ServerConfig): EmbedBuilder {
-  const classRole = matchClass(
-    sheet.profile.className,
-    config.roles.filter((role) => role.class),
-  );
+  const classRole = matchClass(sheet.profile.className, classRoles(config));
   return profileCard(sheet, {
     ...(classRole?.emoji && { classEmoji: classRole.emoji }),
     ...(classRole?.color !== undefined && { color: classRole.color }),
-    serverName: (config.settings as { game?: { server?: string } }).game?.server ?? 'Triniel',
+    serverName: config.settings.characters.serverName,
   });
 }

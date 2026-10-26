@@ -3,14 +3,13 @@ import type { Weekday } from '../config/schema.js';
 import type { ConfigStore, EventTemplatePatch } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
-import { parseWhen } from '../core/schedule.js';
+import { parseWhen, unixSeconds as unix } from '../core/schedule.js';
 import type { EventStore } from '../db/events.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { OccurrenceView, ReminderScheduler, RsvpSummary } from './reminder.scheduler.js';
 
 const t = ptBR.events;
 const WEEK_MS = 7 * 24 * 3600_000;
-const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 
 export interface NewEvent {
   title: string;

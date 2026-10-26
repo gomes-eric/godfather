@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   localParts,
+  normalizeClock,
   parseWhen,
   reminderDecision,
   templateOccurrences,
@@ -106,5 +107,18 @@ describe('parseWhen', () => {
 
   it.each(['amanhã', '31/02 21:00', '30/10 25:00', 'quando der', 'sab'])('rejects %s', (input) => {
     expect(parseWhen(input, now, SP)).toBeNull();
+  });
+});
+
+describe('normalizeClock', () => {
+  it('accepts the ways people type a time', () => {
+    expect(['21', '21h', '9:30', '21:00', '9h30'].map(normalizeClock)).toEqual([
+      '21:00',
+      '21:00',
+      '09:30',
+      '21:00',
+      '09:30',
+    ]);
+    expect(normalizeClock('meio-dia')).toBe('meio-dia');
   });
 });

@@ -7,7 +7,8 @@ import {
   type SetupOp,
   type SetupPlan,
 } from './model.js';
-import type { ChannelPosition, ChannelSpec, ConcreteOverwrite, GuildPort } from './port.js';
+import type { PermissionOverwrite } from '../core/permission-overwrite.js';
+import type { ChannelPosition, ChannelSpec, GuildPort } from './port.js';
 
 export interface ApplyFailure {
   op: SetupOp;
@@ -38,14 +39,14 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
   const channelIds = new Map([...managed.channel].map(([key, e]) => [key, e.discordId]));
   const channelsById = new Map(snapshot.channels.map((c) => [c.id, c]));
 
-  const resolveOverwrites = (overwrites: DesiredOverwrite[]): ConcreteOverwrite[] =>
+  const resolveOverwrites = (overwrites: DesiredOverwrite[]): PermissionOverwrite[] =>
     overwrites.flatMap((o) => {
       const id = o.target === EVERYONE ? snapshot.everyoneRoleId : roleIds.get(o.target);
       return id === undefined ? [] : [{ id, type: 'role' as const, allow: o.allow, deny: o.deny }];
     });
 
   /** Overwrites /setup doesn't own (members, other bots' roles) survive an edit. */
-  const foreignOverwrites = (existingId: string | undefined): ConcreteOverwrite[] => {
+  const foreignOverwrites = (existingId: string | undefined): PermissionOverwrite[] => {
     const owned = new Set([snapshot.everyoneRoleId, ...roleIds.values()]);
     const existing = existingId ? channelsById.get(existingId) : undefined;
     return (existing?.overwrites ?? []).filter((o) => o.type === 'member' || !owned.has(o.id));
@@ -196,7 +197,7 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
 }
 
 /** "{channel:general}" → "<#id>", so panel texts can link channels by their yaml key. */
-export function linkChannels(text: string, channelIds: Map<string, string>): string {
+function linkChannels(text: string, channelIds: Map<string, string>): string {
   return text.replace(/\{channel:([a-z0-9-]+)\}/g, (match, key: string) => {
     const id = channelIds.get(key);
     return id ? `<#${id}>` : match;

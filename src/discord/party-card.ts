@@ -1,10 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { COLORS } from './colors.js';
+import { customId } from './custom-id.js';
 
 const t = ptBR.party;
 /** Buttons are `party:<join|leave|close>:<partyId>`. */
 export const PARTY_PREFIX = 'party:';
-const COLORS = { open: 0x4fb286, full: 0xd9b45a, closed: 0x6e7f99 };
+const STATE_COLORS = { open: COLORS.green, full: COLORS.gold, closed: COLORS.slate };
 
 export interface PartyView {
   id: number;
@@ -15,10 +17,6 @@ export interface PartyView {
   closed: boolean;
   /** In join order, each with the emoji of their class (or a neutral one). */
   members: { id: string; emoji: string }[];
-}
-
-export function partyCustomId(action: 'join' | 'leave' | 'close', id: number): string {
-  return `${PARTY_PREFIX}${action}:${id}`;
 }
 
 /** The party card: who is in, free slots, and Entrar/Sair/Fechar while it is open. */
@@ -34,7 +32,7 @@ export function partyCard(view: PartyView): {
   });
 
   const embed = new EmbedBuilder()
-    .setColor(COLORS[state])
+    .setColor(STATE_COLORS[state])
     .setTitle(`${t.stateEmoji[state]} ${view.activity}`.slice(0, 256))
     .setDescription(
       [
@@ -52,18 +50,18 @@ export function partyCard(view: PartyView): {
   if (view.closed) return { embeds: [embed], components: [] };
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(partyCustomId('join', view.id))
+      .setCustomId(customId(PARTY_PREFIX, 'join', view.id))
       .setLabel(t.join)
       .setEmoji('✅')
       .setStyle(ButtonStyle.Success)
       .setDisabled(full),
     new ButtonBuilder()
-      .setCustomId(partyCustomId('leave', view.id))
+      .setCustomId(customId(PARTY_PREFIX, 'leave', view.id))
       .setLabel(t.leave)
       .setEmoji('🚪')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId(partyCustomId('close', view.id))
+      .setCustomId(customId(PARTY_PREFIX, 'close', view.id))
       .setLabel(t.close)
       .setEmoji('🔒')
       .setStyle(ButtonStyle.Danger),

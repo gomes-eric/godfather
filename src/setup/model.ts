@@ -1,4 +1,5 @@
 import type { ChannelKind } from '../config/schema.js';
+import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 
 // Data model of the /setup reconciliation (PLAN.md §6.1). Everything here is plain data so the
 // planner can be tested without Discord.
@@ -94,13 +95,6 @@ export interface RoleSnapshot {
   integration: boolean;
 }
 
-export interface OverwriteSnapshot {
-  id: string;
-  type: 'role' | 'member';
-  allow: bigint;
-  deny: bigint;
-}
-
 export type SnapshotChannelKind = ChannelKind | 'category' | 'other';
 
 export interface ChannelSnapshot {
@@ -111,7 +105,7 @@ export interface ChannelSnapshot {
   position: number;
   topic: string | null;
   userLimit: number;
-  overwrites: OverwriteSnapshot[];
+  overwrites: PermissionOverwrite[];
   tags: (ForumTag & { id: string })[];
   requireTag: boolean;
 }

@@ -217,6 +217,8 @@ const settingsSchema = z.looseObject({
     /** Search region: la = South America. */
     region: z.enum(['nae', 'naw', 'eu', 'la', 'as']),
     serverId: z.number().int().positive(),
+    /** The server's name, shown on profile cards. */
+    serverName: z.string().min(1).default('Triniel'),
     /** In-game legion name: the daily check reports who left or joined it. */
     legion: z.string().min(1),
     /** Daily check: officers get what changed (left the legion, new class…) here. */
@@ -280,70 +282,31 @@ export const serverConfigSchema = z
     const textChannelKeys = new Set(
       channels.filter((c) => c.type === 'text' || c.type === 'announcement').map((c) => c.key),
     );
-    const settingChannels: [string[], string, Set<string>][] = [
-      [
-        ['settings', 'community', 'rulesChannel'],
-        config.settings.community.rulesChannel,
-        textChannelKeys,
-      ],
-      [
-        ['settings', 'community', 'updatesChannel'],
-        config.settings.community.updatesChannel,
-        textChannelKeys,
-      ],
-      [['settings', 'welcome', 'channel'], config.settings.welcome.channel, textChannelKeys],
-      [['settings', 'rules', 'channel'], config.settings.rules.channel, textChannelKeys],
-      [['settings', 'audit', 'channel'], config.settings.audit.channel, textChannelKeys],
-      [['settings', 'musicGuard', 'channel'], config.settings.musicGuard.channel, textChannelKeys],
-      ...(config.settings.patchNotes
-        ? [
-            [
-              ['settings', 'patchNotes', 'channel'],
-              config.settings.patchNotes.channel,
-              textChannelKeys,
-            ] satisfies [string[], string, Set<string>],
-          ]
-        : []),
-      ...(config.settings.recruitment
-        ? (['channel', 'reviewChannel', 'announceChannel'] as const).map(
-            (field) =>
-              [
-                ['settings', 'recruitment', field],
-                config.settings.recruitment![field],
-                textChannelKeys,
-              ] satisfies [string[], string, Set<string>],
-          )
-        : []),
-      ...(['reportChannel', 'rankingChannel'] as const).flatMap((field) => {
-        const value = config.settings.characters[field];
-        return value
-          ? [
-              [['settings', 'characters', field], value, textChannelKeys] satisfies [
-                string[],
-                string,
-                Set<string>,
-              ],
-            ]
-          : [];
-      }),
-      [
-        ['settings', 'eventDefaults', 'announceChannel'],
-        config.settings.eventDefaults.announceChannel,
-        textChannelKeys,
-      ],
-      [
-        ['settings', 'eventDefaults', 'agendaChannel'],
-        config.settings.eventDefaults.agendaChannel,
-        textChannelKeys,
-      ],
-      [
-        ['settings', 'afk', 'channel'],
-        config.settings.afk.channel,
-        new Set(channels.filter((c) => c.type === 'voice').map((c) => c.key)),
-      ],
+    const s = config.settings;
+    // [path under settings, channel key or undefined when the feature is off]
+    const textSettings: [string[], string | undefined][] = [
+      [['community', 'rulesChannel'], s.community.rulesChannel],
+      [['community', 'updatesChannel'], s.community.updatesChannel],
+      [['welcome', 'channel'], s.welcome.channel],
+      [['rules', 'channel'], s.rules.channel],
+      [['audit', 'channel'], s.audit.channel],
+      [['musicGuard', 'channel'], s.musicGuard.channel],
+      [['patchNotes', 'channel'], s.patchNotes?.channel],
+      [['recruitment', 'channel'], s.recruitment?.channel],
+      [['recruitment', 'reviewChannel'], s.recruitment?.reviewChannel],
+      [['recruitment', 'announceChannel'], s.recruitment?.announceChannel],
+      [['characters', 'reportChannel'], s.characters.reportChannel],
+      [['characters', 'rankingChannel'], s.characters.rankingChannel],
+      [['eventDefaults', 'announceChannel'], s.eventDefaults.announceChannel],
+      [['eventDefaults', 'agendaChannel'], s.eventDefaults.agendaChannel],
     ];
-    for (const [path, value, allowed] of settingChannels) {
-      if (!allowed.has(value)) issue(path, `"${value}" is not a channel key of the right type`);
+    for (const [path, value] of textSettings) {
+      if (value !== undefined && !textChannelKeys.has(value)) {
+        issue(['settings', ...path], `"${value}" is not a channel key of the right type`);
+      }
+    }
+    if (!channels.some((c) => c.type === 'voice' && c.key === s.afk.channel)) {
+      issue(['settings', 'afk', 'channel'], `"${s.afk.channel}" is not a voice channel key`);
     }
 
     if (!roleKeys.includes(config.settings.welcome.autoRole)) {
@@ -426,13 +389,9 @@ export type ChannelConfig = CategoryConfig['channels'][number];
 export type EventTemplateConfig = ServerConfig['eventTemplates'][number];
 export type FieldBossConfig = NonNullable<ServerConfig['fieldBosses']>['bosses'][number];
 
-/** Discord role names for each ranked tier, e.g. { officer: "Oficial" }. */
-export function tierRoleNames(config: ServerConfig): Partial<Record<RankedTier, string>> {
-  const names: Partial<Record<RankedTier, string>> = {};
-  for (const role of config.roles) {
-    if (role.tier && role.tier !== 'visitor') names[role.tier] = role.name;
-  }
-  return names;
+/** The class roles (Gladiador, Clérigo...), in server.yaml order. */
+export function classRoles(config: ServerConfig): RoleConfig[] {
+  return config.roles.filter((role) => role.class);
 }
 
 /** Roles that stand in for Soldado somewhere (asSoldier), e.g. Parceiro. */

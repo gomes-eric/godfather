@@ -2,8 +2,8 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { CharacterRef } from '../../core/game-character.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { GameApiError, type CharacterSheet } from '../../services/game-character.service.js';
-import { outcomeMessage } from '../interactions/confirmation.js';
 import { characterCard } from '../profile-card.js';
+import { failureText } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.profile;
@@ -41,7 +41,7 @@ export const profileCommand: SlashCommand = {
     await interaction.deferReply();
     const fail = async (content: string) => {
       await interaction.deleteReply();
-      await interaction.followUp({ content: `⚠️ ${content}`, flags: MessageFlags.Ephemeral });
+      await interaction.followUp({ content, flags: MessageFlags.Ephemeral });
     };
 
     const outcome = await ctx
@@ -70,13 +70,9 @@ export const profileCommand: SlashCommand = {
         throw error;
       });
 
-    if (outcome === null) return fail(t.apiDown);
-    if (outcome.status !== 'ok') {
-      return fail(
-        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-      );
-    }
-    if ('problem' in outcome.value) return fail(outcome.value.problem);
+    if (outcome === null) return fail(`⚠️ ${t.apiDown}`);
+    if (outcome.status !== 'ok') return fail(failureText(outcome));
+    if ('problem' in outcome.value) return fail(`⚠️ ${outcome.value.problem}`);
 
     await interaction.editReply({ embeds: [characterCard(outcome.value.sheet, ctx.config.get())] });
   },

@@ -1,12 +1,7 @@
-import { MessageFlags, SlashCommandBuilder, type ButtonInteraction } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import type { PartyAction } from '../../services/party.service.js';
-import { outcomeMessage } from '../interactions/confirmation.js';
-import { PARTY_PREFIX } from '../party-card.js';
-import type { CommandContext, SlashCommand } from './types.js';
-
-const t = ptBR.party;
-const ACTIONS = new Set<PartyAction>(['join', 'leave', 'close']);
+import { failureText, replyPrivately } from '../replies.js';
+import type { SlashCommand } from './types.js';
 
 export const partyCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -49,7 +44,7 @@ export const partyCommand: SlashCommand = {
     const startsAt = interaction.options.getString('when')?.trim() || null;
     const channel = interaction.channel;
     if (!channel?.isSendable()) {
-      await interaction.reply({ content: `⚠️ ${t.noChannel}`, flags: MessageFlags.Ephemeral });
+      await replyPrivately(interaction, `⚠️ ${ptBR.party.noChannel}`);
       return;
     }
 
@@ -61,11 +56,7 @@ export const partyCommand: SlashCommand = {
       startsAt,
     });
     if (outcome.status !== 'ok') {
-      await interaction.reply({
-        content:
-          outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-        flags: MessageFlags.Ephemeral,
-      });
+      await replyPrivately(interaction, failureText(outcome));
       return;
     }
 
@@ -79,36 +70,3 @@ export const partyCommand: SlashCommand = {
     if (message) ctx.parties.attachMessage(outcome.value, message.id);
   },
 };
-
-/** Entrar / Sair / Fechar on a party card. Returns false for any other button. */
-export async function handlePartyButton(
-  interaction: ButtonInteraction,
-  ctx: CommandContext,
-): Promise<boolean> {
-  if (!interaction.customId.startsWith(PARTY_PREFIX)) return false;
-  const [action, rawId] = interaction.customId.slice(PARTY_PREFIX.length).split(':');
-  const partyId = Number(rawId);
-  if (!ACTIONS.has(action as PartyAction) || !Number.isInteger(partyId)) return false;
-
-  const actor = await ctx.resolveActor(interaction.user.id);
-  const outcome = await ctx.parties.act(actor, partyId, action as PartyAction);
-  if (outcome.status !== 'ok') {
-    await interaction.reply({
-      content:
-        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome),
-      flags: MessageFlags.Ephemeral,
-    });
-    return true;
-  }
-
-  const { party, justFilled } = outcome.value;
-  await interaction.update({ ...ctx.parties.card(party), allowedMentions: { parse: [] } });
-  if (justFilled && interaction.channel?.isSendable()) {
-    const ids = ctx.parties.view(party).members.map((m) => m.id);
-    await interaction.channel.send({
-      content: t.filled(party.activity, ids),
-      allowedMentions: { users: ids },
-    });
-  }
-  return true;
-}

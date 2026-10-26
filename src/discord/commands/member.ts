@@ -1,7 +1,10 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { unixSeconds } from '../../core/schedule.js';
 import type { Tier } from '../../core/tiers.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { outcomeMessage, runWithConfirmation } from '../interactions/confirmation.js';
+import { COLORS } from '../colors.js';
+import { runWithConfirmation } from '../interactions/confirmation.js';
+import { failureText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const rankChoices = (tiers: Tier[]) =>
@@ -92,20 +95,17 @@ export const memberCommand: SlashCommand = {
 
     const outcome = await ctx.members.info(actor, user.id);
     if (outcome.status !== 'ok') {
-      const content =
-        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      await replyPrivately(interaction, failureText(outcome));
       return;
     }
 
     const info = outcome.value;
     const f = ptBR.members.info;
-    const ts = (date: Date | null) =>
-      date ? `<t:${Math.floor(date.getTime() / 1000)}:D>` : f.none;
+    const ts = (date: Date | null) => (date ? `<t:${unixSeconds(date)}:D>` : f.none);
     const embed = new EmbedBuilder()
       .setTitle(f.title(info.name))
       .setThumbnail(info.avatarUrl)
-      .setColor(0xa855f7)
+      .setColor(COLORS.brand)
       .addFields(
         { name: f.tier, value: ptBR.tier(info.tier), inline: true },
         { name: f.classes, value: info.classes.join(', ') || f.none, inline: true },
@@ -115,10 +115,10 @@ export const memberCommand: SlashCommand = {
     if (info.timeoutUntil) {
       embed.addFields({
         name: f.timedOut,
-        value: `<t:${Math.floor(info.timeoutUntil.getTime() / 1000)}:f>`,
+        value: `<t:${unixSeconds(info.timeoutUntil)}:f>`,
         inline: true,
       });
     }
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await replyPrivately(interaction, { embeds: [embed] });
   },
 };

@@ -61,14 +61,6 @@ export class EventStore {
     return this.db.select().from(eventOccurrences).where(eq(eventOccurrences.id, id)).get();
   }
 
-  occurrenceForEvent(eventId: number): OccurrenceRow | undefined {
-    return this.db
-      .select()
-      .from(eventOccurrences)
-      .where(eq(eventOccurrences.eventId, eventId))
-      .get();
-  }
-
   /** Inserts the template occurrence unless it already exists (idempotent). */
   ensureTemplateOccurrence(templateKey: string, startsAt: Date): void {
     this.db.insert(eventOccurrences).values({ templateKey, startsAt }).onConflictDoNothing().run();

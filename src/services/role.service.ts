@@ -37,9 +37,9 @@ export class RoleService {
     if (me && role.position >= me.roles.highest.position) return t.aboveBot;
     if (forAssignment) {
       const tierIds = new Set(Object.values(this.deps.directory.tierRoleIds()));
-      const visitorKey = this.deps.config.get().roles.find((r) => r.tier === 'visitor')?.key;
-      const visitorId = visitorKey ? this.deps.directory.roleId(visitorKey) : undefined;
-      if (tierIds.has(role.id) || role.id === visitorId) return t.tierRole;
+      if (tierIds.has(role.id) || role.id === this.deps.directory.visitorRoleId()) {
+        return t.tierRole;
+      }
     }
     return null;
   }

@@ -1,10 +1,11 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { unixSeconds as unix } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { outcomeMessage } from '../interactions/confirmation.js';
+import { COLORS } from '../colors.js';
+import { failureText, outcomeText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.mcp;
-const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 
 export const mcpCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -53,28 +54,25 @@ export const mcpCommand: SlashCommand = {
 
     if (sub === 'create') {
       const outcome = await ctx.tokens.create(actor, interaction.options.getString('name', true));
-      const content =
+      await replyPrivately(
+        interaction,
         outcome.status === 'ok'
           ? t.created(interaction.options.getString('name', true), outcome.value.token, ctx.mcpUrl)
-          : outcome.status === 'confirmation_required'
-            ? outcome.preview
-            : outcomeMessage(outcome);
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+          : failureText(outcome),
+      );
       return;
     }
 
     if (sub === 'revoke') {
       const outcome = await ctx.tokens.revoke(actor, interaction.options.getInteger('id', true));
-      const content =
-        outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      await replyPrivately(interaction, outcomeText(outcome));
       return;
     }
 
     const rows = ctx.tokens.list(interaction.user.id);
     const embed = new EmbedBuilder()
       .setTitle(t.listTitle)
-      .setColor(0xa855f7)
+      .setColor(COLORS.brand)
       .setDescription(
         rows
           .map((row) =>
@@ -87,6 +85,6 @@ export const mcpCommand: SlashCommand = {
           )
           .join('\n') || t.none,
       );
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await replyPrivately(interaction, { embeds: [embed] });
   },
 };

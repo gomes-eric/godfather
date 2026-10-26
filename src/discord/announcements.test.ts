@@ -102,17 +102,3 @@ describe('agendaDescription', () => {
     expect(agendaDescription([], SP, now)).toContain('Nenhum evento nos próximos 7 dias');
   });
 });
-
-describe('normalizeClock', () => {
-  it('accepts the ways people type a time', async () => {
-    const { normalizeClock } = await import('./commands/event.js');
-    expect(['21', '21h', '9:30', '21:00', '9h30'].map(normalizeClock)).toEqual([
-      '21:00',
-      '21:00',
-      '09:30',
-      '21:00',
-      '09:30',
-    ]);
-    expect(normalizeClock('meio-dia')).toBe('meio-dia');
-  });
-});

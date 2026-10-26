@@ -1,6 +1,7 @@
 import { EmbedBuilder, type Guild, type GuildMember, type MessageCreateOptions } from 'discord.js';
 import { soldierLikeRoleKeys, type ServerConfig } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
+import { COLORS } from '../discord/colors.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
@@ -23,9 +24,6 @@ export function renderWelcome(
     .trim();
 }
 
-/** Asmodian crimson, like the Comandante role. */
-const WELCOME_COLOR = 0xe0303a;
-
 export interface Newcomer {
   id: string;
   displayName: string;
@@ -46,7 +44,7 @@ export function welcomeCard(
 ): Pick<MessageCreateOptions, 'content' | 'embeds' | 'allowedMentions'> {
   const render = (text: string) => renderWelcome(text, newcomer.id, channelId);
   const embed = new EmbedBuilder()
-    .setColor(WELCOME_COLOR)
+    .setColor(COLORS.crimson)
     .setAuthor({ name: newcomer.displayName, iconURL: newcomer.avatarUrl })
     .setThumbnail(newcomer.avatarUrl)
     .setDescription(render(welcome.message))

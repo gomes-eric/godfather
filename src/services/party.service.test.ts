@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { openDatabase } from '../db/client.js';
@@ -17,8 +16,7 @@ function setup() {
   const db = openDatabase(':memory:');
   const service = new PartyService({
     guild: { members: { cache: new Map() } } as never,
-    config: { get: () => ({ roles: [] }) } as unknown as ConfigStore,
-    directory: { roleId: () => undefined } as unknown as GuildDirectory,
+    directory: { classesOf: () => [] } as unknown as GuildDirectory,
     store: new PartyStore(db.db),
     runAction: (async (r: { execute: () => Promise<unknown> }) => ({
       status: 'ok',

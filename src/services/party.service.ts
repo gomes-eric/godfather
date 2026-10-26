@@ -1,5 +1,4 @@
 import type { Guild } from 'discord.js';
-import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { tierAtLeast } from '../core/tiers.js';
@@ -17,7 +16,6 @@ export class PartyService {
   constructor(
     private readonly deps: {
       guild: Guild;
-      config: ConfigStore;
       directory: GuildDirectory;
       store: PartyStore;
       runAction: ActionRunner;
@@ -26,11 +24,7 @@ export class PartyService {
 
   private classEmoji(userId: string): string {
     const member = this.deps.guild.members.cache.get(userId);
-    const role = this.deps.config.get().roles.find((r) => {
-      const id = r.class && this.deps.directory.roleId(r.key);
-      return id && member?.roles.cache.has(id);
-    });
-    return role?.emoji ?? '🎮';
+    return (member && this.deps.directory.classesOf(member)[0]?.emoji) ?? '🎮';
   }
 
   view(party: Party): PartyView {

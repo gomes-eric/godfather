@@ -11,6 +11,7 @@ export async function handleRankingSelect(
   ctx: CommandContext,
 ): Promise<boolean> {
   if (interaction.customId !== RANKING_SELECT_ID) return false;
+  // The card can be slow (two requests to the official site), so answer within 3s first.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const registered = ctx.registrations.get(interaction.values[0] ?? '');

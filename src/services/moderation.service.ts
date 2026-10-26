@@ -2,7 +2,7 @@ import type { Guild, GuildMember } from 'discord.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { checkModerationTarget } from '../core/member-rules.js';
-import { memberTier } from '../discord/actor.js';
+import { memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 

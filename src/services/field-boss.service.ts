@@ -12,14 +12,16 @@ import {
 } from '../core/field-bosses.js';
 import type { BossTimer, FieldBossStore } from '../db/field-bosses.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { repeat, type BackgroundJob } from '../core/repeat.js';
+import { unixSeconds as unix } from '../core/schedule.js';
 import type { Logger } from '../logger.js';
+import { fetchJson, type FetchJson } from './fetch-json.js';
 import type { OccurrenceSource, OccurrenceView } from './reminder.scheduler.js';
 
 const t = ptBR.bosses;
-export const BOSS_PREFIX = 'boss:';
+const BOSS_PREFIX = 'boss:';
 const PROVIDER = 'questlog';
 const LOOKBACK_MS = 15 * 60_000;
-const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 
 export interface BossStatus {
   boss: FieldBossConfig;
@@ -37,33 +39,24 @@ interface Deps {
   warn: (text: string) => Promise<void>;
   /** Called after any timer change so reminders move right away. */
   onChange?: () => void;
-  fetchFeed?: (url: string) => Promise<unknown>;
+  fetchFeed?: FetchJson;
   now?: () => Date;
-}
-
-async function defaultFetchFeed(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Padrinho/0.1 (M4F1A Discord bot)', Accept: 'application/json' },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new Error(`questlog.gg answered HTTP ${response.status}`);
-  return response.json();
 }
 
 /**
  * Respawn-based field bosses (PLAN.md §6.11): reads the questlog.gg feed, accepts manual
  * corrections, and feeds the respawns to the reminder scheduler as occurrences.
  */
-export class FieldBossService implements OccurrenceSource {
+export class FieldBossService implements OccurrenceSource, BackgroundJob {
   readonly prefix = BOSS_PREFIX;
   private readonly now: () => Date;
-  private readonly fetchFeed: (url: string) => Promise<unknown>;
+  private readonly fetchFeed: FetchJson;
   private failingSince: Date | null = null;
-  private timer: NodeJS.Timeout | undefined;
+  private stopPolling: (() => void) | undefined;
 
   constructor(private readonly deps: Deps) {
     this.now = deps.now ?? (() => new Date());
-    this.fetchFeed = deps.fetchFeed ?? defaultFetchFeed;
+    this.fetchFeed = deps.fetchFeed ?? fetchJson;
   }
 
   private settings() {
@@ -288,16 +281,14 @@ export class FieldBossService implements OccurrenceSource {
 
   start(): void {
     const intervalMs = (this.settings()?.source.pollIntervalSeconds ?? 180) * 1000;
-    const run = () => {
-      this.poll().catch((error: unknown) =>
-        this.deps.logger.error({ err: error }, 'field boss poll crashed'),
-      );
-    };
-    run();
-    this.timer = setInterval(run, intervalMs);
+    this.stopPolling = repeat(
+      intervalMs,
+      () => this.poll(),
+      (error) => this.deps.logger.error({ err: error }, 'field boss poll crashed'),
+    );
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.stopPolling?.();
   }
 }

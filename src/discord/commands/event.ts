@@ -1,37 +1,28 @@
 import {
   ChannelType,
   EmbedBuilder,
-  MessageFlags,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { EventTemplatePatch } from '../../config/store.js';
 import type { ServiceOutcome } from '../../core/action.js';
+import { normalizeClock, unixSeconds as unix } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { parseDays } from '../../services/event.service.js';
-import { outcomeMessage, runWithConfirmation } from '../interactions/confirmation.js';
+import { COLORS } from '../colors.js';
+import { runWithConfirmation } from '../interactions/confirmation.js';
+import { failureText, outcomeText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.events;
-const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 
-/** "21", "21h", "9:30", "21:00" → "HH:MM". Anything else is passed through for the schema to reject. */
-export function normalizeClock(input: string): string {
-  const match = input.trim().match(/^(\d{1,2})(?:[:h](\d{2})?)?h?$/);
-  return match ? `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}` : input;
+/** Text replies never ping: event titles may contain mentions. */
+function replyText(interaction: ChatInputCommandInteraction, content: string) {
+  return replyPrivately(interaction, { content, allowedMentions: { parse: [] } });
 }
 
-async function replyText(
-  interaction: ChatInputCommandInteraction,
-  outcome: ServiceOutcome<string>,
-) {
-  const content =
-    outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-  await interaction.reply({
-    content,
-    flags: MessageFlags.Ephemeral,
-    allowedMentions: { parse: [] },
-  });
+function replyOutcome(interaction: ChatInputCommandInteraction, outcome: ServiceOutcome<string>) {
+  return replyText(interaction, outcomeText(outcome));
 }
 
 export const eventCommand: SlashCommand = {
@@ -176,9 +167,9 @@ export const eventCommand: SlashCommand = {
           );
         const embed = new EmbedBuilder()
           .setTitle(t.templateListTitle)
-          .setColor(0xa855f7)
+          .setColor(COLORS.brand)
           .setDescription(lines.join('\n') || t.agendaEmpty);
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await replyPrivately(interaction, { embeds: [embed] });
         return;
       }
 
@@ -195,13 +186,13 @@ export const eventCommand: SlashCommand = {
         if (days) {
           const parsed = parseDays(days);
           if (!parsed) {
-            await replyText(interaction, { status: 'rejected', reason: t.templateInvalid(days) });
+            await replyText(interaction, `⚠️ ${t.templateInvalid(days)}`);
             return;
           }
           patch.days = parsed;
         }
       }
-      await replyText(interaction, await ctx.events.updateTemplate(actor, key, patch));
+      await replyOutcome(interaction, await ctx.events.updateTemplate(actor, key, patch));
       return;
     }
 
@@ -211,7 +202,7 @@ export const eventCommand: SlashCommand = {
         const ping = interaction.options.getBoolean('ping');
         const description = opt('description');
         const emoji = opt('emoji');
-        await replyText(
+        await replyOutcome(
           interaction,
           await ctx.events.create(actor, {
             title: interaction.options.getString('title', true),
@@ -228,7 +219,7 @@ export const eventCommand: SlashCommand = {
         const title = opt('title');
         const when = opt('when');
         const description = opt('description');
-        await replyText(
+        await replyOutcome(
           interaction,
           await ctx.events.edit(actor, interaction.options.getInteger('id', true), {
             ...(title && { title }),
@@ -248,7 +239,7 @@ export const eventCommand: SlashCommand = {
       case 'list': {
         const outcome = await ctx.events.list(actor);
         if (outcome.status !== 'ok') {
-          await replyText(interaction, outcome as ServiceOutcome<string>);
+          await replyText(interaction, failureText(outcome));
           return;
         }
         const lines = outcome.value.map((v) =>
@@ -256,32 +247,28 @@ export const eventCommand: SlashCommand = {
         );
         const embed = new EmbedBuilder()
           .setTitle(t.listTitle)
-          .setColor(0xa855f7)
+          .setColor(COLORS.brand)
           .setDescription(lines.join('\n') || t.agendaEmpty);
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await replyPrivately(interaction, { embeds: [embed] });
         return;
       }
       case 'rsvps': {
         const outcome = await ctx.events.rsvps(actor, interaction.options.getInteger('id', true));
         if (outcome.status !== 'ok') {
-          await replyText(interaction, outcome as ServiceOutcome<string>);
+          await replyText(interaction, failureText(outcome));
           return;
         }
         const { view, rsvp } = outcome.value;
         const names = (ids: string[]) => ids.map((id) => `<@${id}>`).join(', ') || t.nobody;
         const embed = new EmbedBuilder()
           .setTitle(t.rsvpsTitle(view.title))
-          .setColor(0xa855f7)
+          .setColor(COLORS.brand)
           .addFields(
             { name: `✅ ${t.statusName.yes} (${rsvp.yes.length})`, value: names(rsvp.yes) },
             { name: `❔ ${t.statusName.maybe} (${rsvp.maybe.length})`, value: names(rsvp.maybe) },
             { name: `❌ ${t.statusName.no} (${rsvp.no.length})`, value: names(rsvp.no) },
           );
-        await interaction.reply({
-          embeds: [embed],
-          flags: MessageFlags.Ephemeral,
-          allowedMentions: { parse: [] },
-        });
+        await replyPrivately(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
         return;
       }
     }

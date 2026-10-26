@@ -3,11 +3,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ConfigError } from '../config/loader.js';
 import type { ConfigStore } from '../config/store.js';
-import type { ActionRunner, ServiceOutcome } from '../core/action.js';
+import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import type { AuditLog } from '../core/audit.js';
 import { TIERS } from '../core/tiers.js';
-import { memberTier } from '../discord/actor.js';
+import { memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { findChannel, findMember } from '../discord/resolvers.js';
 import { ptBR } from '../i18n/pt-BR.js';
@@ -97,6 +97,14 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     const found = findMember(s.guild, input);
     return found.ok ? found.value.id : fail(found.reason);
   };
+  /** Runs `run` with the member's id, or explains who couldn't be found. */
+  const withMember = async (
+    input: string,
+    run: (id: string) => Promise<ServiceOutcome<unknown>>,
+  ): Promise<ToolResult> => {
+    const id = memberId(input);
+    return typeof id === 'string' ? fromOutcome(await run(id)) : id;
+  };
   const channelId = (input: string, voiceOnly = false): string | ToolResult => {
     const found = findChannel(s.guild, input, (c) =>
       voiceOnly
@@ -173,7 +181,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     { query: z.string().optional() },
     async ({ query }) => {
       const needle = query?.toLowerCase();
-      const classRoles = s.config.get().roles.filter((r) => r.class);
       const rows = [...s.guild.members.cache.values()]
         .filter((m) => !m.user.bot)
         .filter(
@@ -188,21 +195,15 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
           name: m.displayName,
           username: m.user.username,
           tier: ptBR.tier(memberTier(m, s.directory)),
-          classes: classRoles
-            .filter((r) => {
-              const id = s.directory.roleId(r.key);
-              return id !== undefined && m.roles.cache.has(id);
-            })
-            .map((r) => r.name),
+          classes: s.directory.classesOf(m).map((r) => r.name),
         }));
       return json(rows);
     },
   );
 
-  tool('get_member', 'Detalhes de um membro: cargo, classes, datas.', { member }, async (args) => {
-    const id = memberId(args.member);
-    return typeof id === 'string' ? fromOutcome(await s.members.info(actor, id)) : id;
-  });
+  tool('get_member', 'Detalhes de um membro: cargo, classes, datas.', { member }, async (args) =>
+    withMember(args.member, (id) => s.members.info(actor, id)),
+  );
 
   tool(
     'read_messages',
@@ -328,47 +329,32 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'promote_member',
     'Promove um membro (Visitante → Soldado → Oficial).',
     { member, rank },
-    async (args) => {
-      const id = memberId(args.member);
-      return typeof id === 'string'
-        ? fromOutcome(await s.members.promote(actor, id, args.rank))
-        : id;
-    },
+    async (args) => withMember(args.member, (id) => s.members.promote(actor, id, args.rank)),
   );
   tool(
     'demote_member',
     'Rebaixa um membro um nível (destrutivo).',
     { member, rank, confirm },
-    async (args) => {
-      const id = memberId(args.member);
-      return typeof id === 'string'
-        ? fromOutcome(await s.members.demote(actor, id, args.rank, args.confirm === true))
-        : id;
-    },
+    async (args) =>
+      withMember(args.member, (id) =>
+        s.members.demote(actor, id, args.rank, args.confirm === true),
+      ),
   );
   tool(
     'partner_member',
     'Torna Parceiro (amigo que não joga) um Visitante, ou com remove=true tira o Parceiro e volta para Visitante.',
     { member, remove: z.boolean().optional().describe('true para tirar o cargo') },
-    async (args) => {
-      const id = memberId(args.member);
-      return typeof id === 'string'
-        ? fromOutcome(await s.members.partner(actor, id, args.remove === true))
-        : id;
-    },
+    async (args) =>
+      withMember(args.member, (id) => s.members.partner(actor, id, args.remove === true)),
   );
   tool(
     'kick_member',
     'Expulsa um membro (destrutivo).',
     { member, reason, confirm },
-    async (args) => {
-      const id = memberId(args.member);
-      return typeof id === 'string'
-        ? fromOutcome(
-            await s.moderation.kick(actor, id, args.reason ?? null, args.confirm === true),
-          )
-        : id;
-    },
+    async (args) =>
+      withMember(args.member, (id) =>
+        s.moderation.kick(actor, id, args.reason ?? null, args.confirm === true),
+      ),
   );
   tool(
     'ban_member',
@@ -404,12 +390,10 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'timeout_member',
     'Silencia um membro por N minutos (0 remove o timeout).',
     { member, minutes: z.number().int().min(0).max(40320), reason },
-    async (args) => {
-      const id = memberId(args.member);
-      return typeof id === 'string'
-        ? fromOutcome(await s.moderation.timeout(actor, id, args.minutes, args.reason ?? null))
-        : id;
-    },
+    async (args) =>
+      withMember(args.member, (id) =>
+        s.moderation.timeout(actor, id, args.minutes, args.reason ?? null),
+      ),
   );
   tool(
     'purge_messages',
@@ -698,6 +682,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
 }
 
 function configFailure(error: unknown): ServiceOutcome<string> {
-  if (error instanceof ConfigError) return { status: 'rejected', reason: error.message };
+  if (error instanceof ConfigError) return rejected(error.message);
   throw error;
 }

@@ -49,8 +49,4 @@ export class CharacterStore {
       .where(eq(registeredCharacters.userId, userId))
       .run();
   }
-
-  remove(userId: string): void {
-    this.db.delete(registeredCharacters).where(eq(registeredCharacters.userId, userId)).run();
-  }
 }

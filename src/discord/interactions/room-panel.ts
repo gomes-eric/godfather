@@ -12,13 +12,14 @@ import {
 import { ptBR } from '../../i18n/pt-BR.js';
 import type { RoomCommand } from '../../services/voice.service.js';
 import type { CommandContext } from '../commands/types.js';
+import { customId } from '../custom-id.js';
+import { outcomeText, replyPrivately } from '../replies.js';
 import {
   parsePanelCustomId,
   ROOM_KICK_PREFIX,
   ROOM_MODAL_PREFIX,
   ROOM_PREFIX,
 } from '../room-panel.js';
-import { outcomeMessage } from './confirmation.js';
 
 const t = ptBR.voice;
 const DIRECT = new Set(['lock', 'unlock', 'hide', 'unhide', 'claim']);
@@ -35,11 +36,9 @@ async function run(
   command: RoomCommand,
 ): Promise<void> {
   const actor = await ctx.resolveActor(interaction.user.id);
+  // Room actions are never destructive, so there is no confirmation to wait for.
   const outcome = await ctx.voice.manage(actor, roomId, command);
-  // Room actions are never destructive; the preview is only a fallback.
-  const content =
-    outcome.status === 'confirmation_required' ? outcome.preview : outcomeMessage(outcome);
-  await interaction.editReply({ content, components: [] });
+  await interaction.editReply({ content: outcomeText(outcome), components: [] });
 }
 
 function textModal(roomId: string, action: 'rename' | 'limit', value: string): ModalBuilder {
@@ -52,9 +51,23 @@ function textModal(roomId: string, action: 'rename' | 'limit', value: string): M
   else input.setLabel(t.panel.limitLabel).setMinLength(1).setMaxLength(2);
 
   return new ModalBuilder()
-    .setCustomId(`${ROOM_MODAL_PREFIX}${action}:${roomId}`)
+    .setCustomId(customId(ROOM_MODAL_PREFIX, action, roomId))
     .setTitle(action === 'rename' ? t.panel.renameTitle : t.panel.limitTitle)
     .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+}
+
+function kickPicker(roomId: string, occupants: ReturnType<CommandContext['voice']['occupants']>) {
+  const picker = new StringSelectMenuBuilder()
+    .setCustomId(customId(ROOM_KICK_PREFIX, 'kick', roomId))
+    .setPlaceholder(t.panel.kickPlaceholder)
+    .addOptions(
+      occupants.slice(0, MAX_KICK_OPTIONS).map((member) => ({
+        label: member.displayName.slice(0, 100),
+        description: member.user.username.slice(0, 100),
+        value: member.id,
+      })),
+    );
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(picker);
 }
 
 /** Buttons on a temp room's control panel. Returns false for any other button. */
@@ -77,31 +90,18 @@ export async function handleRoomPanelButton(
   const actor = await ctx.resolveActor(interaction.user.id);
   const refusal = ctx.voice.refusal(actor, roomId, action);
   if (refusal) {
-    await interaction.reply({ content: `⚠️ ${refusal}`, flags: MessageFlags.Ephemeral });
+    await replyPrivately(interaction, `⚠️ ${refusal}`);
     return true;
   }
 
   if (action === 'kick') {
-    const occupants = ctx.voice.occupants(roomId, interaction.user.id).slice(0, MAX_KICK_OPTIONS);
-    if (occupants.length === 0) {
-      await interaction.reply({ content: `⚠️ ${t.nobodyToKick}`, flags: MessageFlags.Ephemeral });
-      return true;
-    }
-    const picker = new StringSelectMenuBuilder()
-      .setCustomId(`${ROOM_KICK_PREFIX}kick:${roomId}`)
-      .setPlaceholder(t.panel.kickPlaceholder)
-      .addOptions(
-        occupants.map((member) => ({
-          label: member.displayName.slice(0, 100),
-          description: member.user.username.slice(0, 100),
-          value: member.id,
-        })),
-      );
-    await interaction.reply({
-      content: t.kickPrompt,
-      components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(picker)],
-      flags: MessageFlags.Ephemeral,
-    });
+    const occupants = ctx.voice.occupants(roomId, interaction.user.id);
+    await replyPrivately(
+      interaction,
+      occupants.length === 0
+        ? `⚠️ ${t.nobodyToKick}`
+        : { content: t.kickPrompt, components: [kickPicker(roomId, occupants)] },
+    );
     return true;
   }
 

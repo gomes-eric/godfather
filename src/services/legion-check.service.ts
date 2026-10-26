@@ -1,22 +1,24 @@
 import { EmbedBuilder, type Guild, type GuildMember } from 'discord.js';
+import { classRoles, type RoleConfig } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
 import { systemActor } from '../core/actor.js';
 import { matchClass, sameLegion } from '../core/game-character.js';
 import { characterChanges, checkDue, rankingLines } from '../core/legion-check.js';
-import { registrationNickname, rolesWithClass } from '../core/registration.js';
+import { registrationNickname } from '../core/registration.js';
+import { repeat, type BackgroundJob } from '../core/repeat.js';
 import type { CharacterStore, RegisteredCharacter } from '../db/characters.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
+import { applyCharacter } from '../discord/character-registration.js';
+import { COLORS } from '../discord/colors.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { rankingMenu } from '../discord/ranking-menu.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
-import type { MemberService } from './member.service.js';
 
 const t = ptBR.legionCheck;
 const RANKING_MESSAGE_KEY = 'ranking-board';
-const RANKING_COLOR = 0xd9b45a;
 /** How often to look whether a check is due. */
 const TICK_MS = 60 * 60_000;
 /** Pause between characters, to be gentle with the official site. */
@@ -29,7 +31,6 @@ interface Deps {
   managed: ManagedObjectStore;
   registrations: CharacterStore;
   characters: GameCharacterService;
-  members: MemberService;
   runAction: ActionRunner;
   logger: Logger;
   pause?: (ms: number) => Promise<void>;
@@ -40,8 +41,8 @@ interface Deps {
  * updates the member's class role and nickname, a character that left (or joined) the legion is
  * reported to the officers, and the #ranking board is rebuilt from the fresh numbers.
  */
-export class LegionCheckService {
-  private timer: NodeJS.Timeout | undefined;
+export class LegionCheckService implements BackgroundJob {
+  private stopTicking: (() => void) | undefined;
   private running = false;
   private readonly pause: (ms: number) => Promise<void>;
 
@@ -49,25 +50,14 @@ export class LegionCheckService {
     this.pause = deps.pause ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
-  private classRoles() {
-    return this.deps.config.get().roles.filter((role) => role.class && role.emoji);
-  }
-
-  private classEmoji(classKey: string): string {
-    return this.classRoles().find((role) => role.key === classKey)?.emoji ?? '🎮';
+  private classRole(key: string): RoleConfig | undefined {
+    return classRoles(this.deps.config.get()).find((role) => role.key === key);
   }
 
   /** Checks everyone if a check is due; returns the report lines it posted. */
   async runIfDue(now = new Date()): Promise<string[]> {
-    const rows = this.deps.registrations.all();
-    if (
-      !checkDue(
-        rows.map((row) => row.checkedAt),
-        now,
-      )
-    )
-      return [];
-    return this.check();
+    const checkedAt = this.deps.registrations.all().map((row) => row.checkedAt);
+    return checkDue(checkedAt, now) ? this.check() : [];
   }
 
   async check(): Promise<string[]> {
@@ -98,7 +88,7 @@ export class LegionCheckService {
     if (!member) return []; // Left the Discord; nothing to update.
 
     const profile = await characters.profile({ id: row.characterId, serverId: row.serverId }, true);
-    const classRole = matchClass(profile.className, this.classRoles());
+    const classRole = matchClass(profile.className, classRoles(config.get()));
     const legion = config.get().settings.characters.legion;
     const now = {
       name: profile.name,
@@ -115,10 +105,11 @@ export class LegionCheckService {
 
     if (changes.renamed || changes.classChanged) {
       await this.syncMember(member, now.name, now.classKey);
-      if (changes.renamed)
+      if (changes.renamed) {
         lines.push(t.renamed(member.id, changes.renamed.from, changes.renamed.to));
+      }
       if (changes.classChanged) {
-        const name = (key: string) => this.classRoles().find((r) => r.key === key)?.name ?? key;
+        const name = (key: string) => this.classRole(key)?.name ?? key;
         lines.push(
           t.classChanged(member.id, name(changes.classChanged.from), name(changes.classChanged.to)),
         );
@@ -137,30 +128,16 @@ export class LegionCheckService {
 
   /** New class role and "⚔️ Nome" nickname, done by the bot and audited as Padrinho. */
   private async syncMember(member: GuildMember, name: string, classKey: string): Promise<void> {
-    const { guild, directory, runAction } = this.deps;
-    const roles = this.classRoles();
-    const classId = directory.roleId(classKey);
-    const emoji = roles.find((r) => r.key === classKey)?.emoji ?? '';
-    const nickname = registrationNickname(emoji, name);
-    await runAction({
-      actor: systemActor(guild.client.user.id),
+    const classRole = this.classRole(classKey);
+    if (!classRole) return;
+    const nickname = registrationNickname(classRole.emoji ?? '', name);
+    await this.deps.runAction({
+      actor: systemActor(this.deps.guild.client.user.id),
       action: 'member.sync',
       target: nickname,
       params: { userId: member.id, class: classKey, gameName: name },
       preview: nickname,
-      execute: async () => {
-        if (classId) {
-          const classIds = roles
-            .map((r) => directory.roleId(r.key))
-            .filter((id): id is string => id !== undefined);
-          const current = [...member.roles.cache.keys()].filter((id) => id !== guild.id);
-          await member.roles.set(rolesWithClass(current, classId, classIds));
-        }
-        if (member.id !== guild.ownerId && member.manageable && nickname.length <= 32) {
-          await member.setNickname(nickname, 'Conferência diária da legião');
-        }
-        return nickname;
-      },
+      execute: () => applyCharacter(member, this.deps.directory, { name, classRole }, t.syncReason),
     });
   }
 
@@ -170,7 +147,7 @@ export class LegionCheckService {
     const channel = key ? this.deps.directory.channelByKey(key) : undefined;
     if (!channel) return;
     const embed = new EmbedBuilder()
-      .setColor(RANKING_COLOR)
+      .setColor(COLORS.gold)
       .setTitle(t.reportTitle)
       .setDescription(lines.join('\n').slice(0, 4096))
       .setTimestamp(new Date());
@@ -197,13 +174,13 @@ export class LegionCheckService {
       .map((row) => ({
         userId: row.userId,
         name: row.name,
-        classEmoji: this.classEmoji(row.classKey),
+        classEmoji: this.classRole(row.classKey)?.emoji ?? '🎮',
         combatPower: row.combatPower,
         itemLevel: row.itemLevel,
       }));
     const lines = rankingLines(rows);
     const embed = new EmbedBuilder()
-      .setColor(RANKING_COLOR)
+      .setColor(COLORS.gold)
       .setTitle(t.rankingTitle(settings.legion))
       .setDescription(
         [
@@ -219,33 +196,27 @@ export class LegionCheckService {
     const existing = stored
       ? await channel.messages.fetch(stored.discordId).catch(() => null)
       : null;
-    const components = rankingMenu(rows);
+    const payload = { embeds: [embed], components: rankingMenu(rows) };
     if (existing) {
-      await existing.edit({ embeds: [embed], components });
+      await existing.edit(payload);
     } else {
-      const sent = await channel.send({
-        embeds: [embed],
-        components,
-        allowedMentions: { parse: [] },
-      });
+      const sent = await channel.send({ ...payload, allowedMentions: { parse: [] } });
       managed.set('message', RANKING_MESSAGE_KEY, sent.id, null);
     }
   }
 
   start(): void {
-    const run = () => {
-      this.runIfDue().catch((error: unknown) =>
-        this.deps.logger.warn({ err: error }, 'legion check crashed'),
-      );
-    };
     this.refreshRanking().catch((error: unknown) =>
       this.deps.logger.warn({ err: error }, 'ranking refresh failed'),
     );
-    run();
-    this.timer = setInterval(run, TICK_MS);
+    this.stopTicking = repeat(
+      TICK_MS,
+      () => this.runIfDue(),
+      (error) => this.deps.logger.warn({ err: error }, 'legion check crashed'),
+    );
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.stopTicking?.();
   }
 }

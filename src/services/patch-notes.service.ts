@@ -1,22 +1,13 @@
 import type { ConfigStore } from '../config/store.js';
 import { parsePatchNotes, type PatchNote } from '../core/patch-notes.js';
+import { repeat, type BackgroundJob } from '../core/repeat.js';
 import type { PatchNoteStore } from '../db/patch-notes.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { patchNoteMessage } from '../discord/patch-notes.js';
 import type { Logger } from '../logger.js';
+import { fetchJson, type FetchJson } from './fetch-json.js';
 
 const EVENTS_URL = 'https://store.steampowered.com/events/ajaxgetpartnereventspageable/';
-
-type FetchJson = (url: string) => Promise<unknown>;
-
-async function defaultFetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Padrinho/0.1 (M4F1A Discord bot)', Accept: 'application/json' },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) throw new Error(`${response.status} from Steam`);
-  return response.json();
-}
 
 interface Deps {
   config: ConfigStore;
@@ -31,12 +22,12 @@ interface Deps {
  * Steam announcements in Brazilian Portuguese. The first run posts only the latest notes, so the
  * channel doesn't fill up with history.
  */
-export class PatchNotesService {
-  private timer: NodeJS.Timeout | undefined;
+export class PatchNotesService implements BackgroundJob {
+  private stopPolling: (() => void) | undefined;
   private readonly fetchJson: FetchJson;
 
   constructor(private readonly deps: Deps) {
-    this.fetchJson = deps.fetchJson ?? defaultFetchJson;
+    this.fetchJson = deps.fetchJson ?? ((url) => fetchJson(url, 15_000));
   }
 
   private settings() {
@@ -87,16 +78,14 @@ export class PatchNotesService {
 
   start(): void {
     const minutes = this.settings()?.pollMinutes ?? 15;
-    const run = () => {
-      this.poll().catch((error: unknown) =>
-        this.deps.logger.warn({ err: error }, 'patch notes poll failed'),
-      );
-    };
-    run();
-    this.timer = setInterval(run, minutes * 60_000);
+    this.stopPolling = repeat(
+      minutes * 60_000,
+      () => this.poll(),
+      (error) => this.deps.logger.warn({ err: error }, 'patch notes poll failed'),
+    );
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.stopPolling?.();
   }
 }

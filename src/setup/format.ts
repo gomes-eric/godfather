@@ -6,7 +6,7 @@ const t = ptBR.setup;
 
 const changeList = (changes: string[]) => changes.map((c) => t.changes[c] ?? c).join(', ');
 
-export function describeOp(op: SetupOp): string {
+function describeOp(op: SetupOp): string {
   switch (op.type) {
     case 'adopt':
       return t.ops.adopt(t.kinds[op.kind] ?? op.kind, op.name);
@@ -47,14 +47,14 @@ export function describeOp(op: SetupOp): string {
   }
 }
 
-export function describeWarning(warning: SetupWarning): string {
+function describeWarning(warning: SetupWarning): string {
   return warning.type === 'roleAboveBot'
     ? t.warnings.roleAboveBot(warning.name, changeList(warning.changes))
     : t.warnings.channelKindMismatch(warning.name, warning.expected, warning.actual);
 }
 
 /** Joins lines until `maxLength`, then summarizes the rest as "…e mais N itens". */
-export function joinWithinLimit(lines: string[], maxLength: number): string {
+function joinWithinLimit(lines: string[], maxLength: number): string {
   const kept: string[] = [];
   let length = 0;
   for (const [index, line] of lines.entries()) {

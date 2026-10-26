@@ -6,6 +6,11 @@ import { WEEKDAYS, type Weekday } from '../config/schema.js';
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
+/** Seconds since the epoch, for Discord timestamps (`<t:…:R>`). */
+export function unixSeconds(date: Date): number {
+  return Math.floor(date.getTime() / 1000);
+}
+
 export interface LocalParts {
   year: number;
   month: number; // 1-12
@@ -207,4 +212,10 @@ export function parseWhen(input: string, now: Date, timeZone: string): Date | nu
     }
   }
   return null;
+}
+
+/** "21", "21h", "9:30", "21:00" → "HH:MM". Anything else is passed through for the schema to reject. */
+export function normalizeClock(input: string): string {
+  const match = input.trim().match(/^(\d{1,2})(?:[:h](\d{2})?)?h?$/);
+  return match ? `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}` : input;
 }

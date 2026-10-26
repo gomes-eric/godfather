@@ -1,10 +1,11 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { tierAtLeast, type Tier } from '../../core/tiers.js';
 import { ptBR } from '../../i18n/pt-BR.js';
+import { COLORS } from '../colors.js';
+import { replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.help;
-const HELP_COLOR = 0xa855f7;
 
 export interface HelpEntry {
   /** How to call it, e.g. "/voice rename". */
@@ -31,7 +32,7 @@ export function helpFor(tier: Tier, sections: readonly HelpSection[] = t.section
 
 export function helpEmbed(tier: Tier): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(HELP_COLOR)
+    .setColor(COLORS.brand)
     .setTitle(t.title)
     .setDescription(t.intro)
     .setFooter({ text: t.footer(ptBR.tier(tier)) });
@@ -53,6 +54,6 @@ export const helpCommand: SlashCommand = {
 
   async execute(interaction, ctx) {
     const actor = await ctx.resolveActor(interaction.user.id);
-    await interaction.reply({ embeds: [helpEmbed(actor.tier)], flags: MessageFlags.Ephemeral });
+    await replyPrivately(interaction, { embeds: [helpEmbed(actor.tier)] });
   },
 };

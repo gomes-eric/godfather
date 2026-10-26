@@ -1,15 +1,9 @@
 import type { ChannelKind } from '../config/schema.js';
+import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 import type { ForumTag, GuildSnapshot, PanelButton } from './model.js';
 
 // The only surface /setup needs from Discord. The real implementation lives in
 // src/discord/guild-port.ts; tests use an in-memory fake.
-
-export interface ConcreteOverwrite {
-  id: string;
-  type: 'role' | 'member';
-  allow: bigint;
-  deny: bigint;
-}
 
 export interface RoleSpec {
   name: string;
@@ -25,7 +19,7 @@ export interface ChannelSpec {
   parentId: string | null;
   topic: string | null;
   userLimit: number;
-  overwrites: ConcreteOverwrite[];
+  overwrites: PermissionOverwrite[];
   /** Existing tag ids are kept so posts don't lose their tags on edit. */
   tags: (ForumTag & { id?: string })[];
   requireTag: boolean;

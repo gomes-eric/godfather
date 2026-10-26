@@ -1,6 +1,7 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { ConfigError } from '../../config/loader.js';
 import { ptBR } from '../../i18n/pt-BR.js';
+import { failureText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 export const configCommand: SlashCommand = {
@@ -33,14 +34,13 @@ export const configCommand: SlashCommand = {
         const channels = config.categories.reduce((n, c) => n + c.channels.length, 0);
         content = ptBR.config.reloaded(config.roles.length, channels);
       } else {
-        content =
-          outcome.status === 'denied' ? ptBR.errors.denied(outcome.requiredTier) : outcome.preview;
+        content = failureText(outcome);
       }
     } catch (error) {
       if (!(error instanceof ConfigError)) throw error;
       content = ptBR.config.invalid(error.message);
     }
 
-    await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+    await replyPrivately(interaction, content);
   },
 };

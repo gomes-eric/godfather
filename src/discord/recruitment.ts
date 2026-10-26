@@ -11,16 +11,16 @@ import {
 import { formatStat } from '../core/legion-check.js';
 import type { Application } from '../db/applications.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import { COLORS } from './colors.js';
+import { customId } from './custom-id.js';
 
 const t = ptBR.recruitment;
-/** "Quero entrar na legião": the button on the #recrutamento panel. */
-export { RECRUIT_APPLY_ID } from '../setup/desired.js';
 export const RECRUIT_MODAL_ID = 'recruit:submit';
 /** Officer buttons on an application card: `recruit:<approve|reject>:<applicationId>`. */
 export const RECRUIT_DECIDE_PREFIX = 'recruit:';
 export const RECRUIT_FIELDS = { name: 'name', schedule: 'schedule', reason: 'reason' } as const;
 
-const COLORS = { pending: 0xa855f7, approved: 0x4fb286, rejected: 0x6e7f99 };
+const STATUS_COLORS = { pending: COLORS.brand, approved: COLORS.green, rejected: COLORS.slate };
 
 /** The application form, with the character name pre-filled when they registered one. */
 export function applicationModal(characterName: string | undefined): ModalBuilder {
@@ -53,10 +53,6 @@ export function applicationModal(characterName: string | undefined): ModalBuilde
     );
 }
 
-export function decideCustomId(action: 'approve' | 'reject', id: number): string {
-  return `${RECRUIT_DECIDE_PREFIX}${action}:${id}`;
-}
-
 /** The card officers review: who, the character from the game, and Aprovar/Recusar. */
 export function applicationCard(
   application: Application,
@@ -64,7 +60,7 @@ export function applicationCard(
 ): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
   const a = application;
   const embed = new EmbedBuilder()
-    .setColor(COLORS[a.status])
+    .setColor(STATUS_COLORS[a.status])
     .setTitle(t.cardTitle(a.characterName))
     .setDescription(
       [
@@ -98,12 +94,12 @@ export function applicationCard(
   if (a.status !== 'pending') return { embeds: [embed], components: [] };
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(decideCustomId('approve', a.id))
+      .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'approve', a.id))
       .setLabel(t.approve)
       .setEmoji('✅')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId(decideCustomId('reject', a.id))
+      .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'reject', a.id))
       .setLabel(t.reject)
       .setEmoji('✖️')
       .setStyle(ButtonStyle.Danger),

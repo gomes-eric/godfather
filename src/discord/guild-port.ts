@@ -8,7 +8,6 @@ import {
   GuildExplicitContentFilter,
   GuildFeature,
   GuildVerificationLevel,
-  OverwriteType,
   type Guild,
   type GuildBasedChannel,
   type GuildChannelCreateOptions,
@@ -19,11 +18,11 @@ import type { ChannelSnapshot, GuildSnapshot, SnapshotChannelKind } from '../set
 import type {
   ChannelPosition,
   ChannelSpec,
-  ConcreteOverwrite,
   GuildPort,
   PanelMessage,
   RoleSpec,
 } from '../setup/port.js';
+import { readOverwrites, toDiscordOverwrites } from './overwrites.js';
 
 const KIND_TO_TYPE = {
   category: ChannelType.GuildCategory,
@@ -37,15 +36,6 @@ const KIND_TO_TYPE = {
 function kindOf(type: ChannelType): SnapshotChannelKind {
   const entry = Object.entries(KIND_TO_TYPE).find(([, t]) => t === type);
   return (entry?.[0] as SnapshotChannelKind | undefined) ?? 'other';
-}
-
-function toDiscordOverwrites(overwrites: ConcreteOverwrite[]) {
-  return overwrites.map((o) => ({
-    id: o.id,
-    type: o.type === 'member' ? OverwriteType.Member : OverwriteType.Role,
-    allow: o.allow,
-    deny: o.deny,
-  }));
 }
 
 function toDiscordTags(spec: ChannelSpec) {
@@ -66,15 +56,7 @@ function snapshotChannel(channel: GuildBasedChannel): ChannelSnapshot {
     position: 'rawPosition' in channel ? channel.rawPosition : 0,
     topic: 'topic' in channel ? (channel.topic ?? null) : null,
     userLimit: channel.type === ChannelType.GuildVoice ? channel.userLimit : 0,
-    overwrites:
-      'permissionOverwrites' in channel
-        ? channel.permissionOverwrites.cache.map((o) => ({
-            id: o.id,
-            type: o.type === OverwriteType.Member ? ('member' as const) : ('role' as const),
-            allow: o.allow.bitfield,
-            deny: o.deny.bitfield,
-          }))
-        : [],
+    overwrites: 'permissionOverwrites' in channel ? readOverwrites(channel) : [],
     tags:
       channel.type === ChannelType.GuildForum
         ? channel.availableTags.map((t) => ({

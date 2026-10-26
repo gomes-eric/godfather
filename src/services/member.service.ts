@@ -10,7 +10,7 @@ import {
   rolesForTier,
 } from '../core/member-rules.js';
 import type { Tier } from '../core/tiers.js';
-import { memberTier } from '../discord/actor.js';
+import { memberRoleIds, memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
@@ -39,8 +39,7 @@ export class MemberService {
 
   /** Role id per tier, Visitante included. */
   private tierRoles(): Partial<Record<Tier, string>> {
-    const visitorKey = this.deps.config.get().roles.find((r) => r.tier === 'visitor')?.key;
-    const visitorId = visitorKey ? this.deps.directory.roleId(visitorKey) : undefined;
+    const visitorId = this.deps.directory.visitorRoleId();
     return { ...this.deps.directory.tierRoleIds(), ...(visitorId && { visitor: visitorId }) };
   }
 
@@ -118,8 +117,8 @@ export class MemberService {
       execute: async () => {
         // Joining the legion ends a partnership: Parceiro is for people who don't play.
         const partnerId = this.partnerRoleId();
-        const current = [...member.roles.cache.keys()].filter(
-          (id) => id !== guild.id && !(to !== 'visitor' && id === partnerId),
+        const current = memberRoleIds(member).filter(
+          (id) => !(to !== 'visitor' && id === partnerId),
         );
         await member.roles.set(rolesForTier(current, to, tierRoles));
         return direction === 'promote'
@@ -162,9 +161,8 @@ export class MemberService {
       params: { userId: member.id, remove },
       preview: remove ? t.unpartnered(name) : t.partnered(name),
       execute: async () => {
-        const current = [...member.roles.cache.keys()].filter((id) => id !== guild.id);
         await member.roles.set(
-          rolesForPartner(current, partnerId, this.tierRoles().visitor, remove),
+          rolesForPartner(memberRoleIds(member), partnerId, this.tierRoles().visitor, remove),
         );
         return remove ? t.unpartnered(name) : t.partnered(name);
       },
@@ -175,15 +173,6 @@ export class MemberService {
     const member = await this.fetchMember(userId);
     if (!member) return rejected(t.notMember);
 
-    const classes = this.deps.config
-      .get()
-      .roles.filter((role) => role.class)
-      .filter((role) => {
-        const id = this.deps.directory.roleId(role.key);
-        return id !== undefined && member.roles.cache.has(id);
-      })
-      .map((role) => role.name);
-
     return this.deps.runAction({
       actor,
       action: 'member.read',
@@ -192,7 +181,7 @@ export class MemberService {
         name: member.displayName,
         avatarUrl: member.displayAvatarURL(),
         tier: memberTier(member, this.deps.directory),
-        classes,
+        classes: this.deps.directory.classesOf(member).map((role) => role.name),
         joinedAt: member.joinedAt,
         createdAt: member.user.createdAt,
         timeoutUntil: member.isCommunicationDisabled() ? member.communicationDisabledUntil : null,

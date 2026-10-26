@@ -63,8 +63,6 @@ export const ptBR = {
       'role.delete': '🗑️ Cargo apagado',
       'role.assign': '🏷️ Cargo atribuído/removido',
       'message.send': '📨 Mensagem enviada pelo bot',
-      'message.edit': '✏️ Mensagem editada',
-      'message.delete': '🗑️ Mensagem apagada',
       'message.purge': '🧹 Limpeza de mensagens',
       'event.create': '📅 Evento criado',
       'event.edit': '✏️ Evento editado',
@@ -176,6 +174,8 @@ export const ptBR = {
     gone: 'Essa ficha não existe mais.',
     alreadyDecided: 'Essa ficha já foi decidida.',
     leftServer: 'Essa pessoa saiu do servidor.',
+    /** Reason in Discord's audit log for the roles and nickname of an approved member. */
+    approvedReason: 'Ficha de recrutamento aprovada',
     welcome: (id: string, legion: string, nickname: string | null) =>
       [
         `🎉 <@${id}>, sua entrada na **${legion}** foi aprovada! Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`,
@@ -213,6 +213,8 @@ export const ptBR = {
 
   legionCheck: {
     reportTitle: '🔎 Conferência diária da legião',
+    /** Reason in Discord's audit log when the check changes a class role or nickname. */
+    syncReason: 'Conferência diária da legião',
     renamed: (id: string, from: string, to: string) =>
       `✏️ <@${id}> trocou de nome no jogo: **${from}** → **${to}** (apelido atualizado).`,
     classChanged: (id: string, from: string, to: string) =>
@@ -512,7 +514,6 @@ export const ptBR = {
         managed ? ' ⚠️ Ele está no server.yaml: o próximo /setup vai recriá-lo vazio.' : ''
       }`,
     deleted: (name: string) => `🗑️ Canal **${name}** apagado.`,
-    notCategory: 'Isso não é uma categoria.',
   },
 
   roles: {
@@ -566,8 +567,6 @@ export const ptBR = {
 
   setup: {
     previewTitle: '🧪 Prévia do /setup (nada foi alterado)',
-    planTitle: '🛠️ O /setup vai fazer isto',
-    resultTitle: '🛠️ Resultado do /setup',
     upToDate: '✅ O servidor já está igual ao server.yaml. Nada a fazer.',
     more: (count: number) => `…e mais ${count} itens.`,
     counts: (ops: number) => `${ops} ${ops === 1 ? 'alteração' : 'alterações'}`,

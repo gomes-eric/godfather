@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ServerConfig } from '../config/schema.js';
+import { repeat, type BackgroundJob } from '../core/repeat.js';
 import { reminderDecision, templateOccurrences } from '../core/schedule.js';
 import type { EventStore, OccurrenceRow, RsvpStatus } from '../db/events.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
@@ -85,10 +86,10 @@ interface Deps {
  * 3. sends due reminders (claim first, release on failure) or skips the ones too late,
  * 4. refreshes the #agenda message when its content changed.
  */
-export class ReminderScheduler {
+export class ReminderScheduler implements BackgroundJob {
   private readonly now: () => Date;
   private agendaChecked = false;
-  private timer: NodeJS.Timeout | undefined;
+  private stopTicking: (() => void) | undefined;
   private running: Promise<TickReport> | undefined;
 
   constructor(private readonly deps: Deps) {
@@ -96,17 +97,15 @@ export class ReminderScheduler {
   }
 
   start(intervalMs = 30_000): void {
-    const run = () => {
-      this.tick().catch((error: unknown) =>
-        this.deps.logger.error({ err: error }, 'reminder tick failed'),
-      );
-    };
-    run();
-    this.timer = setInterval(run, intervalMs);
+    this.stopTicking = repeat(
+      intervalMs,
+      () => this.tick(),
+      (error) => this.deps.logger.error({ err: error }, 'reminder tick failed'),
+    );
   }
 
   stop(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.stopTicking?.();
   }
 
   /** Runs one tick; overlapping calls share the tick in progress. */

@@ -1,6 +1,7 @@
 import { EmbedBuilder, type Guild, type MessageMentionOptions } from 'discord.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
+import { COLORS } from '../discord/colors.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
 export interface SendOptions {
@@ -39,7 +40,9 @@ export class MessageService {
       execute: async () => {
         // A plain message holds 2000 characters; longer text (from the /say form) goes as an embed.
         if (options.title || text.length > PLAIN_MAX) {
-          const embed = new EmbedBuilder().setDescription(text).setColor(options.color ?? 0xa855f7);
+          const embed = new EmbedBuilder()
+            .setDescription(text)
+            .setColor(options.color ?? COLORS.brand);
           if (options.title) embed.setTitle(options.title);
           await channel.send({ embeds: [embed], allowedMentions });
         } else {

@@ -1,6 +1,6 @@
 // Retention rule for the daily SQLite backups (PLAN.md §11.4).
 
-export const BACKUP_NAME = /^padrinho-\d{4}-\d{2}-\d{2}\.db$/;
+const BACKUP_NAME = /^padrinho-\d{4}-\d{2}-\d{2}\.db$/;
 
 export function backupFileName(now: Date): string {
   return `padrinho-${now.toISOString().slice(0, 10)}.db`;

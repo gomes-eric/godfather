@@ -7,8 +7,8 @@ import {
   type Guild,
   type MessageCreateOptions,
 } from 'discord.js';
-import type { ServerConfig } from '../config/schema.js';
-import { localParts } from '../core/schedule.js';
+import { classRoles, type ServerConfig } from '../config/schema.js';
+import { localParts, unixSeconds as unix } from '../core/schedule.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type {
   AnnouncementPort,
@@ -16,11 +16,12 @@ import type {
   ReminderMessage,
   RsvpSummary,
 } from '../services/reminder.scheduler.js';
+import { COLORS } from './colors.js';
+import { customId } from './custom-id.js';
 import type { GuildDirectory } from './directory.js';
 
 const t = ptBR.events;
 export const RSVP_PREFIX = 'rsvp:';
-const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 
 /** "2 Clérigo, 1 Templário" for the people who said yes. */
 function classBreakdown(
@@ -30,7 +31,7 @@ function classBreakdown(
   userIds: string[],
 ): string {
   const counts = new Map<string, number>();
-  for (const role of config.roles.filter((r) => r.class)) {
+  for (const role of classRoles(config)) {
     const roleId = directory.roleId(role.key);
     if (!roleId) continue;
     const count = userIds.filter((id) =>
@@ -47,7 +48,7 @@ function classBreakdown(
 function rsvpButtons(occurrenceId: number) {
   const button = (status: 'yes' | 'maybe' | 'no', emoji: string, style: ButtonStyle) =>
     new ButtonBuilder()
-      .setCustomId(`${RSVP_PREFIX}${occurrenceId}:${status}`)
+      .setCustomId(customId(RSVP_PREFIX, occurrenceId, status))
       .setLabel(t.buttons[status])
       .setEmoji(emoji)
       .setStyle(style);
@@ -58,7 +59,12 @@ function rsvpButtons(occurrenceId: number) {
   );
 }
 
-const COLORS = { soon: 0xe6c46a, now: 0xe0303a, boss: 0x9b59d0, agenda: 0xa855f7 };
+const CARD_COLORS = {
+  soon: COLORS.amber,
+  now: COLORS.crimson,
+  boss: COLORS.orchid,
+  agenda: COLORS.brand,
+};
 
 function clock(date: Date, timeZone: string): string {
   const local = localParts(date, timeZone);
@@ -105,7 +111,7 @@ export function reminderCard(
       offsetMinutes > 0 ? c.soon(offsetMinutes, unix(o.startsAt)) : c.now,
       ...(o.description ? ['', o.description] : []),
     ].join('\n'),
-    color: !o.rsvp ? COLORS.boss : offsetMinutes > 0 ? COLORS.soon : COLORS.now,
+    color: !o.rsvp ? CARD_COLORS.boss : offsetMinutes > 0 ? CARD_COLORS.soon : CARD_COLORS.now,
     fields,
     footer: c.footer(o.occurrenceId),
   };
@@ -194,7 +200,7 @@ export function createDiscordAnnouncements(
       const target = channel(config().settings.eventDefaults.agendaChannel);
       const embed = new EmbedBuilder()
         .setTitle(t.agenda.title)
-        .setColor(COLORS.agenda)
+        .setColor(CARD_COLORS.agenda)
         .setDescription(agendaDescription(items, config().settings.timezone, new Date()))
         .setFooter({ text: t.agenda.footer })
         .setTimestamp(new Date());

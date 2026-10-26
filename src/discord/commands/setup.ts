@@ -1,7 +1,9 @@
 import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { formatPlan, formatResult } from '../../setup/format.js';
+import { COLORS } from '../colors.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
+import { failureText } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const EMBED_LIMIT = 3900;
@@ -44,9 +46,7 @@ export const setupCommand: SlashCommand = {
       execute: () => ctx.setup.plan(prune),
     });
     if (planned.status !== 'ok') {
-      const content =
-        planned.status === 'denied' ? ptBR.errors.denied(planned.requiredTier) : planned.preview;
-      await interaction.editReply({ content });
+      await interaction.editReply(failureText(planned));
       return;
     }
 
@@ -54,7 +54,7 @@ export const setupCommand: SlashCommand = {
     if (dryRun || plan.ops.length === 0) {
       const embed = new EmbedBuilder()
         .setTitle(ptBR.setup.previewTitle)
-        .setColor(0xa855f7)
+        .setColor(COLORS.brand)
         .setDescription(formatPlan(plan, EMBED_LIMIT));
       await interaction.editReply({ embeds: [embed] });
       return;

@@ -8,7 +8,6 @@ import type { GuildDirectory } from '../discord/directory.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
 import { LegionCheckService } from './legion-check.service.js';
-import type { MemberService } from './member.service.js';
 
 const config = {
   get: () => ({
@@ -47,6 +46,7 @@ function setup(profile: { name: string; className: string; legion: string }) {
   const roleSets: string[][] = [];
   const member = {
     id: 'u1',
+    guild: { id: 'guild', ownerId: 'owner' },
     manageable: true,
     roles: {
       cache: new Map([
@@ -82,6 +82,7 @@ function setup(profile: { name: string; className: string; legion: string }) {
     channelByKey: (key: string) => channel(key),
     roleId: (key: string) =>
       ({ 'class-cleric': 'role-cleric', 'class-sorcerer': 'role-mage' })[key],
+    classRoleIds: () => ['role-cleric', 'role-mage'],
   } as unknown as GuildDirectory;
   const runAction = (async (request: { execute: () => Promise<unknown> }) => ({
     status: 'ok',
@@ -97,7 +98,6 @@ function setup(profile: { name: string; className: string; legion: string }) {
     characters: {
       profile: async () => ({ ...profile, combatPower: 150, itemLevel: 2100 }),
     } as unknown as GameCharacterService,
-    members: { admitFromGame: async () => true } as unknown as MemberService,
     runAction,
     logger,
     pause: async () => undefined,

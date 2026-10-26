@@ -71,7 +71,7 @@ export function auditCard(entry: RecordedAuditEntry): AuditCard {
   };
 }
 
-export function buildAuditEmbed(entry: RecordedAuditEntry): EmbedBuilder {
+function buildAuditEmbed(entry: RecordedAuditEntry): EmbedBuilder {
   const card = auditCard(entry);
   return new EmbedBuilder()
     .setTitle(card.title)
