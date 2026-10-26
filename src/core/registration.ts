@@ -1,4 +1,4 @@
-// Pure rules for #registro: the in-game name and main class become the server nickname,
+// Pure rules for registering a character: the in-game name and main class become the nickname,
 // e.g. "⚔️ Padrinho" (Discord allows 32 characters).
 
 export const NICKNAME_MAX = 32;

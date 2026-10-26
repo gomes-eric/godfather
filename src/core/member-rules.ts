@@ -24,6 +24,8 @@ interface TierChangeInput {
   targetTier: Tier;
   targetIsBot: boolean;
   targetIsOwner: boolean;
+  /** The server owner may move anyone to any tier, Comandante included. */
+  actorIsOwner?: boolean;
   /** Explicit rank; defaults to one step up (promote) or down (demote). */
   rank?: Tier;
   officerCount: number;
@@ -45,7 +47,7 @@ export function decidePromotion(input: TierChangeInput): TierDecision {
   const to = input.rank ?? TIERS[current + 1];
   if (!to) return { ok: false, refusal: 'alreadyTop' };
   if (TIER_RANK[to] <= current) return { ok: false, refusal: 'notHigher' };
-  if (!canChangeTier(input.actorTier, input.targetTier, to)) {
+  if (!canChangeTier(input.actorTier, input.targetTier, to, input.actorIsOwner)) {
     return { ok: false, refusal: 'cannotManageTier' };
   }
   if (
@@ -66,7 +68,7 @@ export function decideDemotion(input: TierChangeInput): TierDecision {
   const to = input.rank ?? (current > 0 ? TIERS[current - 1] : undefined);
   if (!to) return { ok: false, refusal: 'alreadyBottom' };
   if (TIER_RANK[to] >= current) return { ok: false, refusal: 'notLower' };
-  if (!canChangeTier(input.actorTier, input.targetTier, to)) {
+  if (!canChangeTier(input.actorTier, input.targetTier, to, input.actorIsOwner)) {
     return { ok: false, refusal: 'cannotManageTier' };
   }
   return { ok: true, to };
@@ -129,22 +131,6 @@ export function rolesForPartner(
   const kept = currentRoleIds.filter((id) => id !== partnerRoleId && id !== visitorRoleId);
   if (remove) return visitorRoleId ? [...kept, visitorRoleId] : kept;
   return [...kept, partnerRoleId];
-}
-
-/**
- * Roles for someone the game shows in the legion: Soldado in place of Visitante, and Parceiro
- * dropped (it is for people who don't play).
- */
-export function rolesForAdmission(
-  currentRoleIds: string[],
-  partnerRoleId: string | undefined,
-  tierRoles: Partial<Record<Tier, string>>,
-): string[] {
-  return rolesForTier(
-    currentRoleIds.filter((id) => id !== partnerRoleId),
-    'soldier',
-    tierRoles,
-  );
 }
 
 export function rolesForTier(

@@ -51,6 +51,7 @@ describe('/setup reconciliation', () => {
     );
     expect(guild.channels.find((c) => c.name === 'Evento')?.kind).toBe('stage');
     expect(guild.community).toBe(true);
+    // Panels: #regras and #recrutamento.
     expect(guild.messages.size).toBe(2);
   });
 
@@ -175,7 +176,7 @@ describe('/setup reconciliation', () => {
     Object.assign(
       guild.roles.find((r) => r.id === commanderId)!,
       {
-        color: 0xf1c40f,
+        color: 0xd9485f,
         hoist: false,
         // Discord keeps other bits ticked next to Administrator; they change nothing.
         permissions: P.Administrator | P.ManageGuild | P.SendMessages,
@@ -196,6 +197,17 @@ describe('/setup reconciliation', () => {
     unlocked.settings.lockNicknames = false;
     await setup(buildDesiredState(unlocked));
     expect(guild.everyonePermissions & P.ChangeNickname).toBe(P.ChangeNickname);
+  });
+
+  it('keeps #recrutamento read-only: the form and the cards only', async () => {
+    await setup(buildDesiredState(repoConfig));
+    const channel = (name: string) => guild.channels.find((c) => c.name === name)!;
+    const own = (name: string, roleId: string) =>
+      channel(name).overwrites.find((o) => o.id === roleId);
+
+    const everyone = own('recrutamento', guild.everyoneRoleId)!;
+    expect(everyone.allow & P.ViewChannel).toBe(P.ViewChannel);
+    expect(everyone.deny & P.SendMessages).toBe(P.SendMessages);
   });
 
   it('lets Parceiro into the social channels only', async () => {
@@ -257,7 +269,7 @@ describe('/setup reconciliation', () => {
 
     guild.messages.delete(rulesMessageId);
     const changed = structuredClone(repoConfig);
-    changed.roles.find((r) => r.key === 'class-gladiator')!.emoji = '🪓';
+    changed.settings.characters.legion = 'M4F1A Nova';
     const { plan: p } = await setup(buildDesiredState(changed));
 
     const panelOps = p.ops.filter((op) => op.type === 'upsertPanel');
@@ -267,7 +279,7 @@ describe('/setup reconciliation', () => {
         messageId: null,
       }),
       expect.objectContaining({
-        panel: expect.objectContaining({ key: PANEL_KEYS.rolePicker }),
+        panel: expect.objectContaining({ key: PANEL_KEYS.recruitment }),
         messageId: expect.any(String),
       }),
     ]);

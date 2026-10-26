@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadServerConfig } from '../config/loader.js';
-import { buildDesiredState, PANEL_KEYS, REGISTER_BUTTON_ID } from '../setup/desired.js';
+import { buildDesiredState, PANEL_KEYS, RECRUIT_APPLY_ID } from '../setup/desired.js';
 import { groupButtonRows } from './guild-port.js';
 
 const repoConfig = loadServerConfig(fileURLToPath(new URL('../../server.yaml', import.meta.url)));
@@ -25,13 +25,13 @@ describe('groupButtonRows', () => {
   });
 });
 
-describe('#registro panel', () => {
-  it('lists the classes by archetype and has a single Registrar button', () => {
+describe('#recrutamento panel', () => {
+  it('explains the application and has the Quero entrar na legião button', () => {
     const panel = buildDesiredState(repoConfig).panels.find(
-      (p) => p.key === PANEL_KEYS.rolePicker,
+      (p) => p.key === PANEL_KEYS.recruitment,
     )!;
-
-    expect(panel.buttons.map((b) => b.customId)).toEqual([REGISTER_BUTTON_ID]);
-    expect(panel.description).toContain('🔵 **Guerreiros** · ⚔️ Gladiador · 🛡️ Templário');
+    expect(panel.channelKey).toBe('recruitment');
+    expect(panel.buttons.map((b) => b.customId)).toEqual([RECRUIT_APPLY_ID]);
+    expect(panel.description).toContain('{channel:visitor-qa}');
   });
 });

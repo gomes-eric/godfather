@@ -4,7 +4,6 @@ import {
   decideDemotion,
   decidePartner,
   decidePromotion,
-  rolesForAdmission,
   rolesForPartner,
   rolesForTier,
 } from './member-rules.js';
@@ -178,9 +177,28 @@ describe('rolesForPartner', () => {
   });
 });
 
-describe('rolesForAdmission', () => {
-  it('swaps Visitante (and Parceiro) for Soldado, keeping classes', () => {
-    const tiers = { visitor: 'v', soldier: 's', officer: 'o' };
-    expect(rolesForAdmission(['v', 'partner', 'class'], 'partner', tiers)).toEqual(['class', 's']);
+describe('the server owner', () => {
+  const input = {
+    actorTier: 'commander' as const,
+    actorId: 'owner',
+    targetId: 'friend',
+    targetTier: 'officer' as const,
+    targetIsBot: false,
+    targetIsOwner: false,
+    officerCount: 0,
+  };
+
+  it('makes and unmakes Comandantes; a Comandante cannot', () => {
+    expect(decidePromotion({ ...input, actorIsOwner: true, rank: 'commander' })).toEqual({
+      ok: true,
+      to: 'commander',
+    });
+    expect(decidePromotion({ ...input, rank: 'commander' })).toEqual({
+      ok: false,
+      refusal: 'cannotManageTier',
+    });
+    expect(
+      decideDemotion({ ...input, actorIsOwner: true, targetTier: 'commander', rank: 'officer' }),
+    ).toEqual({ ok: true, to: 'officer' });
   });
 });

@@ -63,6 +63,8 @@ export interface OverwriteInput {
   asSoldierRoleKeys?: string[];
   /** Fixed allows on top of the access rules, e.g. the Bot role in every voice channel. */
   extraAllows?: { roleKey: string; allow: bigint }[];
+  /** Fixed denies on top of the access rules, from a channel's `deny` in server.yaml. */
+  extraDenies?: { roleKey: string; deny: bigint }[];
 }
 
 /**
@@ -103,6 +105,12 @@ export function computeOverwrites(input: OverwriteInput): DesiredOverwrite[] {
 
   for (const { roleKey, allow } of input.extraAllows ?? []) {
     entry(roleKey).allow |= allow;
+  }
+  // A fixed deny wins over what the access rules gave that role.
+  for (const { roleKey, deny } of input.extraDenies ?? []) {
+    const target = entry(roleKey);
+    target.allow &= ~deny;
+    target.deny |= deny;
   }
 
   // Never allow and deny the same bit on one target (e.g. view "everyone", write "everyone").

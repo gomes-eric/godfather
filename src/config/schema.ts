@@ -68,6 +68,8 @@ const channelSchema = z.object({
   allowSlashCommands: accessLevel.optional(),
   /** Fixed extra permissions for a role on this channel, e.g. music bots posting in #musica. */
   allow: z.array(z.object({ role: key, permissions: z.array(permissionName).min(1) })).default([]),
+  /** Fixed denies for a role on this channel. */
+  deny: z.array(z.object({ role: key, permissions: z.array(permissionName).min(1) })).default([]),
   userLimit: z.number().int().min(0).max(99).optional(),
   requireTag: z.boolean().default(false),
   tags: z.array(forumTagSchema).max(20).default([]),
@@ -184,7 +186,7 @@ const settingsSchema = z.looseObject({
   }),
   /**
    * Members can't change their own nickname (ChangeNickname is removed from @everyone); the
-   * #registro form is how it changes. Administrators are not affected.
+   * approved application and the daily check set it. Administrators are not affected.
    */
   lockNicknames: z.boolean().default(false),
   /** #patch-notes: the game's patch notes from its Steam announcements, in Portuguese. */
@@ -197,24 +199,31 @@ const settingsSchema = z.looseObject({
       pollMinutes: z.number().int().min(5).default(15),
     })
     .optional(),
-  /** Where #registro and /perfil look characters up on the official Aion 2 site. */
+  /**
+   * "Quero entrar na legião": applications go to reviewChannel with Aprovar/Recusar, and approved
+   * members are welcomed in announceChannel (no DMs). pingRole is mentioned on each new one.
+   */
+  recruitment: z
+    .object({
+      /** Where /setup posts the "Quero entrar na legião" panel. */
+      channel: key,
+      reviewChannel: key,
+      announceChannel: key,
+      pingRole: key.optional(),
+    })
+    .optional(),
+  /** Where recruitment, /perfil and the daily check look characters up on the official site. */
   characters: z.object({
     /** Search region: la = South America. */
     region: z.enum(['nae', 'naw', 'eu', 'la', 'as']),
     serverId: z.number().int().positive(),
-    /**
-     * In-game legion name. Registering a character in it makes a Visitante a Soldado; anyone
-     * else is pointed to recruitmentChannel.
-     */
+    /** In-game legion name: the daily check reports who left or joined it. */
     legion: z.string().min(1),
-    recruitmentChannel: key,
     /** Daily check: officers get what changed (left the legion, new class…) here. */
     reportChannel: key.optional(),
     /** Board of registered legion members by combat power, rebuilt after each daily check. */
     rankingChannel: key.optional(),
   }),
-  /** #registro: the panel where people register their in-game name and main class. */
-  rolePicker: z.object({ channel: key }),
   audit: z.object({ channel: key }),
   musicGuard: z.object({
     channel: key,
@@ -284,7 +293,6 @@ export const serverConfigSchema = z
       ],
       [['settings', 'welcome', 'channel'], config.settings.welcome.channel, textChannelKeys],
       [['settings', 'rules', 'channel'], config.settings.rules.channel, textChannelKeys],
-      [['settings', 'rolePicker', 'channel'], config.settings.rolePicker.channel, textChannelKeys],
       [['settings', 'audit', 'channel'], config.settings.audit.channel, textChannelKeys],
       [['settings', 'musicGuard', 'channel'], config.settings.musicGuard.channel, textChannelKeys],
       ...(config.settings.patchNotes
@@ -295,6 +303,16 @@ export const serverConfigSchema = z
               textChannelKeys,
             ] satisfies [string[], string, Set<string>],
           ]
+        : []),
+      ...(config.settings.recruitment
+        ? (['channel', 'reviewChannel', 'announceChannel'] as const).map(
+            (field) =>
+              [
+                ['settings', 'recruitment', field],
+                config.settings.recruitment![field],
+                textChannelKeys,
+              ] satisfies [string[], string, Set<string>],
+          )
         : []),
       ...(['reportChannel', 'rankingChannel'] as const).flatMap((field) => {
         const value = config.settings.characters[field];
@@ -308,11 +326,6 @@ export const serverConfigSchema = z
             ]
           : [];
       }),
-      [
-        ['settings', 'characters', 'recruitmentChannel'],
-        config.settings.characters.recruitmentChannel,
-        textChannelKeys,
-      ],
       [
         ['settings', 'eventDefaults', 'announceChannel'],
         config.settings.eventDefaults.announceChannel,
@@ -361,9 +374,9 @@ export const serverConfigSchema = z
       }
     }
     channels.forEach((channel) => {
-      for (const extra of channel.allow) {
+      for (const extra of [...channel.allow, ...channel.deny]) {
         if (!roleKeys.includes(extra.role)) {
-          issue(['categories'], `channel "${channel.key}" allows unknown role key "${extra.role}"`);
+          issue(['categories'], `channel "${channel.key}" names unknown role key "${extra.role}"`);
         }
       }
     });

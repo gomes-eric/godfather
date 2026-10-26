@@ -37,10 +37,8 @@ settings:
     steps:
       - name: 📜 Leia as regras
         value: Tudo começa em {channel:rules}.
-      - name: 📝 Registre seu personagem
-        value: Em {channel:role-picker}, digite o nome do seu personagem. Se você já está na M4F1A no jogo, vira Soldado na hora.
-      - name: 🤝 Ainda não é da legião?
-        value: Apresente-se em {channel:recruitment} e fale com um Oficial.
+      - name: 🤝 Quer entrar na legião?
+        value: Preencha a ficha em {channel:recruitment}. Aprovada, você vira Soldado na hora.
       - name: ❓ Ficou com dúvida?
         value: Pergunte em {channel:visitor-qa}, a gente responde.
   # Posted (and kept up to date) by /setup in #regras. {channel:<key>} becomes a clickable link.
@@ -82,9 +80,17 @@ settings:
       ⚖️ **Punições**
       Conforme a gravidade: aviso → timeout → expulsão do Discord e da legião. Casos graves vão direto para o banimento.
 
-      📝 Registre seu personagem em {channel:role-picker} · 📅 Veja a semana em {channel:agenda}
-  # Nobody changes their own nickname by hand: #registro sets it (Comandantes are not affected).
+      🤝 Quer entrar na legião? {channel:recruitment} · 📅 Veja a semana em {channel:agenda}
+  # Nobody changes their own nickname by hand: an approved application and the daily check set
+  # it (Comandantes are not affected).
   lockNicknames: true
+  # "Quero entrar na legião" (panel in #recrutamento): each application becomes a card there with
+  # Aprovar/Recusar (officers and up); approving registers the character and makes them Soldado.
+  recruitment:
+    channel: recruitment       # the "Quero entrar na legião" form
+    reviewChannel: recruitment # each application's card, right below
+    announceChannel: recruitment
+    pingRole: officer
   # The game's patch notes, read from its Steam announcements (in Portuguese) every 15 minutes.
   patchNotes:
     channel: patch-notes
@@ -95,17 +101,12 @@ settings:
   characters:
     region: la
     serverId: 2403
-    # In the legion in-game → #registro makes them Soldado; otherwise it points to recruitment.
-    # (The site shows only the legion's name, not the in-game rank: Oficiais are promoted by hand.)
+    # In-game legion name: the daily check reports who left or joined it.
     legion: M4F1A
-    recruitmentChannel: recruitment
     # Once a day every registered character is re-read: new class/name → role and nickname
     # updated; left or joined the legion → reported in reportChannel. Then #ranking is rebuilt.
     reportChannel: officers
     rankingChannel: ranking
-  # #registro panel: in-game name → class (read from the game) and nickname "⚔️ Nome".
-  rolePicker:
-    channel: role-picker
   audit:
     channel: audit-log
   musicGuard:
@@ -130,7 +131,7 @@ roles:
   # it differs from this; the owner always counts as the commander tier, so it needs no tier.
   - key: owner
     name: Fundador
-    color: "#F1C40F"   # gold, set by hand in Discord
+    color: "#D9485F"   # set by hand in Discord
     hoist: false
     permissions: [Administrator]
   - key: commander
@@ -188,13 +189,13 @@ categories:
       - { key: rules,       type: text, name: regras }
       - { key: announcements, type: announcement, name: anuncios, access: { write: officer } }
       - { key: welcome,     type: text, name: boas-vindas }
-      - { key: role-picker, type: text, name: registro }
 
   - key: recruitment
     name: 🤝 RECRUTAMENTO
     access: { view: everyone, write: everyone }
     channels:
-      - { key: recruitment, type: text, name: recrutamento }
+      # Not a chat: the application form, and one card per application with Aprovar/Recusar.
+      - { key: recruitment, type: text, name: recrutamento, access: { write: bot } }
       - { key: visitor-qa,  type: text, name: duvidas-visitantes }
 
   # asSoldier: roles that get what Soldado gets here; a channel's [] leaves them out.
@@ -209,7 +210,7 @@ categories:
       - { key: event-alerts, type: text, name: eventos, access: { write: bot, asSoldier: [] } }
       - { key: agenda,       type: text, name: agenda,  access: { write: bot, asSoldier: [] } }
       - { key: patch-notes,  type: text, name: patch-notes, topic: "Notas de atualização do Aion 2, postadas pelo Padrinho assim que saem na Steam.", access: { write: bot, asSoldier: [] } }
-      - { key: ranking,      type: text, name: ranking, topic: "Membros da legião por poder de combate, atualizado todo dia pelo Padrinho. Registre-se no #registro para aparecer.", access: { write: bot, asSoldier: [] } }
+      - { key: ranking,      type: text, name: ranking, topic: "Membros da legião por poder de combate, atualizado todo dia pelo Padrinho. Entra quem teve a ficha de recrutamento aprovada.", access: { write: bot, asSoldier: [] } }
 
   - key: knowledge
     name: 📚 CONHECIMENTO

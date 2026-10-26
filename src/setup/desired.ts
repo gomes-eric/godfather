@@ -1,41 +1,23 @@
 import { createHash } from 'node:crypto';
 import { PermissionFlagsBits } from 'discord.js';
-import {
-  channelNameByKey,
-  tierRoleKeys,
-  type RoleConfig,
-  type ServerConfig,
-} from '../config/schema.js';
+import { channelNameByKey, tierRoleKeys, type ServerConfig } from '../config/schema.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
 
-/** The one button on the #registro panel; it opens the name + class form. */
-export const REGISTER_BUTTON_ID = 'register:open';
+/** The #recrutamento panel's "Quero entrar na legião" button; it opens the application form. */
+export const RECRUIT_APPLY_ID = 'recruit:apply';
 export const PANEL_PREFIX = 'panel-';
-export const PANEL_KEYS = { rules: 'panel-rules', rolePicker: 'panel-role-picker' } as const;
+export const PANEL_KEYS = {
+  rules: 'panel-rules',
+  recruitment: 'panel-recruitment',
+} as const;
 
 const RULES_COLOR = 0xe0303a;
-const ROLE_PICKER_COLOR = 0xa855f7;
+const RECRUITMENT_COLOR = 0x4fb286;
 
 function permissionBits(names: (keyof typeof PermissionFlagsBits)[]): bigint {
   return names.reduce((bits, name) => bits | PermissionFlagsBits[name], 0n);
-}
-
-const ARCHETYPE_ORDER = ['warrior', 'scout', 'mage', 'priest'] as const;
-/** Intro plus one line per archetype ("🔵 Guerreiros · ⚔️ Gladiador · 🛡️ Templário"). */
-function registrationDescription(classRoles: RoleConfig[]): string {
-  const t = ptBR.panels;
-  const lines = ARCHETYPE_ORDER.flatMap((archetype) => {
-    const roles = classRoles.filter((r) => r.archetype === archetype);
-    if (roles.length === 0) return [];
-    const names = roles.map((r) => `${r.emoji ?? ''} ${r.name}`.trim()).join(' · ');
-    return [`${t.archetypes[archetype]} · ${names}`];
-  });
-  const loose = classRoles.filter((r) => !r.archetype);
-  if (loose.length > 0)
-    lines.push(loose.map((r) => `${r.emoji ?? ''} ${r.name}`.trim()).join(' · '));
-  return [t.registrationIntro, '', ...lines, '', `-# ${t.registrationFooter}`].join('\n');
 }
 
 function panel(fields: Omit<DesiredPanel, 'fingerprint'>): DesiredPanel {
@@ -118,6 +100,10 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
               allow: permissionBits(extra.permissions),
             })),
           ],
+          extraDenies: channel.deny.map((extra) => ({
+            roleKey: extra.role,
+            deny: permissionBits(extra.permissions),
+          })),
         }),
         tags:
           channel.type === 'forum'
@@ -150,7 +136,6 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
     }
   }
 
-  const classRoles = config.roles.filter((role) => role.class);
   const panels = [
     panel({
       key: PANEL_KEYS.rules,
@@ -161,22 +146,26 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       color: RULES_COLOR,
       buttons: [],
     }),
-    panel({
-      key: PANEL_KEYS.rolePicker,
-      channelKey: config.settings.rolePicker.channel,
-      channelName: channelNameByKey(config, config.settings.rolePicker.channel) ?? '',
-      title: ptBR.panels.registrationTitle,
-      description: registrationDescription(classRoles),
-      color: ROLE_PICKER_COLOR,
-      buttons: [
-        {
-          customId: REGISTER_BUTTON_ID,
-          label: ptBR.panels.registrationButton,
-          emoji: '📝',
-          style: 'primary',
-        },
-      ],
-    }),
+    ...(config.settings.recruitment
+      ? [
+          panel({
+            key: PANEL_KEYS.recruitment,
+            channelKey: config.settings.recruitment.channel,
+            channelName: channelNameByKey(config, config.settings.recruitment.channel) ?? '',
+            title: ptBR.panels.recruitmentTitle(config.settings.characters.legion),
+            description: ptBR.panels.recruitmentIntro(config.settings.characters.legion),
+            color: RECRUITMENT_COLOR,
+            buttons: [
+              {
+                customId: RECRUIT_APPLY_ID,
+                label: ptBR.recruitment.applyButton,
+                emoji: '🤝',
+                style: 'success',
+              },
+            ],
+          }),
+        ]
+      : []),
   ];
 
   return {

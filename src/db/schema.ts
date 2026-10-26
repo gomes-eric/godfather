@@ -154,6 +154,31 @@ export const postedPatchNotes = sqliteTable('posted_patch_notes', {
     .default(sql`(unixepoch('subsec') * 1000)`),
 });
 
+// Recruitment applications from the "Quero entrar na legião" form, reviewed in #oficiais.
+export const applications = sqliteTable('applications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull(),
+  characterId: text('character_id').notNull(),
+  characterName: text('character_name').notNull(),
+  serverId: integer('server_id').notNull(),
+  className: text('class_name').notNull(),
+  level: integer('level').notNull(),
+  legion: text('legion').notNull().default(''),
+  combatPower: integer('combat_power'),
+  itemLevel: integer('item_level'),
+  reason: text('reason').notNull(),
+  schedule: text('schedule').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] })
+    .notNull()
+    .default('pending'),
+  messageId: text('message_id'),
+  decidedBy: text('decided_by'),
+  decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+});
+
 // Party finder (/party): a card with join buttons, and who joined it.
 export const parties = sqliteTable('parties', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -183,7 +208,7 @@ export const partyMembers = sqliteTable(
   (table) => [primaryKey({ columns: [table.partyId, table.userId] })],
 );
 
-// The in-game character each member registered in #registro (one per member).
+// The in-game character of each member, registered when their application is approved.
 export const registeredCharacters = sqliteTable('registered_characters', {
   userId: text('user_id').primaryKey(),
   characterId: text('character_id').notNull(),

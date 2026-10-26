@@ -125,10 +125,7 @@ export class LegionCheckService {
       }
     }
     if (changes.leftLegion) lines.push(t.left(member.id, now.name, legion, now.legion));
-    if (changes.joinedLegion) {
-      const promoted = await this.deps.members.admitFromGame(member.id, now.name);
-      lines.push(t.joined(member.id, now.name, legion, promoted));
-    }
+    if (changes.joinedLegion) lines.push(t.joined(member.id, now.name, legion));
 
     registrations.updateSnapshot(row.userId, {
       ...now,

@@ -54,6 +54,7 @@ export const ptBR = {
       'member.demote': '⬇️ Rebaixamento',
       'member.partner': '🤝 Parceiro',
       'member.sync': '🔄 Sincronizado com o jogo',
+      'recruit.decide': '🤝 Ficha de recrutamento',
       'channel.create': '➕ Canal criado',
       'channel.edit': '✏️ Canal editado',
       'channel.delete': '🗑️ Canal apagado',
@@ -125,47 +126,61 @@ export const ptBR = {
   },
 
   panels: {
-    registrationTitle: '📝 Registro na M4F1A',
-    registrationIntro:
-      'Clique em **Registrar** e digite o **nome do seu personagem** no Aion 2. O Padrinho busca o personagem no site oficial, marca a **classe** e troca seu apelido para `emoji da classe + nome` (ex.: ⚔️ Padrinho).\n\n🛡️ **Já está na M4F1A no jogo?** Você vira **Soldado** na hora.\n🤝 **Ainda não?** O Padrinho mostra como entrar pelo recrutamento.\n-# Mudou de nome, de classe ou entrou na legião? É só registrar de novo: o apelido só muda por aqui.',
-    registrationButton: 'Registrar',
-    archetypes: {
-      warrior: '🔵 **Guerreiros**',
-      scout: '🟢 **Batedores**',
-      mage: '🟣 **Magos**',
-      priest: '🟡 **Sacerdotes**',
-    } as Record<string, string>,
-    registrationFooter: 'Assim os Oficiais acham você no jogo e montam os grupos.',
+    recruitmentTitle: (legion: string) => `🤝 Quer entrar na ${legion}?`,
+    recruitmentIntro: (legion: string) =>
+      [
+        `Clique em **Quero entrar na legião** e preencha a ficha: o nome do seu personagem no Aion 2, quando você costuma jogar e por que quer entrar na **${legion}**.`,
+        '',
+        '🔎 O Padrinho confere o seu personagem no site oficial (classe, nível, poder de combate).',
+        '📋 A sua ficha aparece aqui embaixo, e um Oficial aprova ou recusa.',
+        '🎉 Aprovado, você vira **Soldado**, ganha o cargo da sua classe e o apelido com o nome do personagem. Depois é só aceitar o convite da legião no jogo.',
+        '',
+        '-# Dúvidas antes de entrar? Pergunte em {channel:visitor-qa}.',
+      ].join('\n'),
   },
 
-  registration: {
-    modalTitle: 'Registro na M4F1A',
+  recruitment: {
+    applyButton: 'Quero entrar na legião',
+    modalTitle: 'Ficha de recrutamento',
     nameLabel: 'Nome do personagem',
-    nameHint: 'Exatamente como aparece no Aion 2',
-    namePlaceholder: 'Ex.: Padrinho',
+    namePlaceholder: 'Exatamente como no Aion 2 (ex.: Padrinho)',
+    scheduleLabel: 'Quando você costuma jogar?',
+    schedulePlaceholder: 'Ex.: todo dia à noite, fins de semana à tarde',
+    reasonLabel: 'Por que quer entrar na legião?',
+    reasonPlaceholder: 'Conte um pouco sobre você e o que procura',
+    alreadyMember: 'Você já faz parte da legião aqui no Discord.',
     apiDown:
       'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
     notFound: (name: string) =>
       `Não achei o personagem **${name}** no Triniel. Confira o nome exatamente como aparece no jogo.`,
-    joinedLegion: (legion: string) =>
-      `🛡️ Seu personagem está na **${legion}** no jogo: agora você é **Soldado** e já vê os canais da legião.`,
-    inLegion: (legion: string) => `🛡️ Seu personagem está na **${legion}** no jogo.`,
-    notInLegion: (legion: string, current: string, recruitmentId: string | undefined) => {
-      const where = recruitmentId ? `<#${recruitmentId}>` : '#recrutamento';
-      const now = current ? ` (hoje ele está na **${current}**)` : '';
-      return `🤝 Seu personagem ainda não está na **${legion}** no jogo${now}. Quer entrar? Fale com a gente em ${where}; depois de entrar no jogo, registre de novo para liberar seu acesso.`;
-    },
-    unknownGameClass: (className: string) =>
-      `A classe **${className}** do seu personagem não tem cargo aqui. Avise um Oficial.`,
-    problems: {
-      empty: 'Informe o nome do seu personagem.',
-      tooLong: 'Esse nome não cabe no apelido do Discord (máximo de 32 caracteres com o emoji).',
-      invalid: "Use só letras, números, espaços e . _ ' - no nome do personagem.",
-    },
-    registered: (nickname: string, className: string) =>
-      `✅ Registrado! Seu apelido agora é **${nickname}** e sua classe é **${className}**.`,
-    registeredNoNick: (nickname: string, className: string) =>
-      `✅ Classe **${className}** marcada. O Discord não me deixa mudar o seu apelido (seu cargo está acima do meu): troque para **${nickname}** em *Editar perfil do servidor*.`,
+    alreadyPending: 'Sua ficha já foi enviada e está com os Oficiais. Aguarde a resposta.',
+    sent: (name: string) =>
+      `✅ Ficha de **${name}** enviada! Ela está no #recrutamento, e um Oficial vai aprovar ou recusar por lá.`,
+    newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
+    cardTitle: (name: string) => `📝 Ficha de recrutamento · ${name}`,
+    applicant: (id: string) => `👤 <@${id}>`,
+    pending: '⏳ Aguardando um Oficial',
+    approvedBy: (id: string) => `✅ Aprovada por <@${id}>`,
+    rejectedBy: (id: string) => `✖️ Recusada por <@${id}>`,
+    classField: '🎮 Classe',
+    level: (level: number) => `Nv ${level}`,
+    powerField: '📊 Poder',
+    legionField: '🏰 Legião atual',
+    noLegion: 'Sem legião',
+    scheduleField: '🕘 Quando joga',
+    reasonField: '💬 Por que quer entrar',
+    footer: (id: number, legion: string) =>
+      `Ficha #${id} · aprovar registra o personagem e dá Soldado na ${legion}`,
+    approve: 'Aprovar',
+    reject: 'Recusar',
+    gone: 'Essa ficha não existe mais.',
+    alreadyDecided: 'Essa ficha já foi decidida.',
+    leftServer: 'Essa pessoa saiu do servidor.',
+    welcome: (id: string, legion: string, nickname: string | null) =>
+      [
+        `🎉 <@${id}>, sua entrada na **${legion}** foi aprovada! Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`,
+        `🎮 Falta só aceitar o convite da **${legion}** no jogo: um Oficial vai te convidar.`,
+      ].join('\n'),
   },
 
   party: {
@@ -204,12 +219,12 @@ export const ptBR = {
       `🔄 <@${id}> mudou de classe: **${from}** → **${to}** (cargo atualizado).`,
     left: (id: string, name: string, legion: string, now: string) =>
       `🚪 <@${id}> (**${name}**) saiu da **${legion}** no jogo${now ? ` e agora está na **${now}**` : ''}. Use \`/member demote\` se for o caso.`,
-    joined: (id: string, name: string, legion: string, promoted: boolean) =>
-      `🛡️ <@${id}> (**${name}**) entrou na **${legion}** no jogo${promoted ? ' e virou Soldado' : ''}.`,
+    joined: (id: string, name: string, legion: string) =>
+      `🛡️ <@${id}> (**${name}**) entrou na **${legion}** no jogo.`,
     rankingTitle: (legion: string) => `🏆 Ranking da ${legion}`,
     rankingIntro: 'Top 10 por poder de combate · ⚔️ poder de combate · 🎚️ nível de item',
-    rankingEmpty: 'Ninguém registrado ainda. Registre seu personagem no #registro.',
-    rankingFooter: 'Atualizado todo dia · só membros registrados no #registro',
+    rankingEmpty: 'Ninguém registrado ainda. Entra quem teve a ficha de recrutamento aprovada.',
+    rankingFooter: 'Atualizado todo dia · membros com ficha de recrutamento aprovada',
     menuPlaceholder: '👤 Escolha um membro para ver o perfil completo',
     menuHint:
       '👇 **Quer ver o perfil completo?** Escolha um membro no menu abaixo: classe, equipamentos e mais. Só você vê a resposta.',
@@ -243,9 +258,9 @@ export const ptBR = {
       'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
     notFound: (name: string) => `Não achei o personagem **${name}** no Triniel.`,
     notRegistered:
-      'Você ainda não registrou seu personagem. Use o botão **Registrar** no #registro ou passe um nome.',
+      'Você ainda não tem um personagem registrado aqui. Passe um nome: /perfil nome:<personagem>.',
     memberNotRegistered: (id: string) =>
-      `<@${id}> ainda não registrou um personagem no #registro. Tente pelo nome.`,
+      `<@${id}> ainda não tem um personagem registrado aqui. Tente pelo nome.`,
   },
 
   members: {
@@ -592,7 +607,7 @@ export const ptBR = {
       setAfk: (name: string, minutes: number) => `🌙 Canal AFK: **${name}** após ${minutes} min`,
       setNicknameLock: (locked: boolean) =>
         locked
-          ? '🔒 Travar apelidos: só o #registro muda o nome de cada um'
+          ? '🔒 Travar apelidos: só o Padrinho muda o nome de cada um'
           : '🔓 Destravar apelidos: cada um pode mudar o próprio',
       upsertPanel: (name: string) => `📌 Publicar/atualizar mensagem fixa em **#${name}**`,
       deleteChannel: (name: string) => `🗑️ Apagar canal **${name}**`,
@@ -691,6 +706,11 @@ export const ptBR = {
             tier: 'officer',
           },
           {
+            usage: 'Fichas no #recrutamento',
+            text: 'Aprove ou recuse quem pediu para entrar na legião',
+            tier: 'officer',
+          },
+          {
             usage: '/member partner',
             text: 'Dá ou tira o cargo Parceiro (quem não joga)',
             tier: 'officer',
@@ -736,11 +756,6 @@ export const ptBR = {
             usage: '#ranking',
             text: 'A legião por poder de combate, atualizada todo dia',
             tier: 'soldier',
-          },
-          {
-            usage: '#registro',
-            text: 'Registre seu personagem (classe e legião vêm do jogo)',
-            tier: 'visitor',
           },
           { usage: '✅ ❔ ❌', text: 'Confirme presença nos avisos de #eventos', tier: 'soldier' },
           {

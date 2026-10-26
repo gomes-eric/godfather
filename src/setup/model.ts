@@ -75,7 +75,7 @@ export interface DesiredState {
   channels: DesiredChannel[];
   community: { enable: boolean; rulesChannelKey: string; updatesChannelKey: string };
   afk: { channelKey: string; channelName: string; timeoutSeconds: number };
-  /** Whether @everyone lacks ChangeNickname, so only #registro (and admins) change nicknames. */
+  /** Whether @everyone lacks ChangeNickname, so only the bot (and admins) change nicknames. */
   lockNicknames: boolean;
   panels: DesiredPanel[];
   /** Keys marked `managed: false`: never touched and never pruned. */

@@ -24,7 +24,7 @@ export const memberCommand: SlashCommand = {
           o
             .setName('rank')
             .setDescription('Target rank (default: one step up)')
-            .addChoices(...rankChoices(['soldier', 'officer'])),
+            .addChoices(...rankChoices(['soldier', 'officer', 'commander'])),
         ),
     )
     .addSubcommand((sub) =>
@@ -37,7 +37,7 @@ export const memberCommand: SlashCommand = {
           o
             .setName('rank')
             .setDescription('Target rank (default: one step down)')
-            .addChoices(...rankChoices(['visitor', 'soldier'])),
+            .addChoices(...rankChoices(['visitor', 'soldier', 'officer'])),
         ),
     )
     .addSubcommand((sub) =>

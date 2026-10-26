@@ -42,6 +42,9 @@ export const ACTION_POLICIES = {
   // Self-service class buttons in #escolha-seu-cargo: open to everyone and too noisy to audit.
   'member.register': policy('visitor', { audited: false }),
   'character.read': policy('visitor', { audited: false }),
+  // Recruitment: a Visitante applies; an officer approves (registers them, makes them Soldado).
+  'recruit.apply': policy('visitor', { audited: false }),
+  'recruit.decide': policy('officer'),
 
   // Party finder: anyone in the legion opens and joins groups; the leader or an officer closes.
   'party.create': policy('soldier', { audited: false }),
@@ -101,8 +104,15 @@ export function authorize(tier: Tier, action: ActionName): Authorization {
 /**
  * Promotion/demotion rule: an actor may only move members whose current and new tiers are both
  * strictly below their own. Officers manage soldiers and visitors; the commander manages officers.
+ * The server owner (Fundador) sits above every tier, so only the owner makes or unmakes Comandantes.
  */
-export function canChangeTier(actorTier: Tier, currentTier: Tier, newTier: Tier): boolean {
+export function canChangeTier(
+  actorTier: Tier,
+  currentTier: Tier,
+  newTier: Tier,
+  actorIsOwner = false,
+): boolean {
+  if (actorIsOwner) return true;
   const actorRank = TIER_RANK[actorTier];
   return TIER_RANK[currentTier] < actorRank && TIER_RANK[newTier] < actorRank;
 }

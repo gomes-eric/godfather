@@ -18,17 +18,17 @@ export const profileCommand: SlashCommand = {
     .addStringOption((o) =>
       o
         .setName('nome')
-        .setDescription('Character name (default: yours, from #registro)')
+        .setDescription('Character name (default: your registered one)')
         .setDescriptionLocalizations({
-          'pt-BR': 'Nome do personagem (padrão: o seu, do #registro)',
+          'pt-BR': 'Nome do personagem (padrão: o seu, registrado)',
         })
         .setMaxLength(30),
     )
     .addUserOption((o) =>
       o
         .setName('membro')
-        .setDescription('A member who registered in #registro')
-        .setDescriptionLocalizations({ 'pt-BR': 'Um membro que se registrou no #registro' }),
+        .setDescription('A member with a registered character')
+        .setDescriptionLocalizations({ 'pt-BR': 'Um membro com personagem registrado' }),
     )
     .toJSON(),
 

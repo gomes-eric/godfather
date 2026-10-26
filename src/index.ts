@@ -45,6 +45,8 @@ import { GameCharacterService } from './services/game-character.service.js';
 import { CharacterStore } from './db/characters.js';
 import { LegionCheckService } from './services/legion-check.service.js';
 import { PartyService } from './services/party.service.js';
+import { RecruitmentService } from './services/recruitment.service.js';
+import { ApplicationStore } from './db/applications.js';
 import { PartyStore } from './db/parties.js';
 
 async function main(): Promise<void> {
@@ -205,8 +207,11 @@ async function main(): Promise<void> {
       legion.stop();
     };
 
+    const applications = new ApplicationStore(database.db);
     attachInteractionRouter(client, commands, {
       ...services,
+      applications,
+      recruitment: new RecruitmentService({ config, store: applications, runAction }),
       characters,
       registrations,
       legion,

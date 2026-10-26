@@ -5,7 +5,7 @@ import { handleConfirmationButton } from './confirmation.js';
 import { handlePartyButton } from '../commands/party.js';
 import { handleSayModal } from '../commands/say.js';
 import { handleRankingSelect } from './ranking.js';
-import { handleRegisterButton, handleRegisterModal } from './registration.js';
+import { handleRecruitButton, handleRecruitModal } from './recruitment.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
 import { handleRsvpButton } from './rsvp.js';
 
@@ -46,8 +46,8 @@ export function attachInteractionRouter(
       if (interaction.isButton()) {
         const handled =
           (await handleConfirmationButton(interaction, ctx.confirmations)) ||
-          (await handleRegisterButton(interaction, ctx)) ||
           (await handlePartyButton(interaction, ctx)) ||
+          (await handleRecruitButton(interaction, ctx)) ||
           (await handleRsvpButton(interaction, ctx)) ||
           (await handleRoomPanelButton(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown button');
@@ -56,8 +56,8 @@ export function attachInteractionRouter(
 
       if (interaction.isModalSubmit()) {
         const handled =
-          (await handleRegisterModal(interaction, ctx)) ||
           (await handleSayModal(interaction, ctx)) ||
+          (await handleRecruitModal(interaction, ctx)) ||
           (await handleRoomPanelModal(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown modal');
         return;

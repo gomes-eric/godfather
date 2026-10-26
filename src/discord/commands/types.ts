@@ -14,6 +14,8 @@ import type { FieldBossService } from '../../services/field-boss.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
 import type { LegionCheckService } from '../../services/legion-check.service.js';
 import type { PartyService } from '../../services/party.service.js';
+import type { RecruitmentService } from '../../services/recruitment.service.js';
+import type { ApplicationStore } from '../../db/applications.js';
 import type { MemberService } from '../../services/member.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
@@ -38,12 +40,15 @@ export interface CommandContext {
   bosses: FieldBossService;
   /** Characters from the official Aion 2 site. */
   characters: GameCharacterService;
-  /** Who registered which character in #registro. */
+  /** Which in-game character each member has (from approved applications). */
   registrations: CharacterStore;
   /** Daily legion check and the #ranking board. */
   legion: LegionCheckService;
   /** Party finder (/party). */
   parties: PartyService;
+  /** "Quero entrar na legião" applications. */
+  recruitment: RecruitmentService;
+  applications: ApplicationStore;
   tokens: TokenService;
   /** Public URL of the MCP endpoint, shown with new tokens. */
   mcpUrl: string;

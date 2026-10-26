@@ -13,8 +13,7 @@ settings:
   afk: { channel: afk, timeoutSeconds: 900 }
   welcome: { channel: rules, autoRole: visitor, message: "Oi {member}" }
   rules: { channel: rules, message: "Seja legal." }
-  rolePicker: { channel: rules }
-  characters: { region: la, serverId: 2403, legion: M4F1A, recruitmentChannel: rules }
+  characters: { region: la, serverId: 2403, legion: M4F1A }
   audit: { channel: staff }
   musicGuard: { channel: rules }
   eventDefaults: { announceChannel: rules, agendaChannel: rules, reminderOffsetsMinutes: [30, 0] }
