@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
-import { itemLabel, type EquipmentGroup } from '../core/game-character.js';
+import type { ServerConfig } from '../config/schema.js';
+import { itemLabel, matchClass, type EquipmentGroup } from '../core/game-character.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { CharacterSheet } from '../services/game-character.service.js';
 
@@ -45,4 +46,17 @@ export function profileCard(
   }
   if (equipment.length === 0) embed.addFields({ name: t.gear, value: t.noGear });
   return embed;
+}
+
+/** The profile card with the class emoji and color from server.yaml. */
+export function characterCard(sheet: CharacterSheet, config: ServerConfig): EmbedBuilder {
+  const classRole = matchClass(
+    sheet.profile.className,
+    config.roles.filter((role) => role.class),
+  );
+  return profileCard(sheet, {
+    ...(classRole?.emoji && { classEmoji: classRole.emoji }),
+    ...(classRole?.color !== undefined && { color: classRole.color }),
+    serverName: (config.settings as { game?: { server?: string } }).game?.server ?? 'Triniel',
+  });
 }

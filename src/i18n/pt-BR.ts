@@ -207,9 +207,15 @@ export const ptBR = {
     joined: (id: string, name: string, legion: string, promoted: boolean) =>
       `🛡️ <@${id}> (**${name}**) entrou na **${legion}** no jogo${promoted ? ' e virou Soldado' : ''}.`,
     rankingTitle: (legion: string) => `🏆 Ranking da ${legion}`,
-    rankingIntro: 'Por poder de combate · ⚔️ poder de combate · 🎚️ nível de item',
+    rankingIntro: 'Top 10 por poder de combate · ⚔️ poder de combate · 🎚️ nível de item',
     rankingEmpty: 'Ninguém registrado ainda. Registre seu personagem no #registro.',
     rankingFooter: 'Atualizado todo dia · só membros registrados no #registro',
+    menuPlaceholder: '👤 Escolha um membro para ver o perfil completo',
+    menuHint:
+      '👇 **Quer ver o perfil completo?** Escolha um membro no menu abaixo: classe, equipamentos e mais. Só você vê a resposta.',
+    menuOption: (combatPower: string, itemLevel: string) =>
+      `Ver perfil · ⚔️ ${combatPower} · 🎚️ ${itemLevel}`,
+    menuGone: 'Esse membro não está mais registrado. O ranking é atualizado todo dia.',
   },
 
   patchNotes: {

@@ -50,16 +50,23 @@ export interface RankingRow {
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const MAX_ROWS = 50;
-const num = (value: number | null) => (value === null ? '—' : value.toLocaleString('pt-BR'));
+/** The board shows the top 10. */
+export const RANKING_SIZE = 10;
+export const formatStat = (value: number | null) =>
+  value === null ? '—' : value.toLocaleString('pt-BR');
+const num = formatStat;
+
+/** The top of the board: highest combat power first. */
+export function topRanking<T extends RankingRow>(rows: readonly T[]): T[] {
+  return [...rows]
+    .sort((a, b) => (b.combatPower ?? -1) - (a.combatPower ?? -1))
+    .slice(0, RANKING_SIZE);
+}
 
 /** Ranking lines by combat power (highest first), item level alongside. */
 export function rankingLines(rows: readonly RankingRow[]): string[] {
-  return [...rows]
-    .sort((a, b) => (b.combatPower ?? -1) - (a.combatPower ?? -1))
-    .slice(0, MAX_ROWS)
-    .map((row, i) => {
-      const place = MEDALS[i] ?? `\`${String(i + 1).padStart(2, ' ')}.\``;
-      return `${place} ${row.classEmoji} **${row.name}** · ⚔️ ${num(row.combatPower)} · 🎚️ ${num(row.itemLevel)}`;
-    });
+  return topRanking(rows).map((row, i) => {
+    const place = MEDALS[i] ?? `\`${String(i + 1).padStart(2, ' ')}.\``;
+    return `${place} ${row.classEmoji} **${row.name}** · ⚔️ ${num(row.combatPower)} · 🎚️ ${num(row.itemLevel)}`;
+  });
 }

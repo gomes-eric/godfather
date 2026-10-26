@@ -1,9 +1,9 @@
 import { MessageFlags, SlashCommandBuilder } from 'discord.js';
-import { matchClass, type CharacterRef } from '../../core/game-character.js';
+import type { CharacterRef } from '../../core/game-character.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { GameApiError, type CharacterSheet } from '../../services/game-character.service.js';
 import { outcomeMessage } from '../interactions/confirmation.js';
-import { profileCard } from '../profile-card.js';
+import { characterCard } from '../profile-card.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.profile;
@@ -78,20 +78,6 @@ export const profileCommand: SlashCommand = {
     }
     if ('problem' in outcome.value) return fail(outcome.value.problem);
 
-    const { sheet } = outcome.value;
-    const config = ctx.config.get();
-    const classRole = matchClass(
-      sheet.profile.className,
-      config.roles.filter((role) => role.class),
-    );
-    await interaction.editReply({
-      embeds: [
-        profileCard(sheet, {
-          ...(classRole?.emoji && { classEmoji: classRole.emoji }),
-          ...(classRole?.color !== undefined && { color: classRole.color }),
-          serverName: (config.settings as { game?: { server?: string } }).game?.server ?? 'Triniel',
-        }),
-      ],
-    });
+    await interaction.editReply({ embeds: [characterCard(outcome.value.sheet, ctx.config.get())] });
   },
 };

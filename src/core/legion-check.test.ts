@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { characterChanges, checkDue, CHECK_EVERY_MS, rankingLines } from './legion-check.js';
+import {
+  characterChanges,
+  checkDue,
+  CHECK_EVERY_MS,
+  RANKING_SIZE,
+  rankingLines,
+} from './legion-check.js';
 
 describe('characterChanges', () => {
   const before = { name: 'Padrinho', classKey: 'class-cleric', legion: 'M4F1A' };
@@ -51,5 +57,18 @@ describe('rankingLines', () => {
     expect(lines[0]).toBe('🥇 ✨ **A** · ⚔️ 143.232 · 🎚️ 2.656');
     expect(lines[1]!.startsWith('🥈 🔥 **B**')).toBe(true);
     expect(lines[3]).toBe('` 4.` 🗡️ **C** · ⚔️ — · 🎚️ —');
+  });
+
+  it('keeps only the top 10', () => {
+    const rows = Array.from({ length: 14 }, (_, i) => ({
+      name: `M${i}`,
+      classEmoji: '🎮',
+      combatPower: i * 1000,
+      itemLevel: 1000,
+    }));
+    const lines = rankingLines(rows);
+    expect(lines).toHaveLength(RANKING_SIZE);
+    expect(lines[0]).toContain('**M13**');
+    expect(lines.at(-1)).toContain('**M4**');
   });
 });

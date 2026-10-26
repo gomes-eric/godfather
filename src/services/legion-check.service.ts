@@ -8,6 +8,7 @@ import { registrationNickname, rolesWithClass } from '../core/registration.js';
 import type { CharacterStore, RegisteredCharacter } from '../db/characters.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 import type { GuildDirectory } from '../discord/directory.js';
+import { rankingMenu } from '../discord/ranking-menu.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
@@ -197,6 +198,7 @@ export class LegionCheckService {
     const rows = inLegion
       .filter((row) => present.has(row.userId))
       .map((row) => ({
+        userId: row.userId,
         name: row.name,
         classEmoji: this.classEmoji(row.classKey),
         combatPower: row.combatPower,
@@ -207,7 +209,11 @@ export class LegionCheckService {
       .setColor(RANKING_COLOR)
       .setTitle(t.rankingTitle(settings.legion))
       .setDescription(
-        [t.rankingIntro, '', ...(lines.length > 0 ? lines : [t.rankingEmpty])].join('\n'),
+        [
+          t.rankingIntro,
+          '',
+          ...(lines.length > 0 ? [...lines, '', t.menuHint] : [t.rankingEmpty]),
+        ].join('\n'),
       )
       .setFooter({ text: t.rankingFooter })
       .setTimestamp(new Date());
@@ -216,10 +222,15 @@ export class LegionCheckService {
     const existing = stored
       ? await channel.messages.fetch(stored.discordId).catch(() => null)
       : null;
+    const components = rankingMenu(rows);
     if (existing) {
-      await existing.edit({ embeds: [embed] });
+      await existing.edit({ embeds: [embed], components });
     } else {
-      const sent = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+      const sent = await channel.send({
+        embeds: [embed],
+        components,
+        allowedMentions: { parse: [] },
+      });
       managed.set('message', RANKING_MESSAGE_KEY, sent.id, null);
     }
   }

@@ -4,6 +4,7 @@ import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
 import { handlePartyButton } from '../commands/party.js';
 import { handleSayModal } from '../commands/say.js';
+import { handleRankingSelect } from './ranking.js';
 import { handleRegisterButton, handleRegisterModal } from './registration.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
 import { handleRsvpButton } from './rsvp.js';
@@ -63,7 +64,9 @@ export function attachInteractionRouter(
       }
 
       if (interaction.isStringSelectMenu()) {
-        const handled = await handleRoomKickSelect(interaction, ctx);
+        const handled =
+          (await handleRankingSelect(interaction, ctx)) ||
+          (await handleRoomKickSelect(interaction, ctx));
         if (!handled) ctx.logger.warn({ customId: interaction.customId }, 'unknown select menu');
       }
     } catch (error) {
