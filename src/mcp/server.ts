@@ -7,7 +7,10 @@ import { buildInstructions } from './instructions.js';
 import { RateLimiter } from '../core/rate-limit.js';
 import { registerTools, type McpServices } from './tools.js';
 
+/** Tool calls act on Discord, so they get the tight limit. */
 const CALLS_PER_MINUTE = 60;
+/** Handshakes and listings (5 per client connect) only need a guard against loops. */
+const PROTOCOL_PER_MINUTE = 600;
 
 export interface McpDeps {
   tokens: Pick<TokenService, 'verify'>;
@@ -32,13 +35,27 @@ export function harnessName(headers: Headers): string | undefined {
   return product ? product.toLowerCase().slice(0, 50) : undefined;
 }
 
+/** JSON-RPC methods in the body (a single message or a batch); empty when it isn't JSON. */
+async function rpcMethods(request: Request): Promise<string[]> {
+  try {
+    const body: unknown = await request.clone().json();
+    return (Array.isArray(body) ? body : [body])
+      .map((message: { method?: unknown } | null) => message?.method)
+      .filter((method): method is string => typeof method === 'string');
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Stateless Streamable HTTP endpoint (PLAN.md §8.1): every request is authenticated with a
- * personal Bearer token, rate-limited per token, and served by a fresh MCP server whose tools act
- * as the token owner with their current Discord roles.
+ * personal Bearer token, rate-limited per token (tool calls apart from the protocol chatter of
+ * connecting), and served by a fresh MCP server whose tools act as the token owner with their
+ * current Discord roles.
  */
 export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<Response> {
-  const limiter = new RateLimiter(CALLS_PER_MINUTE, 60_000);
+  const calls = new RateLimiter(CALLS_PER_MINUTE, 60_000);
+  const protocol = new RateLimiter(PROTOCOL_PER_MINUTE, 60_000);
 
   return async (request) => {
     // Stateless: there is no server-to-client stream to open. Without a 405, clients reopen the
@@ -55,13 +72,27 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
         'WWW-Authenticate': 'Bearer realm="padrinho"',
       });
     }
+    const methods = await rpcMethods(request);
+    const isToolCall = methods.includes('tools/call');
+    const [limiter, limit] = isToolCall
+      ? [calls, CALLS_PER_MINUTE]
+      : [protocol, PROTOCOL_PER_MINUTE];
+    const harness = harnessName(request.headers);
     if (!limiter.take(String(owner.tokenId))) {
-      return jsonError(429, `Rate limit: ${CALLS_PER_MINUTE} calls per minute.`, {
-        'Retry-After': '60',
-      });
+      deps.logger.warn(
+        { user: owner.userId, tokenId: owner.tokenId, methods, harness },
+        'MCP rate limit hit',
+      );
+      return jsonError(
+        429,
+        `Rate limit: ${limit} ${isToolCall ? 'tool calls' : 'requests'} per minute.`,
+        {
+          'Retry-After': '60',
+        },
+      );
     }
 
-    const actor = await deps.resolveActor(owner.userId, harnessName(request.headers));
+    const actor = await deps.resolveActor(owner.userId, harness);
     const server = new McpServer(
       { name: 'padrinho', version: deps.version },
       { instructions: buildInstructions(deps.services.config.get()) },

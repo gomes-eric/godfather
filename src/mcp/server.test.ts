@@ -23,8 +23,10 @@ describe('MCP endpoint', () => {
   let audit: AuditEntry[];
   let tier: Tier;
   let handler: (request: Request) => Promise<Response>;
+  let logs: Record<string, unknown>[];
 
   beforeEach(() => {
+    logs = [];
     path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
     copyFileSync(repoServerYaml, path);
     config = new ConfigStore(path);
@@ -71,7 +73,7 @@ describe('MCP endpoint', () => {
         ...(harness && { harness }),
       }),
       services,
-      logger: pino({ level: 'silent' }),
+      logger: pino({ level: 'warn' }, { write: (line: string) => logs.push(JSON.parse(line)) }),
       version: 'test',
     });
   });
@@ -216,24 +218,38 @@ describe('MCP endpoint', () => {
     expect((await client.listTools()).tools.length).toBeGreaterThan(0);
   });
 
-  it('limits each token to 60 calls per minute', async () => {
+  const rpc = (id: number, method: string, params?: object) =>
+    handler(
+      new Request('http://padrinho.test/mcp', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, ...(params && { params }) }),
+      }),
+    );
+
+  it('limits each token to 60 tool calls per minute and logs the 429', async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 61; i++) {
-      const response = await handler(
-        new Request('http://padrinho.test/mcp', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${TOKEN}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json, text/event-stream',
-          },
-          body: JSON.stringify({ jsonrpc: '2.0', id: i, method: 'ping' }),
-        }),
-      );
+      const response = await rpc(i, 'tools/call', { name: 'list_applications', arguments: {} });
       statuses.push(response.status);
     }
     expect(statuses.at(-1)).toBe(429);
     expect(statuses.slice(0, 60).every((s) => s !== 429)).toBe(true);
+    expect(logs.at(-1)).toMatchObject({ msg: 'MCP rate limit hit', methods: ['tools/call'] });
+  });
+
+  it('lets many clients connect at once without touching the tool-call limit', async () => {
+    // 15 connects ≈ 60+ handshake requests: over the old shared limit.
+    for (let i = 0; i < 15; i++) await connect();
+    for (let i = 0; i < 30; i++) expect((await rpc(i, 'ping')).status).toBe(200);
+
+    const result = await (await connect()).callTool({ name: 'list_applications', arguments: {} });
+    expect(result.isError).toBeFalsy();
+    expect(logs).toEqual([]);
   });
 });
 
