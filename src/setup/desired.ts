@@ -6,7 +6,7 @@ import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
 
-/** The #recrutamento panel's "Quero entrar na legião" button; it opens the application form. */
+/** The #recrutamento panel's "Enviar minha ficha" button; it opens the application form. */
 export const RECRUIT_APPLY_ID = 'recruit:apply';
 export const PANEL_PREFIX = 'panel-';
 export const PANEL_KEYS = {

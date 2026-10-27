@@ -49,7 +49,7 @@ export interface CommandContext {
   parties: PartyService;
   /** Ties members to their characters (class role, nickname, Soldado). */
   registration: RegistrationService;
-  /** "Quero entrar na legião": posting applications and carrying out decisions. */
+  /** "Enviar minha ficha": posting applications and carrying out decisions. */
   recruitmentDesk: RecruitmentDesk;
   applications: ApplicationStore;
   tokens: TokenService;

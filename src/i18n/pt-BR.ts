@@ -126,28 +126,28 @@ export const ptBR = {
   },
 
   panels: {
-    recruitmentTitle: (legion: string) => `🤝 Quer entrar na ${legion}?`,
+    recruitmentTitle: (legion: string) => `🎮 Ficha da ${legion}`,
     recruitmentIntro: (legion: string) =>
       [
-        `Clique em **Quero entrar na legião** e preencha a ficha: o nome do seu personagem no Aion 2, quando você costuma jogar e por que quer entrar na **${legion}**.`,
+        'Clique em **Enviar minha ficha** e digite o nome do seu personagem no Aion 2. A ficha serve para os dois casos:',
         '',
-        '🔎 O Padrinho confere o seu personagem no site oficial (classe, nível, poder de combate).',
+        `🛡️ **Já está na ${legion} no jogo?** Mande a ficha para ganhar o seu cargo aqui no Discord.`,
+        `🌱 **Quer entrar na ${legion}?** Mande a ficha e um Oficial avalia.`,
+        '',
+        '🔎 O Padrinho confere o seu personagem no site oficial (classe, nível, poder de combate e legião).',
         '📋 A sua ficha aparece aqui embaixo, e um Oficial aprova ou recusa.',
-        '🎉 Aprovado, você vira **Soldado**, ganha o cargo da sua classe e o apelido com o nome do personagem. Depois é só aceitar o convite da legião no jogo.',
+        '🎉 Aprovado, você vira **Soldado**, ganha o cargo da sua classe e o apelido com o nome do personagem.',
         '',
-        '-# Dúvidas antes de entrar? Pergunte em {channel:visitor-qa}.',
+        '-# Dúvidas? Pergunte em {channel:visitor-qa}.',
       ].join('\n'),
   },
 
   recruitment: {
-    applyButton: 'Quero entrar na legião',
-    modalTitle: 'Ficha de recrutamento',
+    applyButton: 'Enviar minha ficha',
+    modalTitle: 'Ficha da legião',
     nameLabel: 'Nome do personagem',
     namePlaceholder: 'Exatamente como no Aion 2 (ex.: Padrinho)',
-    scheduleLabel: 'Quando você costuma jogar?',
-    schedulePlaceholder: 'Ex.: todo dia à noite, fins de semana à tarde',
-    reasonLabel: 'Por que quer entrar na legião?',
-    reasonPlaceholder: 'Conte um pouco sobre você e o que procura',
+    nameHint: 'O bot confere no site oficial do Aion 2: classe, poder e legião.',
     alreadyMember: 'Você já faz parte da legião aqui no Discord.',
     apiDown:
       'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
@@ -157,7 +157,7 @@ export const ptBR = {
     sent: (name: string) =>
       `✅ Ficha de **${name}** enviada! Ela está no #recrutamento, e um Oficial vai aprovar ou recusar por lá.`,
     newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
-    cardTitle: (name: string) => `📝 Ficha de recrutamento · ${name}`,
+    cardTitle: (name: string) => `📝 Ficha da legião · ${name}`,
     applicant: (id: string) => `👤 <@${id}>`,
     pending: '⏳ Aguardando um Oficial',
     approvedBy: (id: string) => `✅ Aprovada por <@${id}>`,
@@ -167,8 +167,6 @@ export const ptBR = {
     powerField: '📊 Poder',
     legionField: '🏰 Legião atual',
     noLegion: 'Sem legião',
-    scheduleField: '🕘 Quando joga',
-    reasonField: '💬 Por que quer entrar',
     footer: (id: number, legion: string) =>
       `Ficha #${id} · aprovar registra o personagem e dá Soldado na ${legion}`,
     approve: 'Aprovar',
@@ -178,11 +176,16 @@ export const ptBR = {
     leftServer: 'Essa pessoa saiu do servidor.',
     /** Reason in Discord's audit log for the roles and nickname of an approved member. */
     approvedReason: 'Ficha de recrutamento aprovada',
-    welcome: (id: string, legion: string, nickname: string | null) =>
-      [
-        `🎉 <@${id}>, sua entrada na **${legion}** foi aprovada! Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`,
-        `🎮 Falta só aceitar o convite da **${legion}** no jogo: um Oficial vai te convidar.`,
-      ].join('\n'),
+    /** `inLegion`: the character was already in the legion in the game when the form was sent. */
+    welcome: (id: string, legion: string, nickname: string | null, inLegion: boolean) => {
+      const rest = `Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`;
+      return inLegion
+        ? `🎉 <@${id}>, sua ficha foi aprovada! Você já é da **${legion}** no jogo. ${rest}`
+        : [
+            `🎉 <@${id}>, sua entrada na **${legion}** foi aprovada! ${rest}`,
+            `🎮 Falta só aceitar o convite da **${legion}** no jogo: um Oficial vai te convidar.`,
+          ].join('\n');
+    },
   },
 
   registration: {

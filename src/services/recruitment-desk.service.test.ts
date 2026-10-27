@@ -85,7 +85,7 @@ function setup(memberInServer = true) {
 describe('RecruitmentDesk', () => {
   it('posts the card for the officers and remembers it', async () => {
     const { desk, applications, sent } = setup();
-    const outcome = await desk.submit(visitor, { character, reason: 'r', schedule: 's' });
+    const outcome = await desk.submit(visitor, character);
 
     expect(outcome.status).toBe('ok');
     expect(sent[0]!.content).toContain('<@&officer-role>');
@@ -94,7 +94,7 @@ describe('RecruitmentDesk', () => {
 
   it('approving registers them, updates the card and welcomes them in the channel', async () => {
     const { desk, sent, edits, admitted } = setup();
-    const created = await desk.submit(visitor, { character, reason: 'r', schedule: 's' });
+    const created = await desk.submit(visitor, character);
     if (created.status !== 'ok') throw new Error('not created');
 
     const outcome = await desk.decide(officer, created.value.id, true);
@@ -107,7 +107,7 @@ describe('RecruitmentDesk', () => {
 
   it('refuses to approve someone who left the server', async () => {
     const { desk, applications } = setup(false);
-    const created = await desk.submit(visitor, { character, reason: 'r', schedule: 's' });
+    const created = await desk.submit(visitor, character);
     if (created.status !== 'ok') throw new Error('not created');
 
     expect(await desk.decide(officer, created.value.id, true)).toMatchObject({

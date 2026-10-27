@@ -18,7 +18,7 @@ const t = ptBR.recruitment;
 export const RECRUIT_MODAL_ID = 'recruit:submit';
 /** Officer buttons on an application card: `recruit:<approve|reject>:<applicationId>`. */
 export const RECRUIT_DECIDE_PREFIX = 'recruit:';
-export const RECRUIT_FIELDS = { name: 'name', schedule: 'schedule', reason: 'reason' } as const;
+export const RECRUIT_FIELDS = { name: 'name' } as const;
 
 const STATUS_COLORS = { pending: COLORS.brand, approved: COLORS.green, rejected: COLORS.slate };
 
@@ -31,25 +31,14 @@ export function applicationModal(characterName: string | undefined): ModalBuilde
     .setMaxLength(30)
     .setPlaceholder(t.namePlaceholder);
   if (characterName) name.setValue(characterName);
-  const schedule = new TextInputBuilder()
-    .setCustomId(RECRUIT_FIELDS.schedule)
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(100)
-    .setPlaceholder(t.schedulePlaceholder);
-  const reason = new TextInputBuilder()
-    .setCustomId(RECRUIT_FIELDS.reason)
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true)
-    .setMaxLength(500)
-    .setPlaceholder(t.reasonPlaceholder);
   return new ModalBuilder()
     .setCustomId(RECRUIT_MODAL_ID)
     .setTitle(t.modalTitle)
     .addLabelComponents(
-      new LabelBuilder().setLabel(t.nameLabel).setTextInputComponent(name),
-      new LabelBuilder().setLabel(t.scheduleLabel).setTextInputComponent(schedule),
-      new LabelBuilder().setLabel(t.reasonLabel).setTextInputComponent(reason),
+      new LabelBuilder()
+        .setLabel(t.nameLabel)
+        .setDescription(t.nameHint)
+        .setTextInputComponent(name),
     );
 }
 
@@ -84,8 +73,6 @@ export function applicationCard(
         inline: true,
       },
       { name: t.legionField, value: a.legion || t.noLegion, inline: true },
-      { name: t.scheduleField, value: a.schedule.slice(0, 1024) },
-      { name: t.reasonField, value: a.reason.slice(0, 1024) },
     )
     .setFooter({ text: t.footer(a.id, look.legionName) })
     .setTimestamp(a.createdAt);

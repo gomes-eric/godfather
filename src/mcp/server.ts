@@ -41,6 +41,12 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
   const limiter = new RateLimiter(CALLS_PER_MINUTE, 60_000);
 
   return async (request) => {
+    // Stateless: there is no server-to-client stream to open. Without a 405, clients reopen the
+    // GET stream every second, which eats the token's rate limit and blocks real calls.
+    if (request.method !== 'POST') {
+      return jsonError(405, 'Only POST is supported.', { Allow: 'POST' });
+    }
+
     const header = request.headers.get('authorization') ?? '';
     const token = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
     const owner = token ? deps.tokens.verify(token) : null;

@@ -154,7 +154,7 @@ export const postedPatchNotes = sqliteTable('posted_patch_notes', {
     .default(sql`(unixepoch('subsec') * 1000)`),
 });
 
-// Recruitment applications from the "Quero entrar na legião" form, reviewed in #oficiais.
+// Recruitment applications (the #recrutamento form), reviewed by the officers there.
 export const applications = sqliteTable('applications', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: text('user_id').notNull(),
@@ -166,8 +166,6 @@ export const applications = sqliteTable('applications', {
   legion: text('legion').notNull().default(''),
   combatPower: integer('combat_power'),
   itemLevel: integer('item_level'),
-  reason: text('reason').notNull(),
-  schedule: text('schedule').notNull(),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] })
     .notNull()
     .default('pending'),

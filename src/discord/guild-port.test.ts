@@ -26,12 +26,13 @@ describe('groupButtonRows', () => {
 });
 
 describe('#recrutamento panel', () => {
-  it('explains the application and has the Quero entrar na legião button', () => {
+  it('explains the form is for members and newcomers, with the Enviar minha ficha button', () => {
     const panel = buildDesiredState(repoConfig).panels.find(
       (p) => p.key === PANEL_KEYS.recruitment,
     )!;
     expect(panel.channelKey).toBe('recruitment');
     expect(panel.buttons.map((b) => b.customId)).toEqual([RECRUIT_APPLY_ID]);
     expect(panel.description).toContain('{channel:visitor-qa}');
+    expect(panel.description).toContain('Já está na M4F1A no jogo?');
   });
 });

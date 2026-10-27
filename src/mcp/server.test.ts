@@ -49,8 +49,6 @@ describe('MCP endpoint', () => {
           itemLevel: 2000,
           legion: '',
           userId: 'u1',
-          schedule: 'Noites',
-          reason: 'Abismo',
           createdAt: new Date(),
           decidedBy: null,
         },
@@ -203,6 +201,19 @@ describe('MCP endpoint', () => {
     tier = 'soldier';
     const denied = await (await connect()).callTool({ name: 'list_applications', arguments: {} });
     expect(denied.isError).toBe(true);
+  });
+
+  it('answers 405 to the GET stream without spending the rate limit', async () => {
+    const get = () =>
+      handler(
+        new Request('http://padrinho.test/mcp', {
+          headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'text/event-stream' },
+        }),
+      );
+    for (let i = 0; i < 70; i++) expect((await get()).status).toBe(405);
+
+    const client = await connect();
+    expect((await client.listTools()).tools.length).toBeGreaterThan(0);
   });
 
   it('limits each token to 60 calls per minute', async () => {

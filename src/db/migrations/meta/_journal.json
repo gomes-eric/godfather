@@ -85,6 +85,13 @@
       "when": 1792985006907,
       "tag": "0011_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793063650845,
+      "tag": "0012_drop_application_answers",
+      "breakpoints": true
     }
   ]
 }

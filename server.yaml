@@ -37,8 +37,8 @@ settings:
     steps:
       - name: 📜 Leia as regras
         value: Tudo começa em {channel:rules}.
-      - name: 🤝 Quer entrar na legião?
-        value: Preencha a ficha em {channel:recruitment}. Aprovada, você vira Soldado na hora.
+      - name: 🎮 Já joga na M4F1A ou quer entrar?
+        value: Mande a ficha com o nome do seu personagem em {channel:recruitment}. Ela serve para os dois casos. Aprovada, você vira Soldado na hora.
       - name: ❓ Ficou com dúvida?
         value: Pergunte em {channel:visitor-qa}, a gente responde.
   # Posted (and kept up to date) by /setup in #regras. {channel:<key>} becomes a clickable link.
@@ -48,6 +48,8 @@ settings:
     message: |
       Bem-vindo(a) à **M4F1A**, legião Asmodiana do Triniel! 🌹
       Estas regras valem aqui no Discord **e** dentro do jogo. Ao ficar no servidor, você concorda com elas.
+
+      🎮 **Já está na legião no jogo ou quer entrar?** Mande a ficha em {channel:recruitment} com o nome do seu personagem. Ela vale para os dois casos: quem já é da M4F1A ganha o cargo aqui, e quem quer entrar é avaliado pelos Oficiais.
 
       ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -80,14 +82,14 @@ settings:
       ⚖️ **Punições**
       Conforme a gravidade: aviso → timeout → expulsão do Discord e da legião. Casos graves vão direto para o banimento.
 
-      🤝 Quer entrar na legião? {channel:recruitment} · 📅 Veja a semana em {channel:agenda}
+      🎮 Ficha para membros e novatos: {channel:recruitment} · 📅 Veja a semana em {channel:agenda}
   # Nobody changes their own nickname by hand: an approved application and the daily check set
   # it (Comandantes are not affected).
   lockNicknames: true
-  # "Quero entrar na legião" (panel in #recrutamento): each application becomes a card there with
+  # "Enviar minha ficha" (panel in #recrutamento): each application becomes a card there with
   # Aprovar/Recusar (officers and up); approving registers the character and makes them Soldado.
   recruitment:
-    channel: recruitment       # the "Quero entrar na legião" form
+    channel: recruitment       # the "Enviar minha ficha" form
     reviewChannel: recruitment # each application's card, right below
     announceChannel: recruitment
     pingRole: officer

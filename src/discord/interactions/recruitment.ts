@@ -15,7 +15,7 @@ import { failureText, replyPrivately } from '../replies.js';
 
 const t = ptBR.recruitment;
 
-/** "Quero entrar na legião": opens the form, unless they are in already or wait for a decision. */
+/** "Enviar minha ficha": opens the form, unless they are in already or wait for a decision. */
 async function openApplication(interaction: ButtonInteraction, ctx: CommandContext) {
   const actor = await ctx.resolveActor(interaction.user.id);
   const problem =
@@ -31,7 +31,7 @@ async function openApplication(interaction: ButtonInteraction, ctx: CommandConte
   await interaction.showModal(applicationModal(ctx.registrations.get(actor.userId)?.name));
 }
 
-/** "Quero entrar na legião" and the officers' Aprovar/Recusar. Returns false for other buttons. */
+/** "Enviar minha ficha" and the officers' Aprovar/Recusar. Returns false for other buttons. */
 export async function handleRecruitButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,
@@ -67,8 +67,6 @@ export async function handleRecruitModal(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const name = normalizeGameName(interaction.fields.getTextInputValue(RECRUIT_FIELDS.name));
-  const schedule = interaction.fields.getTextInputValue(RECRUIT_FIELDS.schedule).trim();
-  const reason = interaction.fields.getTextInputValue(RECRUIT_FIELDS.reason).trim();
 
   let character;
   try {
@@ -84,7 +82,7 @@ export async function handleRecruitModal(
   }
 
   const actor = await ctx.resolveActor(interaction.user.id);
-  const outcome = await ctx.recruitmentDesk.submit(actor, { character, reason, schedule });
+  const outcome = await ctx.recruitmentDesk.submit(actor, character);
   await interaction.editReply(
     outcome.status === 'ok' ? t.sent(character.name) : failureText(outcome),
   );

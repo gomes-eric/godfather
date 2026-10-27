@@ -200,12 +200,12 @@ const settingsSchema = z.looseObject({
     })
     .optional(),
   /**
-   * "Quero entrar na legião": applications go to reviewChannel with Aprovar/Recusar, and approved
+   * "Enviar minha ficha": applications go to reviewChannel with Aprovar/Recusar, and approved
    * members are welcomed in announceChannel (no DMs). pingRole is mentioned on each new one.
    */
   recruitment: z
     .object({
-      /** Where /setup posts the "Quero entrar na legião" panel. */
+      /** Where /setup posts the "Enviar minha ficha" panel. */
       channel: key,
       reviewChannel: key,
       announceChannel: key,

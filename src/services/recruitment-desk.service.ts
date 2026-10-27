@@ -2,7 +2,7 @@ import type { Guild } from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
-import type { CharacterProfile } from '../core/game-character.js';
+import { sameLegion, type CharacterProfile } from '../core/game-character.js';
 import type { Application, ApplicationStore } from '../db/applications.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { applicationCard } from '../discord/recruitment.js';
@@ -61,11 +61,8 @@ export class RecruitmentDesk {
   }
 
   /** Records the application and posts its card for the officers, pinging the configured role. */
-  async submit(
-    actor: Actor,
-    input: { character: CharacterProfile; reason: string; schedule: string },
-  ): Promise<ServiceOutcome<Application>> {
-    const outcome = await this.deps.recruitment.apply(actor, input);
+  async submit(actor: Actor, character: CharacterProfile): Promise<ServiceOutcome<Application>> {
+    const outcome = await this.deps.recruitment.apply(actor, character);
     const recruitment = this.settings().recruitment;
     if (outcome.status !== 'ok' || !recruitment) return outcome;
 
@@ -114,7 +111,12 @@ export class RecruitmentDesk {
     const recruitment = this.settings().recruitment;
     if (decided.status === 'approved' && recruitment) {
       await this.deps.directory.channelByKey(recruitment.announceChannel)?.send({
-        content: t.welcome(decided.userId, this.settings().characters.legion, nickname),
+        content: t.welcome(
+          decided.userId,
+          this.settings().characters.legion,
+          nickname,
+          sameLegion(decided.legion, this.settings().characters.legion),
+        ),
         allowedMentions: { users: [decided.userId] },
       });
     }

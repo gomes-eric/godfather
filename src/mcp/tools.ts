@@ -703,8 +703,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
               itemLevel: a.itemLevel,
               legion: a.legion || null,
               member: s.guild.members.cache.get(a.userId)?.displayName ?? a.userId,
-              schedule: a.schedule,
-              reason: a.reason,
               createdAt: a.createdAt.toISOString(),
               decidedBy: a.decidedBy,
             })),

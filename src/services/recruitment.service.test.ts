@@ -39,22 +39,21 @@ function setup() {
 describe('RecruitmentService', () => {
   it('takes one application per Visitante and refuses legion members', async () => {
     const { service } = setup();
-    const input = { character, reason: 'Quero jogar Abismo', schedule: 'Noites' };
 
-    const first = await service.apply(actor('u1'), input);
+    const first = await service.apply(actor('u1'), character);
     expect(first).toMatchObject({
       status: 'ok',
       value: { characterName: 'Padrinho', status: 'pending' },
     });
-    expect(await service.apply(actor('u1'), input)).toMatchObject({ status: 'rejected' });
-    expect(await service.apply(actor('u2', 'soldier'), input)).toMatchObject({
+    expect(await service.apply(actor('u1'), character)).toMatchObject({ status: 'rejected' });
+    expect(await service.apply(actor('u2', 'soldier'), character)).toMatchObject({
       status: 'rejected',
     });
   });
 
   it('records who decided, once', async () => {
     const { service } = setup();
-    const created = await service.apply(actor('u1'), { character, reason: 'r', schedule: 's' });
+    const created = await service.apply(actor('u1'), character);
     if (created.status !== 'ok') throw new Error('not created');
 
     expect(await service.decide(actor('officer', 'officer'), created.value.id, true)).toMatchObject(

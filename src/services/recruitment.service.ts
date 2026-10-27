@@ -19,14 +19,10 @@ export class RecruitmentService {
   ) {}
 
   /** Records an application; refuses a second one while the first waits for a decision. */
-  apply(
-    actor: Actor,
-    input: { character: CharacterProfile; reason: string; schedule: string },
-  ): Promise<ServiceOutcome<Application>> {
+  apply(actor: Actor, c: CharacterProfile): Promise<ServiceOutcome<Application>> {
     if (actor.tier !== 'visitor') return Promise.resolve(rejected(t.alreadyMember));
     if (this.deps.store.pendingFor(actor.userId))
       return Promise.resolve(rejected(t.alreadyPending));
-    const c = input.character;
     return this.deps.runAction({
       actor,
       action: 'recruit.apply',
@@ -44,8 +40,6 @@ export class RecruitmentService {
           legion: c.legion,
           combatPower: c.combatPower,
           itemLevel: c.itemLevel,
-          reason: input.reason,
-          schedule: input.schedule,
         }),
     });
   }
