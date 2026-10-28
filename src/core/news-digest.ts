@@ -85,6 +85,12 @@ Escreva tudo em português, inclusive os termos do jogo. Use os nomes oficiais e
 - Substance Morph → Conversão de Matérias
 - Wind Breeze Merchants → Associação Brisa
 
+Nomes oficiais de masmorras e conteúdos, como os anúncios em português os escrevem:
+- Expedition → Expedição; Transcendence → Transcendência; Nightmare → Pesadelo; Abyss → Abismo
+- Krao Cave → Caverna de Krao; Draupnir → Draupnir
+- Urugugu Canyon → Desfiladeiro de Urugugu; Vakron Sky Island → Ilha Aérea de Vakron
+- Shattered Arkanis → Arkanis Despedaçada; Deus Research Base → Base de Pesquisa Deus
+
 Números no formato brasileiro: 2.700, 1.500, 6,5%.
 
 Horários: os anúncios usam o horário do Pacífico dos EUA (PDT = UTC−7, PST = UTC−8) e o da Europa Central (CEST = UTC+2, CET = UTC+1). Brasília é UTC−3 o ano todo. Converta para Brasília toda data e hora que você mantiver.
