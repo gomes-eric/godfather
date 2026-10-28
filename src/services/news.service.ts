@@ -4,7 +4,7 @@ import { parseNews, type NewsPost } from '../core/news.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
 import type { NewsStore } from '../db/news.js';
 import type { GuildDirectory } from '../discord/directory.js';
-import { digestMessage, newsMessage, type DigestPing } from '../discord/news.js';
+import { digestDescription, digestMessage, newsMessage, type DigestPing } from '../discord/news.js';
 import type { NewsDigest } from '../core/news-digest.js';
 import type { Logger } from '../logger.js';
 import { ptBR } from '../i18n/pt-BR.js';
@@ -70,17 +70,24 @@ export class NewsService implements BackgroundJob {
 
   /**
    * Who a summary pings, with guards against a wrong answer: everyone only when the post really
-   * names Triniel, and class roles only when few classes changed (a change to half of them or
-   * more is a general one). Only class roles that exist in Discord are pinged.
+   * names Triniel; class roles only when few classes changed (a change to half of them or more is
+   * a general one), and only for classes the card names, so whoever is pinged finds why. Only
+   * class roles that exist in Discord are pinged.
    */
   private ping(digest: NewsDigest, note: Pick<NewsPost, 'title' | 'body'>): DigestPing {
-    const classCount = classRoles(this.deps.config.get()).length;
-    const general = digest.classes.length * 2 >= classCount;
+    const classes = classRoles(this.deps.config.get());
+    const general = digest.classes.length * 2 >= classes.length;
+    const card = digestDescription(digest).toLowerCase();
+    const named = (key: string) => {
+      const name = classes.find((role) => role.key === key)?.name;
+      return name !== undefined && card.includes(name.toLowerCase());
+    };
     return {
       everyone: digest.triniel && /triniel/i.test(`${note.title}\n${note.body}`),
       roleIds: general
         ? []
         : digest.classes
+            .filter(named)
             .map((key) => this.deps.directory.roleId(key))
             .filter((id): id is string => id !== undefined),
     };

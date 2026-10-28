@@ -110,6 +110,17 @@ const CLASSES = [
   'class-chanter',
 ];
 
+const CLASS_NAMES: Record<string, string> = {
+  'class-gladiator': 'Gladiador',
+  'class-templar': 'Templário',
+  'class-assassin': 'Assassino',
+  'class-ranger': 'Arqueiro',
+  'class-sorcerer': 'Mago',
+  'class-spiritmaster': 'Espiritualista',
+  'class-cleric': 'Clérigo',
+  'class-chanter': 'Encantador',
+};
+
 describe('NewsService with Claude summaries', () => {
   const digest = (over: Partial<NewsDigest> = {}): NewsDigest => ({
     publish: true,
@@ -153,7 +164,7 @@ describe('NewsService with Claude summaries', () => {
         settings: {
           news: { ...config.get().settings.news, summary: { model: 'claude-haiku-5-5' } },
         },
-        roles: CLASSES.map((key) => ({ key, class: true })),
+        roles: CLASSES.map((key) => ({ key, name: CLASS_NAMES[key], class: true })),
       }),
     } as unknown as ConfigStore;
     const service = new NewsService({
@@ -208,6 +219,17 @@ describe('NewsService with Claude summaries', () => {
 
   it('pings no class when half of them or more changed (a general change)', async () => {
     const s = setupSummaries(async () => digest({ classes: CLASSES.slice(1, 5) }));
+    await s.service.poll();
+    expect(s.sent[0]).toMatchObject({ content: '', allowedMentions: { parse: [], roles: [] } });
+  });
+
+  it('pings no class role when the card does not say what changed for it', async () => {
+    const s = setupSummaries(async () =>
+      digest({
+        classes: ['class-sorcerer'],
+        sections: [{ emoji: '🛡️', title: 'Abismo', points: ['Mais jogadores no Abismo'] }],
+      }),
+    );
     await s.service.poll();
     expect(s.sent[0]).toMatchObject({ content: '', allowedMentions: { parse: [], roles: [] } });
   });
