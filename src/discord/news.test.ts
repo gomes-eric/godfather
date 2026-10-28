@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newsMessage } from './news.js';
+import { digestDescription, newsMessage } from './news.js';
 
 const note = {
   id: '1',
@@ -54,5 +54,53 @@ describe('newsMessage', () => {
       ].join('\n\n'),
     );
     expect(embed.fields ?? []).toEqual([]);
+  });
+});
+
+describe('digestDescription', () => {
+  it('puts each section under a heading as a Markdown list, at most 4 by 4', () => {
+    const points = ['um', 'dois', 'três', 'quatro', 'cinco'];
+    const text = digestDescription({
+      when: '28/10 04:30 (Brasília)',
+      summary: 'Resumo.',
+      sections: [
+        { emoji: '🐉', title: 'Expedição', points },
+        { emoji: '🛡️', title: 'Classes', points: [] },
+        { emoji: 'a', title: 'A', points: ['x'] },
+        { emoji: 'b', title: 'B', points: ['x'] },
+        { emoji: 'c', title: 'C', points: ['x'] },
+      ],
+    });
+    expect(text).toBe(
+      [
+        '🗓️ 28/10 04:30 (Brasília)',
+        '',
+        'Resumo.',
+        '',
+        '### 🐉 Expedição',
+        '- um',
+        '- dois',
+        '- três',
+        '- quatro',
+        '',
+        '### a A',
+        '- x',
+        '',
+        '### b B',
+        '- x',
+      ].join('\n'),
+    );
+  });
+
+  it('leaves out whole sections that would pass the embed limit', () => {
+    const long = 'x'.repeat(1000);
+    const text = digestDescription({
+      when: '',
+      summary: 'Resumo.',
+      sections: [1, 2, 3, 4].map((n) => ({ emoji: '📌', title: `S${n}`, points: [long, long] })),
+    });
+    expect(text.length).toBeLessThanOrEqual(4096);
+    expect(text).toContain('### 📌 S1');
+    expect(text).not.toContain('### 📌 S3');
   });
 });

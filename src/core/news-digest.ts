@@ -74,7 +74,8 @@ Inside a published post, also leave out: cosmetics and skins, minor bug fixes (t
 - title: the announcement's subject in a few words, without tags like "[Aviso]" and without dates. Example: "Notas da atualização", "Manutenção", "Ludra desperta".
 - when: the date or period that matters, in Brasília time, as "dd/mm HH:MM", for example "28/10 04:30 – 09:00 (Brasília)". Empty string when there is none.
 - summary: one or two sentences with what matters most to the legion.
-- sections: 1 to 6, each with one fitting emoji, a short title and 1 to 6 points. Each point is one short line (up to about 120 characters) with the concrete numbers: item levels, percentages, dates, limits. No greetings, no "thank you", no repeated information.
+- sections: 1 to 4, each with one fitting emoji, a short title (up to about 40 characters) and 1 to 4 points. The card is narrow and read on phones, so each point is one idea in one short line, about 70 characters at most, with the concrete numbers: item levels, percentages, dates, limits. Keep only the most important changes; leave out third-level details such as per-item upgrade tables. No greetings, no "thank you", no repeated information. Points are plain text, without a bullet character at the start.
+- Write in Portuguese throughout: translate game terms instead of leaving them in English, using the official Brazilian Portuguese names when you know them (for example Damage Boost → Aumento de Dano, Amplify → Amplificação, Instant Clear Ticket → Bilhete de Conclusão Imediata, Odyle Energy → Energia de Od, Resurrection Spiritstone → Pedra Espiritual da Ressurreição, Substance Morph → Conversão de Matérias, Wind Breeze Merchants → Associação Brisa). Keep proper names of places, bosses and events as the Portuguese post would write them.
 - kind: patch (patch notes), maintenance, event, restriction or notice (anything else).
 - When publish is false, fill the other fields minimally (empty strings and lists).
 

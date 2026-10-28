@@ -96,9 +96,28 @@ export interface DigestPing {
   roleIds: string[];
 }
 
-const MAX_SECTIONS = 6;
-const MAX_POINTS = 6;
-const FIELD_MAX = 1024;
+const MAX_SECTIONS = 4;
+const MAX_POINTS = 4;
+const DESCRIPTION_MAX = 4096;
+
+/**
+ * The summary's text: date, lead, then each section as a "###" heading over a Markdown list, so a
+ * wrapped point stays indented under its bullet. Sections that don't fit are left out whole.
+ */
+export function digestDescription(
+  digest: Pick<NewsDigest, 'when' | 'summary' | 'sections'>,
+): string {
+  let text = [digest.when && `🗓️ ${digest.when}`, digest.summary].filter(Boolean).join('\n\n');
+  for (const section of digest.sections.slice(0, MAX_SECTIONS)) {
+    const points = section.points.slice(0, MAX_POINTS).map((point) => `- ${point}`);
+    if (points.length === 0) continue;
+    const block = [`### ${section.emoji} ${section.title}`, ...points].join('\n');
+    const next = text ? `${text}\n\n${block}` : block;
+    if (next.length > DESCRIPTION_MAX) break;
+    text = next;
+  }
+  return text;
+}
 
 /** The card for a Claude summary: same look as the plain card, with only what matters. */
 export function digestMessage(
@@ -112,26 +131,15 @@ export function digestMessage(
   allowedMentions: MessageMentionOptions;
 } {
   const style = KIND_STYLE[digest.kind];
-  const when = digest.when ? [`🗓️ ${digest.when}`] : [];
   const embed = new EmbedBuilder()
     .setColor(style.color)
     .setAuthor({ name: t.author[digest.kind] })
     .setTitle(`${style.emoji} ${digest.title}`.slice(0, 256))
     .setURL(note.url)
-    .setDescription(
-      [...when, digest.summary].filter(Boolean).join('\n\n').slice(0, 4096) || t.intro,
-    )
+    .setDescription(digestDescription(digest) || t.intro)
     .setFooter({ text: t.digestFooter })
     .setTimestamp(note.postedAt);
   if (note.imageUrl) embed.setImage(note.imageUrl);
-  for (const section of digest.sections.slice(0, MAX_SECTIONS)) {
-    const points = section.points.slice(0, MAX_POINTS).map((p) => `• ${p}`);
-    if (points.length === 0) continue;
-    embed.addFields({
-      name: `${section.emoji} ${section.title}`.slice(0, 256),
-      value: points.join('\n').slice(0, FIELD_MAX),
-    });
-  }
 
   const mentions = [
     ...(ping.everyone ? ['@everyone'] : []),
