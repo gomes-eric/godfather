@@ -72,10 +72,10 @@ Inside a published post, also leave out: cosmetics and skins, minor bug fixes (t
 ## Write the card (Brazilian Portuguese)
 
 - title: the announcement's subject in a few words, without tags like "[Aviso]" and without dates. Example: "Notas da atualização", "Manutenção", "Ludra desperta".
-- when: the date or period that matters, in Brasília time, as "dd/mm HH:MM", for example "28/10 04:30 – 09:00 (Brasília)". Empty string when there is none.
+- when: when the news takes effect, in Brasília time. For an update or maintenance, when it starts or the changes apply, for example "28/10, após a manutenção" or "28/10 04:30 – 09:00 (Brasília)"; for an event, its period, for example "28/10 – 02/12". Give a time only when the post states it (never the time the post was published), and never write a period that starts and ends on the same date without times. Empty string when there is none.
 - summary: one or two sentences with what matters most to the legion.
 - sections: 1 to 4, each with one fitting emoji, a short title (up to about 40 characters) and 1 to 4 points. The card is narrow and read on phones, so each point is one idea in one short line, about 70 characters at most, with the concrete numbers: item levels, percentages, dates, limits. Keep only the most important changes; leave out third-level details such as per-item upgrade tables. No greetings, no "thank you", no repeated information. Points are plain text, without a bullet character at the start.
-- Write in Portuguese throughout: translate game terms instead of leaving them in English, using the official Brazilian Portuguese names when you know them (for example Damage Boost → Aumento de Dano, Amplify → Amplificação, Instant Clear Ticket → Bilhete de Conclusão Imediata, Odyle Energy → Energia de Od, Resurrection Spiritstone → Pedra Espiritual da Ressurreição, Substance Morph → Conversão de Matérias, Wind Breeze Merchants → Associação Brisa). Keep proper names of places, bosses and events as the Portuguese post would write them.
+- Write in Portuguese throughout: translate game terms instead of leaving them in English, using the official Brazilian Portuguese names when you know them (for example Item Level → Nível de item, Damage Boost → Aumento de Dano, Amplify → Amplificação, Instant Clear Ticket → Bilhete de Conclusão Imediata, Odyle Energy → Energia de Od, Resurrection Spiritstone → Pedra Espiritual da Ressurreição, Substance Morph → Conversão de Matérias, Wind Breeze Merchants → Associação Brisa). Keep proper names of places, bosses and events as the Portuguese post would write them. Write numbers the Brazilian way: 2.700, 1.500, 6,5%.
 - kind: patch (patch notes), maintenance, event, restriction or notice (anything else).
 - When publish is false, fill the other fields minimally (empty strings and lists).
 
@@ -86,8 +86,9 @@ ${classLines}
 
 ## Mentions
 
-- triniel: true only when the post specifically concerns Triniel in South America: a South America pairing that includes Triniel, transfers into or out of Triniel, a Triniel-only issue or maintenance. Triniel appearing in another region's table does not count.
-- classes: the keys of classes that get a change of their own (a skill, a stat, a fix to their skills). Leave it empty for changes that apply equally to every class.`;
+These ping people, so be strict; when in doubt, leave them off.
+- triniel: true only when the post names the server Triniel and the part that names it concerns South America: a South America pairing that includes Triniel, transfers into or out of Triniel, a Triniel-only issue or maintenance. A post that never writes the word "Triniel" is always false, even when it talks about servers or transfers in general. Triniel appearing in another region's table does not count.
+- classes: the keys of classes that get a change of their own: one of their skills, a stat only they get, a fix to their skills. A change that applies to every class (for example "+HP for all classes", even listed class by class) is not a class change: do not put any class in the list for it. Example: a patch that raises HP for all eight classes and changes two Assassin skills gets only the Assassin's key.`;
 }
 
 export function digestUserMessage(note: Pick<NewsPost, 'title' | 'body' | 'postedAt'>): string {

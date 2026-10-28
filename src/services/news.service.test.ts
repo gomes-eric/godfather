@@ -99,6 +99,17 @@ describe('NewsService', () => {
   });
 });
 
+const CLASSES = [
+  'class-gladiator',
+  'class-templar',
+  'class-assassin',
+  'class-ranger',
+  'class-sorcerer',
+  'class-spiritmaster',
+  'class-cleric',
+  'class-chanter',
+];
+
 describe('NewsService with Claude summaries', () => {
   const digest = (over: Partial<NewsDigest> = {}): NewsDigest => ({
     publish: true,
@@ -142,6 +153,7 @@ describe('NewsService with Claude summaries', () => {
         settings: {
           news: { ...config.get().settings.news, summary: { model: 'claude-haiku-5-5' } },
         },
+        roles: CLASSES.map((key) => ({ key, class: true })),
       }),
     } as unknown as ConfigStore;
     const service = new NewsService({
@@ -175,11 +187,29 @@ describe('NewsService with Claude summaries', () => {
     const s = setupSummaries(async () =>
       digest({ triniel: true, classes: ['class-sorcerer', 'class-unknown'] }),
     );
+    s.feed.events[0] = event(
+      'a',
+      1,
+      'Pareamento de Servidor',
+      '[p]América do Sul: Triniel x Marchutan[/p]',
+    );
     await s.service.poll();
     expect(s.sent[0]).toMatchObject({
       content: '@everyone <@&900000000000000001> · afeta o Triniel · mudanças na sua classe',
       allowedMentions: { parse: ['everyone'], roles: ['900000000000000001'] },
     });
+  });
+
+  it('never pings everyone when the post does not name Triniel', async () => {
+    const s = setupSummaries(async () => digest({ triniel: true }));
+    await s.service.poll();
+    expect(s.sent[0]).toMatchObject({ content: '', allowedMentions: { parse: [], roles: [] } });
+  });
+
+  it('pings no class when half of them or more changed (a general change)', async () => {
+    const s = setupSummaries(async () => digest({ classes: CLASSES.slice(1, 5) }));
+    await s.service.poll();
+    expect(s.sent[0]).toMatchObject({ content: '', allowedMentions: { parse: [], roles: [] } });
   });
 
   it('marks posts Claude leaves out as seen without posting them', async () => {

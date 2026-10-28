@@ -1,3 +1,4 @@
+import { classRoles } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
 import { parseNews, type NewsPost } from '../core/news.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
@@ -67,13 +68,21 @@ export class NewsService implements BackgroundJob {
     return parseNews(await this.fetchJson(`${EVENTS_URL}?${query}`), settings.steamAppId);
   }
 
-  /** Who a summary pings: everyone for Triniel, and the class roles that exist in Discord. */
-  private ping(digest: NewsDigest): DigestPing {
+  /**
+   * Who a summary pings, with guards against a wrong answer: everyone only when the post really
+   * names Triniel, and class roles only when few classes changed (a change to half of them or
+   * more is a general one). Only class roles that exist in Discord are pinged.
+   */
+  private ping(digest: NewsDigest, note: Pick<NewsPost, 'title' | 'body'>): DigestPing {
+    const classCount = classRoles(this.deps.config.get()).length;
+    const general = digest.classes.length * 2 >= classCount;
     return {
-      everyone: digest.triniel,
-      roleIds: digest.classes
-        .map((key) => this.deps.directory.roleId(key))
-        .filter((id): id is string => id !== undefined),
+      everyone: digest.triniel && /triniel/i.test(`${note.title}\n${note.body}`),
+      roleIds: general
+        ? []
+        : digest.classes
+            .map((key) => this.deps.directory.roleId(key))
+            .filter((id): id is string => id !== undefined),
     };
   }
 
@@ -93,7 +102,7 @@ export class NewsService implements BackgroundJob {
         lines.push(t.previewSkipped(note.title, digest.skipReason));
         continue;
       }
-      const ping = this.ping(digest);
+      const ping = this.ping(digest, note);
       const roles = ping.roleIds.map((id) => channel.guild.roles.cache.get(id)?.name ?? id);
       await channel.send({
         ...digestMessage(note, digest, { everyone: false, roleIds: [] }),
@@ -110,7 +119,7 @@ export class NewsService implements BackgroundJob {
     if (this.deps.summarizer && this.settings()?.summary) {
       try {
         const digest = await this.deps.summarizer.digest(note);
-        if (digest.publish) return digestMessage(note, digest, this.ping(digest));
+        if (digest.publish) return digestMessage(note, digest, this.ping(digest, note));
         this.deps.logger.info({ title: note.title, reason: digest.skipReason }, 'news left out');
         return 'skip';
       } catch (error) {
