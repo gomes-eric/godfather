@@ -40,6 +40,10 @@ import { MusicGuardService } from './services/music-guard.service.js';
 import { PartyService } from './services/party.service.js';
 import { EventTimesService } from './services/event-times.service.js';
 import { NewsService } from './services/news.service.js';
+import { createNewsSummarizer } from './services/news-summarizer.js';
+import { createClaudeClient } from './services/claude.js';
+import { gameClassName } from './core/news-digest.js';
+import { classRoles } from './config/schema.js';
 import { RecruitmentDesk } from './services/recruitment-desk.service.js';
 import { RecruitmentService } from './services/recruitment.service.js';
 import { RegistrationService } from './services/registration.service.js';
@@ -174,11 +178,25 @@ async function main(): Promise<void> {
       runAction,
       logger,
     });
+    const claude = createClaudeClient(env, logger);
+    logger.info({ enabled: claude !== null }, 'Claude API (workload identity federation)');
     const news = new NewsService({
       config,
       directory,
       store: new NewsStore(database.db),
       logger,
+      ...(claude && {
+        summarizer: createNewsSummarizer({
+          client: claude,
+          model: () => config.get().settings.news?.summary?.model ?? 'claude-haiku-5-5',
+          classes: () =>
+            classRoles(config.get()).map((role) => ({
+              key: role.key,
+              name: role.name,
+              gameName: gameClassName(role.key),
+            })),
+        }),
+      }),
     });
     for (const job of [scheduler, eventTimes, news, legion]) stopJobs.push(job.start());
 
@@ -223,6 +241,7 @@ async function main(): Promise<void> {
         logger,
       }),
       legion,
+      news,
     };
 
     attachInteractionRouter(client, commands, {

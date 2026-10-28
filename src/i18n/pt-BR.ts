@@ -57,6 +57,7 @@ export const ptBR = {
       'recruit.decide': '🤝 Ficha de recrutamento',
       'member.register': '🎮 Personagem registrado',
       'legion.check': '🔎 Conferência da legião',
+      'news.preview': '📰 Prévia dos resumos de notícias',
       'channel.create': '➕ Canal criado',
       'channel.edit': '✏️ Canal editado',
       'channel.delete': '🗑️ Canal apagado',
@@ -262,6 +263,16 @@ export const ptBR = {
     seeDetails: 'Detalhes na Steam.',
     button: 'Ler na Steam',
     footer: 'Publicado na Steam',
+    digestFooter: 'Resumo automático · publicado na Steam',
+    pingTriniel: 'afeta o Triniel',
+    pingClasses: 'mudanças na sua classe',
+    previewOff:
+      'Os resumos estão desligados: falta `settings.news.summary` no server.yaml ou a federação (ANTHROPIC_*) no .env.',
+    previewNoChannel: (key: string) => `Não achei o canal \`${key}\`.`,
+    previewHeader: (pings: string[]) =>
+      `🔍 Prévia do resumo${pings.length > 0 ? ` · marcaria: ${pings.join(', ')}` : ''}`,
+    previewSkipped: (title: string, reason: string) => `⏭️ ${title}: ficaria de fora (${reason})`,
+    previewPosted: (title: string) => `✅ ${title}: prévia postada`,
   },
 
   profile: {

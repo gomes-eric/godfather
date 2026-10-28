@@ -17,6 +17,12 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // Claude API through Workload Identity Federation (news summaries); see src/services/claude.ts.
+  // Never set ANTHROPIC_API_KEY: it would take precedence over federation.
+  ANTHROPIC_FEDERATION_RULE_ID: z.string().startsWith('fdrl_').optional(),
+  ANTHROPIC_ORGANIZATION_ID: z.uuid().optional(),
+  ANTHROPIC_SERVICE_ACCOUNT_ID: z.string().startsWith('svac_').optional(),
+  ANTHROPIC_WORKSPACE_ID: z.string().startsWith('wrkspc_').optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

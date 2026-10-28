@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  bbcodeToMarkdown,
-  looksPortuguese,
-  newsExcerpt,
-  newsKind,
-  parseNews,
-  summarizeNews,
-} from './news.js';
+import { bbcodeToMarkdown, newsExcerpt, newsKind, parseNews, summarizeNews } from './news.js';
 
 describe('bbcodeToMarkdown', () => {
   it('turns Steam headings, lists and bold into markdown and keeps escaped brackets', () => {
@@ -111,43 +104,6 @@ describe('newsKind', () => {
     expect(newsKind('Restrições de Conta | 23 outubro')).toBe('restriction');
     expect(newsKind('[Evento] Enfrente o Desafio')).toBe('event');
     expect(newsKind('Ludra desperta em 4 de novembro')).toBe('notice');
-  });
-});
-
-describe('looksPortuguese', () => {
-  it('tells Portuguese from French, Spanish, English and German, and lets tiny posts through', () => {
-    const post = (title: string, body: string) => looksPortuguese({ title, body });
-    expect(
-      post(
-        '[Aviso] Manutenção',
-        'Durante a manutenção, o acesso ao jogo não será possível para vocês.',
-      ),
-    ).toBe(true);
-    expect(
-      post(
-        "[Avis] Avis d'un nouvel événement",
-        'Bonjour, chers Daevas ! Connectez-vous et explorez le monde avec vos amis.',
-      ),
-    ).toBe(false);
-    expect(
-      post(
-        '[Aviso] Mantenimiento',
-        'Durante el mantenimiento, los servidores no estarán disponibles para usted y sus amigos.',
-      ),
-    ).toBe(false);
-    expect(
-      post(
-        '[Notice] Maintenance',
-        'The servers will be down and you will be able to play after this is done.',
-      ),
-    ).toBe(false);
-    expect(
-      post(
-        'Konto-Einschränkungen',
-        'Damit AION 2 für alle fair bleibt, beobachten wir die Aktivitäten und das Spiel.',
-      ),
-    ).toBe(false);
-    expect(post('Carta do produtor', '')).toBe(true);
   });
 });
 

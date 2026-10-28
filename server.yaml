@@ -91,6 +91,11 @@ settings:
   news:
     channel: news
     steamAppId: 3393110       # AION 2 on Steam
+    # Claude (Haiku) summarizes each post: only what matters to the legion, @everyone when it
+    # concerns Triniel, class roles when their class changes. Needs the ANTHROPIC_* federation
+    # ids in .env (Workload Identity Federation); without them the plain card goes out.
+    summary:
+      model: claude-haiku-5-5
   # Templates with a shugoEvent take their days and time from https://shugo.gg/timers.json:
   # South America (Triniel), São Paulo time, checked every 6 hours. A change is written back here
   # and logged in #audit-log.

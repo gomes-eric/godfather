@@ -175,6 +175,8 @@ const settingsSchema = z.looseObject({
       channel: key,
       steamAppId: z.number().int().positive(),
       pollMinutes: z.number().int().min(5).default(15),
+      /** Claude summaries instead of the plain card (needs the federation ids in the env). */
+      summary: z.object({ model: z.string().min(1).default('claude-haiku-5-5') }).optional(),
     })
     .optional(),
   /** Where the templates linked by `shugoEvent` take their days and time from in timers.json. */

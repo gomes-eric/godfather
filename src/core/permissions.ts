@@ -48,6 +48,7 @@ export const ACTION_POLICIES = {
   'recruit.read': policy('officer', { audited: false }),
   // Running the daily legion check (or rebuilding #ranking) now instead of waiting for it.
   'legion.check': policy('officer'),
+  'news.preview': policy('officer'),
 
   // Party finder: anyone in the legion opens and joins groups; the leader or an officer closes.
   'party.create': policy('soldier', { audited: false }),

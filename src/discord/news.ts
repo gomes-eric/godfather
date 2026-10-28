@@ -1,4 +1,11 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  type MessageMentionOptions,
+} from 'discord.js';
+import type { NewsDigest } from '../core/news-digest.js';
 import {
   newsExcerpt,
   newsKind,
@@ -71,13 +78,73 @@ export function newsMessage(note: NewsPost): {
     }
   }
 
+  return { embeds: [embed], components: [linkRow(note.url)] };
+}
+
+function linkRow(url: string) {
   const link = new ButtonBuilder()
     .setStyle(ButtonStyle.Link)
-    .setURL(note.url)
+    .setURL(url)
     .setLabel(t.button)
     .setEmoji('📖');
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(link);
+}
+
+/** Who a summary pings: everyone when it concerns Triniel, and the roles of changed classes. */
+export interface DigestPing {
+  everyone: boolean;
+  roleIds: string[];
+}
+
+const MAX_SECTIONS = 6;
+const MAX_POINTS = 6;
+const FIELD_MAX = 1024;
+
+/** The card for a Claude summary: same look as the plain card, with only what matters. */
+export function digestMessage(
+  note: Pick<NewsPost, 'url' | 'imageUrl' | 'postedAt'>,
+  digest: NewsDigest,
+  ping: DigestPing,
+): {
+  content: string;
+  embeds: EmbedBuilder[];
+  components: ActionRowBuilder<ButtonBuilder>[];
+  allowedMentions: MessageMentionOptions;
+} {
+  const style = KIND_STYLE[digest.kind];
+  const when = digest.when ? [`🗓️ ${digest.when}`] : [];
+  const embed = new EmbedBuilder()
+    .setColor(style.color)
+    .setAuthor({ name: t.author[digest.kind] })
+    .setTitle(`${style.emoji} ${digest.title}`.slice(0, 256))
+    .setURL(note.url)
+    .setDescription(
+      [...when, digest.summary].filter(Boolean).join('\n\n').slice(0, 4096) || t.intro,
+    )
+    .setFooter({ text: t.digestFooter })
+    .setTimestamp(note.postedAt);
+  if (note.imageUrl) embed.setImage(note.imageUrl);
+  for (const section of digest.sections.slice(0, MAX_SECTIONS)) {
+    const points = section.points.slice(0, MAX_POINTS).map((p) => `• ${p}`);
+    if (points.length === 0) continue;
+    embed.addFields({
+      name: `${section.emoji} ${section.title}`.slice(0, 256),
+      value: points.join('\n').slice(0, FIELD_MAX),
+    });
+  }
+
+  const mentions = [
+    ...(ping.everyone ? ['@everyone'] : []),
+    ...ping.roleIds.map((id) => `<@&${id}>`),
+  ];
+  const reasons = [
+    ...(ping.everyone ? [t.pingTriniel] : []),
+    ...(ping.roleIds.length > 0 ? [t.pingClasses] : []),
+  ];
   return {
+    content: mentions.length > 0 ? `${mentions.join(' ')} · ${reasons.join(' · ')}` : '',
     embeds: [embed],
-    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(link)],
+    components: [linkRow(note.url)],
+    allowedMentions: { parse: ping.everyone ? ['everyone'] : [], roles: ping.roleIds },
   };
 }

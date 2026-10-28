@@ -25,6 +25,7 @@ import {
   type GameCharacterService,
 } from '../services/game-character.service.js';
 import type { LegionCheckService } from '../services/legion-check.service.js';
+import type { NewsService } from '../services/news.service.js';
 import type { RecruitmentDesk } from '../services/recruitment-desk.service.js';
 import type { RegistrationService } from '../services/registration.service.js';
 import { parseDays, type EventService } from '../services/event.service.js';
@@ -56,6 +57,7 @@ export interface McpServices {
   applications: ApplicationStore;
   recruitmentDesk: RecruitmentDesk;
   legion: LegionCheckService;
+  news: NewsService;
   /** Whether the bot has the Message Content intent (needed by read_messages). */
   messageContent: boolean;
 }
@@ -625,6 +627,24 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       read('legion.check', async () => {
         await s.legion.refreshRanking();
         return '#ranking atualizado.';
+      }),
+  );
+
+  tool(
+    'preview_news',
+    'Resume com a IA as últimas notícias do jogo na Steam e posta as prévias no canal dos oficiais (sem marcar ninguém), para conferir os resumos antes de irem ao #noticias.',
+    {
+      count: z.number().int().min(1).max(5).default(3),
+      channel: z.string().default('officers').describe('Chave do canal no server.yaml'),
+    },
+    async (args) =>
+      s.runAction({
+        actor,
+        action: 'news.preview',
+        target: args.channel,
+        params: { count: args.count },
+        preview: 'news.preview',
+        execute: async () => (await s.news.preview(args.count, args.channel)).join('\n'),
       }),
   );
 

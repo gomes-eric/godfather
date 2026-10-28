@@ -4,6 +4,8 @@ import { openDatabase } from '../db/client.js';
 import { NewsStore } from '../db/news.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import type { Logger } from '../logger.js';
+import type { NewsDigest } from '../core/news-digest.js';
+import type { NewsPost } from '../core/news.js';
 import { NewsService } from './news.service.js';
 
 const config = {
@@ -44,17 +46,16 @@ function setup(events: unknown[]) {
   };
   const directory = { channelByKey: () => channel } as unknown as GuildDirectory;
   const feed = { events };
-  const englishFeed = { events: [] as unknown[] };
   const clock = { now: new Date(0) };
   const service = new NewsService({
     config,
     directory,
     logger,
     store: new NewsStore(db.db),
-    fetchJson: async (url) => (url.includes('l=english') ? englishFeed : feed),
+    fetchJson: async () => feed,
     now: () => clock.now,
   });
-  return { service, sent, feed, englishFeed, clock };
+  return { service, sent, feed, clock };
 }
 
 describe('NewsService', () => {
@@ -88,30 +89,118 @@ describe('NewsService', () => {
     ]);
   });
 
-  it('holds a post that came in another language, then sends the English one after 12h', async () => {
-    const { service, sent, feed, englishFeed, clock } = setup([event('a', 1)]);
-    await service.poll();
-
-    feed.events.push(event('f', HOUR, "[Avis] Avis d'un nouvel événement", FRENCH));
-    englishFeed.events.push(event('f', HOUR, '[Notice] New Attendance Event Notice'));
-    clock.now = new Date(2 * HOUR * 1000);
-    expect(await service.poll()).toBe(0);
-
-    clock.now = new Date(13 * HOUR * 1000);
-    expect(await service.poll()).toBe(1);
-    expect(sent.at(-1)).toBe('📰 New Attendance Event Notice');
-    expect(await service.poll()).toBe(0);
-  });
-
-  it('sends the Portuguese text once Steam fixes it', async () => {
+  it('posts a plain card as it came, whatever its language', async () => {
     const { service, sent, feed } = setup([event('a', 1)]);
     await service.poll();
 
     feed.events.push(event('f', HOUR, "[Avis] Avis d'un nouvel événement", FRENCH));
-    expect(await service.poll()).toBe(0);
-
-    feed.events[1] = event('f', HOUR, '[Aviso] Novo evento de presença');
     expect(await service.poll()).toBe(1);
-    expect(sent.at(-1)).toBe('📰 Novo evento de presença');
+    expect(sent.at(-1)).toBe("📰 Avis d'un nouvel événement");
+  });
+});
+
+describe('NewsService with Claude summaries', () => {
+  const digest = (over: Partial<NewsDigest> = {}): NewsDigest => ({
+    publish: true,
+    skipReason: '',
+    kind: 'patch',
+    title: 'Notas da atualização',
+    when: '28/10 04:30 (Brasília)',
+    summary: 'Ludra chega com modo Difícil.',
+    sections: [{ emoji: '⚔️', title: 'Classes', points: ['Mago: Tempestade Gélida corrigida'] }],
+    triniel: false,
+    classes: [],
+    ...over,
+  });
+
+  function setupSummaries(answer: (note: NewsPost) => Promise<NewsDigest>) {
+    const db = openDatabase(':memory:');
+    const sent: { title: string; content: string; allowedMentions: unknown }[] = [];
+    const channel = {
+      send: async (message: {
+        content?: string;
+        allowedMentions?: unknown;
+        embeds: { toJSON(): { title?: string } }[];
+      }) => {
+        sent.push({
+          title: message.embeds[0]!.toJSON().title ?? '',
+          content: message.content ?? '',
+          allowedMentions: message.allowedMentions,
+        });
+        return { id: String(sent.length) };
+      },
+    };
+    const directory = {
+      channelByKey: () => channel,
+      roleId: (key: string) => (key === 'class-sorcerer' ? '900000000000000001' : undefined),
+    } as unknown as GuildDirectory;
+    const feed = { events: [event('a', 1)] };
+    const read: string[] = [];
+    const clock = { now: new Date(0) };
+    const summaryConfig = {
+      get: () => ({
+        settings: {
+          news: { ...config.get().settings.news, summary: { model: 'claude-haiku-5-5' } },
+        },
+      }),
+    } as unknown as ConfigStore;
+    const service = new NewsService({
+      config: summaryConfig,
+      directory,
+      logger,
+      store: new NewsStore(db.db),
+      summarizer: {
+        digest: async (note) => {
+          read.push(note.title);
+          return answer(note);
+        },
+      },
+      fetchJson: async () => feed,
+      now: () => clock.now,
+    });
+    return { service, sent, feed, read, clock };
+  }
+
+  it('gives Claude the post in whatever language it came and posts the summary card', async () => {
+    const s = setupSummaries(async () => digest());
+    s.feed.events[0] = event('a', 1, '[Avis] Notes de mise à jour', FRENCH);
+    expect(await s.service.poll()).toBe(1);
+    expect(s.read).toEqual(['[Avis] Notes de mise à jour']);
+    expect(s.sent).toEqual([
+      { title: '📜 Notas da atualização', content: '', allowedMentions: { parse: [], roles: [] } },
+    ]);
+  });
+
+  it('pings everyone for Triniel and the roles of changed classes', async () => {
+    const s = setupSummaries(async () =>
+      digest({ triniel: true, classes: ['class-sorcerer', 'class-unknown'] }),
+    );
+    await s.service.poll();
+    expect(s.sent[0]).toMatchObject({
+      content: '@everyone <@&900000000000000001> · afeta o Triniel · mudanças na sua classe',
+      allowedMentions: { parse: ['everyone'], roles: ['900000000000000001'] },
+    });
+  });
+
+  it('marks posts Claude leaves out as seen without posting them', async () => {
+    const s = setupSummaries(async () => digest({ publish: false, skipReason: 'banimentos' }));
+    expect(await s.service.poll()).toBe(0);
+    expect(await s.service.poll()).toBe(0);
+    expect(s.read).toHaveLength(1);
+    expect(s.sent).toEqual([]);
+  });
+
+  it('retries a failed summary, then posts the plain card after 12h', async () => {
+    const s = setupSummaries(async () => {
+      throw new Error('API down');
+    });
+    s.clock.now = new Date(2 * HOUR * 1000);
+    expect(await s.service.poll()).toBe(0);
+    expect(await s.service.poll()).toBe(0);
+    expect(s.read).toHaveLength(2);
+
+    s.clock.now = new Date(13 * HOUR * 1000);
+    expect(await s.service.poll()).toBe(1);
+    expect(s.sent.map((m) => m.title)).toEqual(['📜 Notas da Atualização a']);
   });
 });
