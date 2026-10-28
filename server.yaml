@@ -351,7 +351,7 @@ eventTemplates:
 fieldBosses:
   source:
     provider: questlog
-    enabled: false           # off: questlog.gg (Cloudflare) blocks the Oracle Cloud IP; manual /boss still works
+    enabled: true            # fetched with a Chrome TLS fingerprint (impit) to get past Cloudflare
     serverId: 2403           # Triniel (South America)
     pollIntervalSeconds: 180
     staleAfterHours: 6       # older readings trigger a warning in #audit-log

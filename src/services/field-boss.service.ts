@@ -15,7 +15,7 @@ import { ptBR } from '../i18n/pt-BR.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
 import { unixSeconds as unix } from '../core/schedule.js';
 import type { Logger } from '../logger.js';
-import { fetchJson, type FetchJson } from './fetch-json.js';
+import { fetchJsonAsBrowser, type FetchJson } from './fetch-json.js';
 import type { OccurrenceSource, OccurrenceView } from './reminder.scheduler.js';
 
 const t = ptBR.bosses;
@@ -56,7 +56,7 @@ export class FieldBossService implements OccurrenceSource, BackgroundJob {
 
   constructor(private readonly deps: Deps) {
     this.now = deps.now ?? (() => new Date());
-    this.fetchFeed = deps.fetchFeed ?? fetchJson;
+    this.fetchFeed = deps.fetchFeed ?? fetchJsonAsBrowser;
   }
 
   private settings() {
