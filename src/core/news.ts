@@ -82,6 +82,30 @@ export function newsKind(title: string): NewsKind {
   return 'notice';
 }
 
+const PORTUGUESE =
+  /ção|ções|ões|ã|õ|\b(não|você|vocês|para|uma|com|os|dos|das|seu|sua|está|são|será|também|até)\b/gi;
+const OTHER_LANGUAGES = [
+  /\b(les|vous|nous|est|une|des|pour|avec|dans|sur|et|du|au|aux|votre|vos)\b|è|ê(?!s\b)/gi,
+  /ción|ñ|\b(el|los|las|del|con|una|para|está|por|usted|su|sus|y)\b/gi,
+  /\b(the|you|your|and|of|to|will|is|are|with|for|this|be)\b/gi,
+  /ß|ü|ö|ä|\b(der|die|das|und|ist|nicht|wir|ihr|euch|mit|auf|ein|eine|den|dem|zu|im)\b/gi,
+];
+/** Below this many hits in any language a post is too short to judge, and is taken as is. */
+const MIN_EVIDENCE = 3;
+
+/**
+ * Whether a Steam post really is in Portuguese, judged by common words in its title and opening.
+ * The publisher sometimes fills the Portuguese slot with another language (French, once), so the
+ * feed's "language" field can't be trusted.
+ */
+export function looksPortuguese(post: Pick<NewsPost, 'title' | 'body'>): boolean {
+  const text = `${post.title}\n${post.body.slice(0, 1000)}`;
+  const count = (pattern: RegExp) => text.match(pattern)?.length ?? 0;
+  const portuguese = count(PORTUGUESE);
+  const other = Math.max(...OTHER_LANGUAGES.map(count));
+  return other < MIN_EVIDENCE || portuguese > other;
+}
+
 /** "Olá, Daevas,", "Saudações, Daevas,", "**Olá Daevas,**": openings that say nothing. */
 const GREETING = /^(\*\*)?((ol[áa]|sauda[çc][õo]es|caros?|prezados?),?\s*)?daevas[,!.]?(\*\*)?$/i;
 
