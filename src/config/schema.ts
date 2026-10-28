@@ -2,8 +2,7 @@ import { PermissionFlagsBits } from 'discord.js';
 import { z } from 'zod';
 import { TIERS, type RankedTier } from '../core/tiers.js';
 
-// Schema of server.yaml (PLAN.md §6.1, docs/SERVER_LAYOUT.md). Sections that later phases
-// own (eventTemplates) stay loose until those phases define them.
+// Schema of server.yaml (PLAN.md §6.1, docs/SERVER_LAYOUT.md).
 
 /** Minimum tier allowed to see or write, plus `bot` (only Padrinho) and `none` (nobody). */
 export const ACCESS_LEVELS = [
@@ -17,7 +16,11 @@ export const ACCESS_LEVELS = [
 export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
 const accessLevel = z.enum(ACCESS_LEVELS);
-const key = z.string().regex(/^[a-z0-9][a-z0-9-]*$/, 'keys are lowercase-kebab-case');
+export const KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+/** 24h "HH:MM". */
+export const CLOCK_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const key = z.string().regex(KEY_PATTERN, 'keys are lowercase-kebab-case');
 
 const permissionName = z.custom<keyof typeof PermissionFlagsBits>(
   (value) => typeof value === 'string' && value in PermissionFlagsBits,
@@ -39,7 +42,6 @@ const roleSchema = z.object({
   permissions: z.array(permissionName).default([]),
   maxMembers: z.number().int().positive().optional(),
   class: z.boolean().default(false),
-  archetype: z.enum(['warrior', 'scout', 'mage', 'priest']).optional(),
   emoji: z.string().optional(),
   managed: z.boolean().default(true),
 });
@@ -57,6 +59,9 @@ const accessSchema = z.object({
 const forumTagSchema = z.object({ name: z.string().min(1).max(20), emoji: z.string().optional() });
 
 export const CHANNEL_TYPES = ['text', 'announcement', 'voice', 'stage', 'forum'] as const;
+
+/** Voice and stage channels: no topic, listed after text channels. */
+export const isVoiceKind = (kind: string): boolean => kind === 'voice' || kind === 'stage';
 export type ChannelKind = (typeof CHANNEL_TYPES)[number];
 
 const channelSchema = z.object({
@@ -104,7 +109,7 @@ const reminderOffsets = z
       .max(24 * 60),
   )
   .min(1);
-const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'time is HH:MM (24h)');
+const clockTime = z.string().regex(CLOCK_PATTERN, 'time is HH:MM (24h)');
 
 const eventTemplateSchema = z.object({
   key,
@@ -131,8 +136,6 @@ const voiceAccessSchema = z.object({
 const AFK_TIMEOUTS = [60, 300, 900, 1800, 3600] as const;
 
 const settingsSchema = z.looseObject({
-  botName: z.string().min(1),
-  locale: z.string().default('pt-BR'),
   timezone: z.string().min(1),
   community: z.object({ enable: z.boolean(), rulesChannel: key, updatesChannel: key }),
   afk: z.object({
@@ -337,9 +340,7 @@ export const serverConfigSchema = z
       }
     });
 
-    const voiceChannelKeys = new Set(
-      channels.filter((c) => c.type === 'voice' || c.type === 'stage').map((c) => c.key),
-    );
+    const voiceChannelKeys = new Set(channels.filter((c) => isVoiceKind(c.type)).map((c) => c.key));
     const templateKeys = config.eventTemplates.map((t) => t.key);
     for (const dup of duplicates(templateKeys)) {
       issue(['eventTemplates'], `duplicate event template key "${dup}"`);

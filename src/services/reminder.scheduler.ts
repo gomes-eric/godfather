@@ -7,6 +7,7 @@ import type { ManagedObjectStore } from '../db/managed-objects.js';
 import type { Logger } from '../logger.js';
 
 const MINUTE = 60_000;
+const TICK_MS = 30_000;
 const WINDOW_MS = 7 * 24 * 60 * MINUTE;
 /** Occurrences that started this recently still get their "starting now" reminder. */
 const LOOKBACK_MS = 15 * MINUTE;
@@ -73,23 +74,31 @@ interface Deps {
 export class ReminderScheduler implements BackgroundJob {
   private readonly now: () => Date;
   private agendaChecked = false;
-  private stopTicking: (() => void) | undefined;
   private running: Promise<TickReport> | undefined;
 
   constructor(private readonly deps: Deps) {
     this.now = deps.now ?? (() => new Date());
   }
 
-  start(intervalMs = 30_000): void {
-    this.stopTicking = repeat(
-      intervalMs,
+  start(): () => void {
+    return repeat(
+      TICK_MS,
       () => this.tick(),
       (error) => this.deps.logger.error({ err: error }, 'reminder tick failed'),
     );
   }
 
-  stop(): void {
-    this.stopTicking?.();
+  /** Picks up a change right away instead of waiting for the next tick. */
+  refreshSoon(): void {
+    void this.tick().catch(() => undefined);
+  }
+
+  /** Occurrences in the next 7 days, cancelled ones left out. */
+  upcoming(now: Date): OccurrenceView[] {
+    return this.deps.store
+      .occurrencesBetween(now, new Date(now.getTime() + WINDOW_MS))
+      .map((o) => this.view(o))
+      .filter((v): v is OccurrenceView => v !== null && !v.cancelled);
   }
 
   /** Runs one tick; overlapping calls share the tick in progress. */
@@ -237,11 +246,7 @@ export class ReminderScheduler implements BackgroundJob {
     }
 
     // 4. Agenda.
-    const items = store
-      .occurrencesBetween(now, until)
-      .map((o) => this.view(o))
-      .filter((v): v is OccurrenceView => v !== null && !v.cancelled);
-    report.agendaUpdated = await this.refreshAgenda(items);
+    report.agendaUpdated = await this.refreshAgenda(this.upcoming(now));
     return report;
   }
 

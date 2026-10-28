@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { PermissionFlagsBits } from 'discord.js';
-import { channelNameByKey, tierRoleKeys, type ServerConfig } from '../config/schema.js';
+import {
+  channelNameByKey,
+  isVoiceKind,
+  tierRoleKeys,
+  type ServerConfig,
+} from '../config/schema.js';
 import { COLORS } from '../discord/colors.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
@@ -56,7 +61,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
     .filter((category) => category.managed)
     .map((category) => {
       const hasVoice =
-        category.channels.some((c) => c.type === 'voice' || c.type === 'stage') ||
+        category.channels.some((c) => isVoiceKind(c.type)) ||
         config.voiceGenerators.some((g) => g.category === category.key);
       return {
         key: category.key,
@@ -76,7 +81,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
   for (const category of config.categories) {
     for (const channel of category.channels.filter((c) => c.managed)) {
       const access = { ...category.access, ...channel.access };
-      const isVoice = channel.type === 'voice' || channel.type === 'stage';
+      const isVoice = isVoiceKind(channel.type);
       channels.push({
         key: channel.key,
         categoryKey: category.key,

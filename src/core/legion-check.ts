@@ -54,19 +54,22 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 export const RANKING_SIZE = 10;
 export const formatStat = (value: number | null) =>
   value === null ? '—' : value.toLocaleString('pt-BR');
-const num = formatStat;
+
+/** Highest combat power first; unknown power last. */
+export const byCombatPower = (
+  a: { combatPower: number | null },
+  b: { combatPower: number | null },
+) => (b.combatPower ?? -1) - (a.combatPower ?? -1);
 
 /** The top of the board: highest combat power first. */
 export function topRanking<T extends RankingRow>(rows: readonly T[]): T[] {
-  return [...rows]
-    .sort((a, b) => (b.combatPower ?? -1) - (a.combatPower ?? -1))
-    .slice(0, RANKING_SIZE);
+  return [...rows].sort(byCombatPower).slice(0, RANKING_SIZE);
 }
 
 /** Ranking lines by combat power (highest first), item level alongside. */
 export function rankingLines(rows: readonly RankingRow[]): string[] {
   return topRanking(rows).map((row, i) => {
     const place = MEDALS[i] ?? `\`${String(i + 1).padStart(2, ' ')}.\``;
-    return `${place} ${row.classEmoji} **${row.name}** · ⚔️ ${num(row.combatPower)} · 🎚️ ${num(row.itemLevel)}`;
+    return `${place} ${row.classEmoji} **${row.name}** · ⚔️ ${formatStat(row.combatPower)} · 🎚️ ${formatStat(row.itemLevel)}`;
   });
 }

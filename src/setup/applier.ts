@@ -1,6 +1,7 @@
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 import {
   EVERYONE,
+  type DesiredCategory,
   type DesiredChannel,
   type DesiredOverwrite,
   type GuildSnapshot,
@@ -69,6 +70,17 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
     };
   };
 
+  const categorySpec = (category: DesiredCategory, existingId?: string): ChannelSpec => ({
+    name: category.name,
+    kind: 'category',
+    parentId: null,
+    topic: null,
+    userLimit: 0,
+    overwrites: [...resolveOverwrites(category.overwrites), ...foreignOverwrites(existingId)],
+    tags: [],
+    requireTag: false,
+  });
+
   const requireId = (map: Map<string, string>, key: string, what: string): string => {
     const id = map.get(key);
     if (!id) throw new Error(`${what} "${key}" does not exist (creating it failed?)`);
@@ -95,31 +107,13 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
           op.keys.map((key) => roleIds.get(key)).filter((id): id is string => id !== undefined),
         );
       case 'createCategory': {
-        const id = await port.createChannel({
-          name: op.category.name,
-          kind: 'category',
-          parentId: null,
-          topic: null,
-          userLimit: 0,
-          overwrites: resolveOverwrites(op.category.overwrites),
-          tags: [],
-          requireTag: false,
-        });
+        const id = await port.createChannel(categorySpec(op.category));
         store.set('category', op.category.key, id);
         categoryIds.set(op.category.key, id);
         return;
       }
       case 'updateCategory':
-        return port.editChannel(op.id, {
-          name: op.category.name,
-          kind: 'category',
-          parentId: null,
-          topic: null,
-          userLimit: 0,
-          overwrites: [...resolveOverwrites(op.category.overwrites), ...foreignOverwrites(op.id)],
-          tags: [],
-          requireTag: false,
-        });
+        return port.editChannel(op.id, categorySpec(op.category, op.id));
       case 'createChannel': {
         const id = await port.createChannel(channelSpec(op.channel));
         store.set('channel', op.channel.key, id);

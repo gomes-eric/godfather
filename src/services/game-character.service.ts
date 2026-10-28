@@ -53,7 +53,11 @@ export class GameCharacterService {
     if (!fresh && hit && this.now() - hit.at < CACHE_MS) return hit.value;
     try {
       const value = await this.fetchJson(url);
-      this.cache.set(url, { at: this.now(), value });
+      const now = this.now();
+      for (const [key, entry] of this.cache) {
+        if (now - entry.at >= CACHE_MS) this.cache.delete(key);
+      }
+      this.cache.set(url, { at: now, value });
       return value;
     } catch (error) {
       this.deps.logger.warn({ err: error, url }, 'Aion 2 character API request failed');

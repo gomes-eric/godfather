@@ -94,7 +94,9 @@ export const reminders = sqliteTable(
   },
   (table) => [
     uniqueIndex('reminder_occurrence_offset_idx').on(table.occurrenceId, table.offsetMinutes),
-    index('reminder_due_idx').on(table.dueAt),
+    index('reminder_pending_due_idx')
+      .on(table.dueAt)
+      .where(sql`${table.sentAt} IS NULL AND ${table.skippedAt} IS NULL`),
   ],
 );
 
@@ -161,7 +163,6 @@ export const applications = sqliteTable('applications', {
 export const parties = sqliteTable('parties', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   channelId: text('channel_id').notNull(),
-  messageId: text('message_id'),
   ownerId: text('owner_id').notNull(),
   activity: text('activity').notNull(),
   slots: integer('slots').notNull(),

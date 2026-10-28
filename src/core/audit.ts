@@ -27,7 +27,7 @@ export interface AuditPublisher {
 const SECRET_KEY = /token|secret|password|authorization/i;
 const MAX_PARAMS_LENGTH = 2000;
 
-/** Drops secret-looking keys and caps the size before parameters are stored or posted. */
+/** Drops secret-looking keys before parameters are stored or posted. */
 export function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(params).map(([key, value]) => [
@@ -37,9 +37,10 @@ export function sanitizeParams(params: Record<string, unknown>): Record<string, 
   );
 }
 
+/** Already sanitized parameters as stored JSON, capped in size. */
 function serializeParams(params: Record<string, unknown> | undefined): string | null {
   if (!params || Object.keys(params).length === 0) return null;
-  const json = JSON.stringify(sanitizeParams(params));
+  const json = JSON.stringify(params);
   return json.length > MAX_PARAMS_LENGTH ? `${json.slice(0, MAX_PARAMS_LENGTH)}…` : json;
 }
 
@@ -57,7 +58,8 @@ export class AuditLog {
 
   /** Persists the entry, then mirrors it without letting a Discord failure break the action. */
   async record(entry: AuditEntry): Promise<RecordedAuditEntry> {
-    const paramsJson = serializeParams(entry.params);
+    const params = entry.params && sanitizeParams(entry.params);
+    const paramsJson = serializeParams(params);
     const row = this.db
       .insert(auditLog)
       .values({
@@ -75,7 +77,7 @@ export class AuditLog {
 
     const recorded: RecordedAuditEntry = {
       ...entry,
-      ...(entry.params && { params: sanitizeParams(entry.params) }),
+      ...(params && { params }),
       id: row.id,
       at: row.at,
     };

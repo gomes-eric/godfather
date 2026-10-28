@@ -58,10 +58,6 @@ export class PartyService {
     return partyCard(this.view(party));
   }
 
-  attachMessage(party: Party, messageId: string): void {
-    this.deps.store.setMessage(party.id, messageId);
-  }
-
   /**
    * Join, leave or close. Resolves to the updated party and whether this click filled it (so
    * the caller can call everyone), or a refusal for the clicker.

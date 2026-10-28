@@ -1,6 +1,8 @@
 // Pure parsing of the official Aion 2 character API (aion2.plaync.com, the same data shugo.gg
 // shows). Every field is read defensively: the API is undocumented and may change.
 
+import { obj, str } from './text.js';
+
 export interface CharacterRef {
   /** Opaque id from the search API (base64, already URL-decoded). */
   id: string;
@@ -49,10 +51,6 @@ const GROUP_SLOTS: Record<EquipmentGroup, string[]> = {
 };
 const SLOT_ORDER = Object.values(GROUP_SLOTS).flat();
 
-type Json = Record<string, unknown>;
-const obj = (value: unknown): Json =>
-  typeof value === 'object' && value !== null ? (value as Json) : {};
-const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 const num = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 

@@ -4,7 +4,6 @@ import { ConfigError } from './config/loader.js';
 import { ConfigStore } from './config/store.js';
 import { createActionRunner } from './core/action.js';
 import { AuditLog } from './core/audit.js';
-import type { BackgroundJob } from './core/repeat.js';
 import { ApplicationStore } from './db/applications.js';
 import { CharacterStore } from './db/characters.js';
 import { openDatabase } from './db/client.js';
@@ -15,7 +14,7 @@ import { NewsStore } from './db/news.js';
 import { TempVoiceStore } from './db/temp-voice.js';
 import { createDiscordAnnouncements } from './discord/announcements.js';
 import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
-import { connectDiscord, createDiscordClient, isDiscordReady } from './discord/client.js';
+import { connectDiscord, createDiscordClient } from './discord/client.js';
 import { commands } from './discord/commands/index.js';
 import { createDirectory } from './discord/directory.js';
 import { createDiscordGuildPort } from './discord/guild-port.js';
@@ -73,7 +72,7 @@ async function main(): Promise<void> {
   let mcpHandler: McpHandler | undefined;
   const app = createHttpApp(
     {
-      discordReady: () => isDiscordReady(client),
+      discordReady: () => client.isReady(),
       databaseHealthy: () => database.isHealthy(),
     },
     () => mcpHandler,
@@ -84,12 +83,12 @@ async function main(): Promise<void> {
 
   // Closes every open handle so the process exits on its own. Calling process.exit()
   // while handles are still closing aborts on Windows (libuv assertion).
-  const jobs: BackgroundJob[] = [];
+  const stopJobs: (() => void)[] = [];
   let stopping: Promise<void> | undefined;
   const stop = (reason: string) =>
     (stopping ??= (async () => {
       logger.info({ reason }, 'shutting down');
-      for (const job of jobs) job.stop();
+      for (const stopJob of stopJobs) stopJob();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await client.destroy();
       database.close();
@@ -161,7 +160,7 @@ async function main(): Promise<void> {
           .channelByKey(config.get().settings.audit.channel)
           ?.send({ content: text, allowedMentions: { parse: [] } });
       },
-      onChange: () => void scheduler.tick().catch(() => undefined),
+      onChange: () => scheduler.refreshSoon(),
     });
     const characters = new GameCharacterService({ config, logger });
     const registrations = new CharacterStore(database.db);
@@ -181,8 +180,7 @@ async function main(): Promise<void> {
       store: new NewsStore(database.db),
       logger,
     });
-    jobs.push(scheduler, eventTimes, news, legion);
-    for (const job of jobs) job.start();
+    for (const job of [scheduler, eventTimes, news, legion]) stopJobs.push(job.start());
 
     // Shared by slash commands and MCP tools: both adapters call the same services.
     const members = new MemberService({ guild, directory, config, runAction });
@@ -210,7 +208,7 @@ async function main(): Promise<void> {
       messages: new MessageService({ guild, runAction }),
       events: new EventService({ store: eventStore, scheduler, config, runAction }),
       channels: new ChannelService({ guild, managed, runAction }),
-      roles: new RoleService({ guild, directory, config, runAction }),
+      roles: new RoleService({ guild, directory, runAction }),
       characters,
       registrations,
       registration,

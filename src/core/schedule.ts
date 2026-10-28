@@ -1,4 +1,5 @@
 import { WEEKDAYS, type Weekday } from '../config/schema.js';
+import { fold } from './text.js';
 
 // Time rules for events and reminders (PLAN.md §6.4). Times in server.yaml are wall-clock times
 // in the configured timezone (America/Sao_Paulo); everything stored is a UTC instant.
@@ -147,12 +148,7 @@ const WEEKDAY_WORDS: Record<string, Weekday> = {
  * Returns null when the text isn't understood.
  */
 export function parseWhen(input: string, now: Date, timeZone: string): Date | null {
-  const text = input
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/-feira/, '');
+  const text = fold(input).replace(/-feira/, '');
   const today = localParts(now, timeZone);
 
   const clockOf = (h: string | undefined, m: string | undefined) => {

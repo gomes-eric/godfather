@@ -11,7 +11,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
 import { parseDays } from '../../services/event.service.js';
 import { COLORS } from '../colors.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
-import { failureText, outcomeText, replyPrivately } from '../replies.js';
+import { failureText, listEmbed, outcomeText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.events;
@@ -165,10 +165,7 @@ export const eventCommand: SlashCommand = {
               tpl.enabled,
             ),
           );
-        const embed = new EmbedBuilder()
-          .setTitle(t.templateListTitle)
-          .setColor(COLORS.brand)
-          .setDescription(lines.join('\n') || t.agendaEmpty);
+        const embed = listEmbed(t.templateListTitle, lines, t.agendaEmpty);
         await replyPrivately(interaction, { embeds: [embed] });
         return;
       }
@@ -245,10 +242,7 @@ export const eventCommand: SlashCommand = {
         const lines = outcome.value.map((v) =>
           t.listLine(v.occurrenceId, v.emoji, v.title, unix(v.startsAt), v.templateKey !== null),
         );
-        const embed = new EmbedBuilder()
-          .setTitle(t.listTitle)
-          .setColor(COLORS.brand)
-          .setDescription(lines.join('\n') || t.agendaEmpty);
+        const embed = listEmbed(t.listTitle, lines, t.agendaEmpty);
         await replyPrivately(interaction, { embeds: [embed] });
         return;
       }

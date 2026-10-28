@@ -1,5 +1,4 @@
 import type { Guild, Role } from 'discord.js';
-import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import type { GuildDirectory } from '../discord/directory.js';
@@ -19,7 +18,6 @@ export interface RoleInput {
 interface Deps {
   guild: Guild;
   directory: GuildDirectory;
-  config: ConfigStore;
   runAction: ActionRunner;
 }
 

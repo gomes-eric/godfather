@@ -1,6 +1,8 @@
 // Finds a Discord object from what a person or an AI typed: a mention, an id or a name
 // (accents, case and a leading # or @ ignored). Pure, so it is testable without Discord.
 
+import { fold } from './text.js';
+
 export interface Candidate {
   id: string;
   /** Every name the object answers to, e.g. username, display name, nickname. */
@@ -13,16 +15,11 @@ export type Resolution =
   { ok: true; id: string } | { ok: false; reason: 'none' | 'ambiguous'; options: string[] };
 
 function normalizeName(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/^[#@]/, '')
-    .trim();
+  return fold(value).replace(/^[#@]/, '').trim();
 }
 
 const MENTION = /^<(?:@!?|@&|#)(\d{17,20})>$/;
-const SNOWFLAKE = /^\d{17,20}$/;
+export const SNOWFLAKE = /^\d{17,20}$/;
 const MAX_OPTIONS = 5;
 
 /** Exact id/mention, then exact name, then a unique partial match. */

@@ -1,7 +1,7 @@
 /** Work the bot keeps doing from startup until shutdown (reminders, polls, the daily check). */
 export interface BackgroundJob {
-  start(): void;
-  stop(): void;
+  /** Starts the work; returns the function that stops it. */
+  start(): () => void;
 }
 
 /**

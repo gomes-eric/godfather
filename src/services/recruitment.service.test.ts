@@ -56,14 +56,14 @@ describe('RecruitmentService', () => {
     const created = await service.apply(actor('u1'), character);
     if (created.status !== 'ok') throw new Error('not created');
 
-    expect(await service.decide(actor('officer', 'officer'), created.value.id, true)).toMatchObject(
-      {
-        status: 'ok',
-        value: { status: 'approved', decidedBy: 'officer' },
-      },
-    );
     expect(
-      await service.decide(actor('officer', 'officer'), created.value.id, false),
+      await service.decide(actor('officer', 'officer'), created.value.id, true, async () => {}),
+    ).toMatchObject({
+      status: 'ok',
+      value: { status: 'approved', decidedBy: 'officer' },
+    });
+    expect(
+      await service.decide(actor('officer', 'officer'), created.value.id, false, async () => {}),
     ).toMatchObject({
       status: 'rejected',
       reason: 'Essa ficha já foi decidida.',

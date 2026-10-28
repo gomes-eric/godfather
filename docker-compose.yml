@@ -3,6 +3,8 @@ services:
     build: .
     image: padrinho:latest
     restart: unless-stopped
+    # The bot uses ~60 MB; a leak restarts it instead of starving the 1 GB host.
+    mem_limit: 384m
     env_file: .env
     environment:
       NODE_ENV: production

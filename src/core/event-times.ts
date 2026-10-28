@@ -2,7 +2,7 @@
 // of the game's recurring events per region, turned into server.yaml template days and time.
 
 import { z } from 'zod';
-import { WEEKDAYS, type Weekday } from '../config/schema.js';
+import { CLOCK_PATTERN, WEEKDAYS, type Weekday } from '../config/schema.js';
 
 export const TIMERS_URL = 'https://shugo.gg/timers.json';
 
@@ -20,8 +20,6 @@ export interface ScheduleTarget {
   timeZone: string;
 }
 
-const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-
 const timersSchema = z.object({
   regions: z.array(z.object({ id: z.string(), timeZone: z.string() })),
   events: z.array(
@@ -32,7 +30,7 @@ const timersSchema = z.object({
         z.looseObject({
           type: z.string(),
           days: z.array(z.string()).optional(),
-          times: z.array(clockTime).optional(),
+          times: z.array(z.string().regex(CLOCK_PATTERN)).optional(),
           timeLabels: z.array(z.string()).optional(),
           timeZone: z.string().optional(),
         }),

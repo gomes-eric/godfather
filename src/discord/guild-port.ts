@@ -13,7 +13,7 @@ import {
   type GuildChannelCreateOptions,
   type GuildChannelEditOptions,
 } from 'discord.js';
-import type { ChannelKind } from '../config/schema.js';
+import { isVoiceKind, type ChannelKind } from '../config/schema.js';
 import type { ChannelSnapshot, GuildSnapshot, SnapshotChannelKind } from '../setup/model.js';
 import type {
   ChannelPosition,
@@ -70,22 +70,21 @@ function snapshotChannel(channel: GuildBasedChannel): ChannelSnapshot {
   };
 }
 
-/** Buttons sharing a `row` go on one line; the rest fill lines of 5 (Discord's limit). */
-export function groupButtonRows<T extends { row?: number }>(buttons: T[]): T[][] {
-  const byRow = new Map<number, T[]>();
-  const loose: T[] = [];
-  for (const button of buttons) {
-    if (button.row === undefined) loose.push(button);
-    else byRow.set(button.row, [...(byRow.get(button.row) ?? []), button]);
-  }
-  const rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]).flatMap(([, row]) => chunk(row));
-  return [...rows, ...chunk(loose)].slice(0, 5);
-}
-
+/** Lines of up to 5 (Discord's limit per line). */
 function chunk<T>(items: T[]): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += 5) out.push(items.slice(i, i + 5));
   return out;
+}
+
+function roleOptions(spec: RoleSpec) {
+  return {
+    name: spec.name,
+    colors: { primaryColor: spec.color },
+    hoist: spec.hoist,
+    mentionable: spec.mentionable,
+    permissions: spec.permissions,
+  };
 }
 
 function panelPayload(panel: PanelMessage) {
@@ -98,18 +97,20 @@ function panelPayload(panel: PanelMessage) {
     success: ButtonStyle.Success,
     danger: ButtonStyle.Danger,
   } as const;
-  const rows = groupButtonRows(panel.buttons).map((buttons) =>
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      buttons.map((button) => {
-        const builder = new ButtonBuilder()
-          .setCustomId(button.customId)
-          .setLabel(button.label)
-          .setStyle(styles[button.style ?? 'secondary']);
-        if (button.emoji) builder.setEmoji(button.emoji);
-        return builder;
-      }),
-    ),
-  );
+  const rows = chunk(panel.buttons)
+    .slice(0, 5)
+    .map((buttons) =>
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        buttons.map((button) => {
+          const builder = new ButtonBuilder()
+            .setCustomId(button.customId)
+            .setLabel(button.label)
+            .setStyle(styles[button.style ?? 'secondary']);
+          if (button.emoji) builder.setEmoji(button.emoji);
+          return builder;
+        }),
+      ),
+    );
   return { embeds: [embed], components: rows, allowedMentions: { parse: [] } };
 }
 
@@ -168,24 +169,11 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
     },
 
     async createRole(spec: RoleSpec) {
-      const role = await guild.roles.create({
-        name: spec.name,
-        colors: { primaryColor: spec.color },
-        hoist: spec.hoist,
-        mentionable: spec.mentionable,
-        permissions: spec.permissions,
-      });
-      return role.id;
+      return (await guild.roles.create(roleOptions(spec))).id;
     },
 
     async editRole(id, spec) {
-      await guild.roles.edit(id, {
-        name: spec.name,
-        colors: { primaryColor: spec.color },
-        hoist: spec.hoist,
-        mentionable: spec.mentionable,
-        permissions: spec.permissions,
-      });
+      await guild.roles.edit(id, roleOptions(spec));
     },
 
     async deleteRole(id) {
@@ -214,9 +202,7 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
         type: KIND_TO_TYPE[spec.kind],
         permissionOverwrites: toDiscordOverwrites(spec.overwrites),
         ...(spec.parentId && spec.kind !== 'category' && { parent: spec.parentId }),
-        ...(spec.topic !== null &&
-          spec.kind !== 'voice' &&
-          spec.kind !== 'stage' && { topic: spec.topic }),
+        ...(spec.topic !== null && !isVoiceKind(spec.kind) && { topic: spec.topic }),
         ...(spec.kind === 'voice' && { userLimit: spec.userLimit }),
         ...(spec.kind === 'forum' && { availableTags: toDiscordTags(spec) }),
       } as GuildChannelCreateOptions;
@@ -235,9 +221,7 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
         name: spec.name,
         permissionOverwrites: toDiscordOverwrites(spec.overwrites),
         ...(spec.kind !== 'category' && { parent: spec.parentId, lockPermissions: false }),
-        ...(spec.kind !== 'voice' &&
-          spec.kind !== 'stage' &&
-          spec.kind !== 'category' && { topic: spec.topic }),
+        ...(!isVoiceKind(spec.kind) && spec.kind !== 'category' && { topic: spec.topic }),
         ...(spec.kind === 'voice' && { userLimit: spec.userLimit }),
         ...(spec.kind === 'forum' && {
           availableTags: toDiscordTags(spec),

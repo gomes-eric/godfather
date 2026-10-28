@@ -1,21 +1,23 @@
 import { EmbedBuilder } from 'discord.js';
 import type { AuditPublisher, AuditResult, RecordedAuditEntry } from '../core/audit.js';
+import { SNOWFLAKE } from '../core/resolve.js';
+import { unixSeconds } from '../core/schedule.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
+import { COLORS } from './colors.js';
 import type { GuildDirectory } from './directory.js';
 
 const t = ptBR.audit;
 
 const RESULT_COLORS: Record<AuditResult, number> = {
-  ok: 0x4fb286,
-  denied: 0xe0303a,
-  error: 0xe0303a,
-  confirmation_required: 0xe6c46a,
+  ok: COLORS.green,
+  denied: COLORS.crimson,
+  error: COLORS.crimson,
+  confirmation_required: COLORS.amber,
 };
 
 const MAX_DETAIL_LINES = 10;
 const MAX_VALUE_LENGTH = 120;
-const SNOWFLAKE = /^\d{17,20}$/;
 
 /** One readable value: ids become mentions, dates become Discord timestamps. */
 function formatValue(key: string, value: unknown): string {
@@ -28,8 +30,9 @@ function formatValue(key: string, value: unknown): string {
     if (key === 'roleId') return `<@&${text}>`;
     if (key === 'userId' || key === 'authorId' || key === 'owner') return `<@${text}>`;
   }
-  if (key === 'startsAt' && !Number.isNaN(Date.parse(text))) {
-    return `<t:${Math.floor(Date.parse(text) / 1000)}:f>`;
+  if (key === 'startsAt') {
+    const at = new Date(text);
+    if (!Number.isNaN(at.getTime())) return `<t:${unixSeconds(at)}:f>`;
   }
   return text.length > MAX_VALUE_LENGTH ? `${text.slice(0, MAX_VALUE_LENGTH)}…` : text;
 }

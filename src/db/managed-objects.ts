@@ -19,29 +19,41 @@ export interface ManagedState {
   message: ManagedMap;
 }
 
+/**
+ * Keys → Discord ids of what /setup manages. Looked up on every message, interaction and voice
+ * change, so the table is kept in memory; every write goes through `set` and `delete`.
+ */
 export class ManagedObjectStore {
+  private cache: ManagedState | undefined;
+
   constructor(private readonly db: Db) {}
 
-  all(): ManagedState {
-    const state: ManagedState = {
-      role: new Map(),
-      category: new Map(),
-      channel: new Map(),
-      message: new Map(),
-    };
-    for (const row of this.db.select().from(managedObjects).all()) {
-      state[row.kind].set(row.key, { discordId: row.discordId, fingerprint: row.fingerprint });
+  private state(): ManagedState {
+    if (!this.cache) {
+      this.cache = { role: new Map(), category: new Map(), channel: new Map(), message: new Map() };
+      for (const row of this.db.select().from(managedObjects).all()) {
+        this.cache[row.kind].set(row.key, {
+          discordId: row.discordId,
+          fingerprint: row.fingerprint,
+        });
+      }
     }
-    return state;
+    return this.cache;
+  }
+
+  /** A copy: callers may change it freely. */
+  all(): ManagedState {
+    const { role, category, channel, message } = this.state();
+    return {
+      role: new Map(role),
+      category: new Map(category),
+      channel: new Map(channel),
+      message: new Map(message),
+    };
   }
 
   get(kind: ManagedKind, key: string): ManagedEntry | undefined {
-    const row = this.db
-      .select()
-      .from(managedObjects)
-      .where(and(eq(managedObjects.kind, kind), eq(managedObjects.key, key)))
-      .get();
-    return row && { discordId: row.discordId, fingerprint: row.fingerprint };
+    return this.state()[kind].get(key);
   }
 
   set(kind: ManagedKind, key: string, discordId: string, fingerprint: string | null = null): void {
@@ -53,6 +65,7 @@ export class ManagedObjectStore {
         set: { discordId, fingerprint, updatedAt: new Date() },
       })
       .run();
+    this.state()[kind].set(key, { discordId, fingerprint });
   }
 
   delete(kind: ManagedKind, key: string): void {
@@ -60,5 +73,6 @@ export class ManagedObjectStore {
       .delete(managedObjects)
       .where(and(eq(managedObjects.kind, kind), eq(managedObjects.key, key)))
       .run();
+    this.state()[kind].delete(key);
   }
 }

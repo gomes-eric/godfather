@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { isVoiceKind } from '../config/schema.js';
 import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 import type { ManagedState } from '../db/managed-objects.js';
 import { PANEL_PREFIX } from './desired.js';
@@ -32,7 +33,6 @@ export interface PlanInput {
   prune: boolean;
 }
 
-const TEXT_LIKE = new Set(['text', 'announcement', 'forum']);
 const NEEDS_COMMUNITY = new Set(['announcement', 'forum']);
 
 /** Discord orders siblings by position, then by id (older first). */
@@ -71,31 +71,35 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     ),
   );
 
+  /** The first unclaimed object `matches` accepts, adopted under `key`. */
+  const adopt = <T extends { id: string }>(
+    kind: 'role' | 'category' | 'channel',
+    key: string,
+    name: string,
+    pool: readonly T[],
+    matches: (item: T) => boolean,
+  ): T | undefined => {
+    const found = pool.find((item) => matches(item) && !claimed.has(item.id));
+    if (found) {
+      claimed.add(found.id);
+      adoptOps.push({ type: 'adopt', kind, key, id: found.id, name });
+    }
+    return found;
+  };
+
   // ---- Roles ---------------------------------------------------------------------------------
   const roleIds = new Map<string, string | undefined>();
   const rolesAboveBot = new Set<string>();
 
   for (const role of desired.roles) {
     let existing = rolesById.get(managed.role.get(role.key)?.discordId ?? '');
-    if (!existing) {
-      existing = snapshot.roles.find(
-        (r) =>
-          !r.integration &&
-          r.id !== snapshot.everyoneRoleId &&
-          r.name === role.name &&
-          !claimed.has(r.id),
-      );
-      if (existing) {
-        claimed.add(existing.id);
-        adoptOps.push({
-          type: 'adopt',
-          kind: 'role',
-          key: role.key,
-          id: existing.id,
-          name: role.name,
-        });
-      }
-    }
+    existing ??= adopt(
+      'role',
+      role.key,
+      role.name,
+      snapshot.roles,
+      (r) => !r.integration && r.id !== snapshot.everyoneRoleId && r.name === role.name,
+    );
 
     if (!existing) {
       roleIds.set(role.key, undefined);
@@ -171,21 +175,13 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
   for (const category of desired.categories) {
     let existing = channelsById.get(managed.category.get(category.key)?.discordId ?? '');
     if (existing && existing.kind !== 'category') existing = undefined;
-    if (!existing) {
-      existing = snapshot.channels.find(
-        (c) => c.kind === 'category' && c.name === category.name && !claimed.has(c.id),
-      );
-      if (existing) {
-        claimed.add(existing.id);
-        adoptOps.push({
-          type: 'adopt',
-          kind: 'category',
-          key: category.key,
-          id: existing.id,
-          name: category.name,
-        });
-      }
-    }
+    existing ??= adopt(
+      'category',
+      category.key,
+      category.name,
+      snapshot.channels,
+      (c) => c.kind === 'category' && c.name === category.name,
+    );
 
     if (!existing) {
       categoryIds.set(category.key, undefined);
@@ -221,21 +217,13 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
       mismatchedChannels.add(channel.key);
       continue;
     }
-    if (!existing) {
-      existing = snapshot.channels.find(
-        (c) => c.kind === channel.kind && c.name === channel.name && !claimed.has(c.id),
-      );
-      if (existing) {
-        claimed.add(existing.id);
-        adoptOps.push({
-          type: 'adopt',
-          kind: 'channel',
-          key: channel.key,
-          id: existing.id,
-          name: channel.name,
-        });
-      }
-    }
+    existing ??= adopt(
+      'channel',
+      channel.key,
+      channel.name,
+      snapshot.channels,
+      (c) => c.kind === channel.kind && c.name === channel.name,
+    );
 
     if (!existing) {
       channelIds.set(channel.key, undefined);
@@ -294,13 +282,11 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
       .map((c) => c.key);
     if (!sameOrder(currentCategoryOrder, categoryKeys)) return true;
 
+    const kindByKey = new Map(desired.channels.map((c) => [c.key, c.kind]));
     for (const [categoryKey, keys] of Object.entries(channelKeysByCategory)) {
       const parentId = categoryIds.get(categoryKey);
-      for (const textLike of [true, false]) {
-        const group = keys.filter((k) => {
-          const kind = desired.channels.find((c) => c.key === k)!.kind;
-          return TEXT_LIKE.has(kind) === textLike;
-        });
+      for (const voice of [false, true]) {
+        const group = keys.filter((k) => isVoiceKind(kindByKey.get(k)!) === voice);
         const current = group.map((k) => existingChannels.get(k));
         if (current.some((c) => c === undefined || c.parentId !== parentId)) return true;
         const currentOrder = group
@@ -411,7 +397,7 @@ function channelChanges(
   const changes: string[] = [];
   if (existing.name !== channel.name) changes.push('name');
   if (parentId === undefined || existing.parentId !== parentId) changes.push('parent');
-  const isVoice = channel.kind === 'voice' || channel.kind === 'stage';
+  const isVoice = isVoiceKind(channel.kind);
   if (!isVoice && (existing.topic ?? null) !== channel.topic) changes.push('topic');
   if (channel.kind === 'voice' && existing.userLimit !== channel.userLimit) {
     changes.push('userLimit');

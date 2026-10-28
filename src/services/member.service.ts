@@ -1,4 +1,4 @@
-import type { Guild, GuildMember } from 'discord.js';
+import type { Guild } from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
@@ -10,7 +10,7 @@ import {
   rolesForTier,
 } from '../core/member-rules.js';
 import type { Tier } from '../core/tiers.js';
-import { memberRoleIds, memberTier } from '../discord/members.js';
+import { fetchMember, memberRoleIds, memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
@@ -43,10 +43,6 @@ export class MemberService {
     return { ...this.deps.directory.tierRoleIds(), ...(visitorId && { visitor: visitorId }) };
   }
 
-  private async fetchMember(userId: string): Promise<GuildMember | null> {
-    return this.deps.guild.members.fetch(userId).catch(() => null);
-  }
-
   promote(actor: Actor, userId: string, rank?: Tier): Promise<ServiceOutcome<string>> {
     return this.changeTier('promote', actor, userId, rank, false);
   }
@@ -68,7 +64,7 @@ export class MemberService {
     confirm: boolean,
   ): Promise<ServiceOutcome<string>> {
     const { guild, directory, config, runAction } = this.deps;
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(t.notMember);
 
     const tierRoles = this.tierRoles();
@@ -138,7 +134,7 @@ export class MemberService {
     const { guild, directory, runAction } = this.deps;
     const partnerId = this.partnerRoleId();
     if (!partnerId) return rejected(t.noPartnerRole);
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(t.notMember);
 
     const refusal = decidePartner({
@@ -170,7 +166,7 @@ export class MemberService {
   }
 
   async info(actor: Actor, userId: string): Promise<ServiceOutcome<MemberInfo>> {
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(t.notMember);
 
     return this.deps.runAction({

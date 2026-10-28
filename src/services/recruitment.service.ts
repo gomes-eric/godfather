@@ -52,7 +52,7 @@ export class RecruitmentService {
     actor: Actor,
     id: number,
     approve: boolean,
-    onApprove: (application: Application) => Promise<void> = async () => undefined,
+    onApprove: (application: Application) => Promise<void>,
   ): Promise<ServiceOutcome<Application>> {
     const application = this.deps.store.get(id);
     if (!application) return Promise.resolve(rejected(t.gone));

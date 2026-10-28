@@ -3,7 +3,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
 import type { PartyAction } from '../../services/party.service.js';
 import type { CommandContext } from '../commands/types.js';
 import { numericPart, parseCustomId } from '../custom-id.js';
-import { PARTY_PREFIX } from '../party-card.js';
+import { PARTY_PREFIX, partyCard } from '../party-card.js';
 import { failureText, replyPrivately } from '../replies.js';
 
 const ACTIONS = new Set<string>(['join', 'leave', 'close'] satisfies PartyAction[]);
@@ -25,9 +25,10 @@ export async function handlePartyButton(
   }
 
   const { party, justFilled } = outcome.value;
-  await interaction.update({ ...ctx.parties.card(party), allowedMentions: { parse: [] } });
+  const view = ctx.parties.view(party);
+  await interaction.update({ ...partyCard(view), allowedMentions: { parse: [] } });
   if (justFilled && interaction.channel?.isSendable()) {
-    const ids = ctx.parties.view(party).members.map((m) => m.id);
+    const ids = view.members.map((m) => m.id);
     await interaction.channel.send({
       content: ptBR.party.filled(party.activity, ids),
       allowedMentions: { users: ids },

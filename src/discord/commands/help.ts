@@ -21,8 +21,8 @@ export interface HelpSection {
 }
 
 /** The sections and commands a member of this tier can use; empty sections are left out. */
-export function helpFor(tier: Tier, sections: readonly HelpSection[] = t.sections): HelpSection[] {
-  return sections
+export function helpFor(tier: Tier): HelpSection[] {
+  return t.sections
     .map((section) => ({
       title: section.title,
       entries: section.entries.filter((entry) => tierAtLeast(tier, entry.tier)),

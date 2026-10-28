@@ -3,13 +3,13 @@ import type { Weekday } from '../config/schema.js';
 import type { ConfigStore, EventTemplatePatch } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
+import { fold } from '../core/text.js';
 import { parseWhen, unixSeconds as unix } from '../core/schedule.js';
 import type { EventStore } from '../db/events.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { OccurrenceView, ReminderScheduler, RsvpSummary } from './reminder.scheduler.js';
 
 const t = ptBR.events;
-const WEEK_MS = 7 * 24 * 3600_000;
 
 export interface NewEvent {
   title: string;
@@ -46,11 +46,6 @@ export class EventService {
     return this.deps.config.get().settings.timezone;
   }
 
-  /** Picks up changes right away instead of waiting for the next 30s tick. */
-  private refreshSoon() {
-    void this.deps.scheduler.tick().catch(() => undefined);
-  }
-
   private findView(occurrenceId: number): OccurrenceView | null {
     const occurrence = this.deps.store.getOccurrence(occurrenceId);
     return occurrence ? this.deps.scheduler.view(occurrence) : null;
@@ -78,7 +73,7 @@ export class EventService {
           ping: input.ping ?? defaultPing,
           createdBy: actor.userId,
         });
-        this.refreshSoon();
+        this.deps.scheduler.refreshSoon();
         return t.created(occurrence.id, input.title, unix(startsAt));
       },
     });
@@ -114,7 +109,7 @@ export class EventService {
           ...(input.description !== undefined && { description: input.description }),
           ...(startsAt && { startsAt }),
         });
-        this.refreshSoon();
+        this.deps.scheduler.refreshSoon();
         return t.edited(occurrenceId);
       },
     });
@@ -138,7 +133,7 @@ export class EventService {
       preview: t.cancelPreview(occurrenceId, view.title, unix(view.startsAt)),
       execute: async () => {
         this.deps.store.cancelOccurrence(occurrenceId, this.now());
-        this.refreshSoon();
+        this.deps.scheduler.refreshSoon();
         return t.cancelled(occurrenceId);
       },
     });
@@ -150,13 +145,7 @@ export class EventService {
       actor,
       action: 'event.read',
       preview: 'event.read',
-      execute: async () => {
-        const now = this.now();
-        return this.deps.store
-          .occurrencesBetween(now, new Date(now.getTime() + WEEK_MS))
-          .map((o) => this.deps.scheduler.view(o))
-          .filter((v): v is OccurrenceView => v !== null && !v.cancelled);
-      },
+      execute: async () => this.deps.scheduler.upcoming(this.now()),
     });
   }
 
@@ -188,7 +177,7 @@ export class EventService {
       preview: 'event.rsvp',
       execute: async () => {
         await this.deps.scheduler.vote(occurrenceId, actor.userId, status);
-        return t.voted(t.statusName[status] ?? status, view.title);
+        return t.voted(t.statusName[status], view.title);
       },
     });
   }
@@ -210,7 +199,7 @@ export class EventService {
         preview: key,
         execute: async () => {
           this.deps.config.updateEventTemplate(key, patch);
-          this.refreshSoon();
+          this.deps.scheduler.refreshSoon();
           return t.templateUpdated(key);
         },
       });
@@ -242,11 +231,7 @@ export function parseDays(input: string): (Weekday | 'daily')[] | null {
     sat: 'sat',
     sab: 'sat',
   };
-  const normalized = input
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+  const normalized = fold(input);
   if (aliases[normalized] === 'daily') return ['daily'];
   const days = normalized
     .split(/[\s,;/]+/)

@@ -24,7 +24,6 @@ export class FakeGuild implements GuildPort {
   /** Discord's defaults include ChangeNickname. */
   everyonePermissions = P.ViewChannel | P.SendMessages | P.ChangeNickname;
   failCommunity = false;
-  calls: string[] = [];
 
   constructor() {
     this.roles.push(
@@ -99,7 +98,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async createRole(spec: RoleSpec): Promise<string> {
-    this.calls.push(`createRole:${spec.name}`);
     const id = newId();
     // Discord puts new roles right above @everyone.
     for (const role of this.roles) if (role.position >= 1) role.position++;
@@ -108,7 +106,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async editRole(id: string, spec: RoleSpec): Promise<void> {
-    this.calls.push(`editRole:${spec.name}`);
     Object.assign(this.assertManageable(id), spec);
   }
 
@@ -118,7 +115,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async setRolePositions(idsTopToBottom: string[]): Promise<void> {
-    this.calls.push('setRolePositions');
     idsTopToBottom.forEach((id) => this.assertManageable(id));
     const others = this.roles
       .filter((r) => r.id !== this.everyoneRoleId && !idsTopToBottom.includes(r.id))
@@ -130,7 +126,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async createChannel(spec: ChannelSpec): Promise<string> {
-    this.calls.push(`createChannel:${spec.name}`);
     if ((spec.kind === 'announcement' || spec.kind === 'forum') && !this.community) {
       throw new Error('Community is required');
     }
@@ -138,7 +133,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async editChannel(id: string, spec: ChannelSpec): Promise<void> {
-    this.calls.push(`editChannel:${spec.name}`);
     const channel = this.channels.find((c) => c.id === id);
     if (!channel) throw new Error(`Unknown Channel ${id}`);
     Object.assign(channel, this.toSnapshotFields(spec));
@@ -162,7 +156,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async setChannelPositions(positions: ChannelPosition[]): Promise<void> {
-    this.calls.push('setChannelPositions');
     for (const { id, parentId, position } of positions) {
       const channel = this.channels.find((c) => c.id === id)!;
       channel.parentId = parentId;
@@ -182,7 +175,6 @@ export class FakeGuild implements GuildPort {
   }
 
   async setEveryonePermissions(permissions: bigint): Promise<void> {
-    this.calls.push('setEveryonePermissions');
     this.everyonePermissions = permissions;
   }
 
@@ -196,7 +188,6 @@ export class FakeGuild implements GuildPort {
     messageId: string | null,
     panel: PanelMessage,
   ): Promise<string> {
-    this.calls.push('upsertPanel');
     if (messageId && this.messages.get(messageId)?.channelId === channelId) {
       this.messages.set(messageId, { channelId, panel });
       return messageId;

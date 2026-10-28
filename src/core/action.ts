@@ -1,6 +1,6 @@
 import type { Actor } from './actor.js';
 import type { AuditLog } from './audit.js';
-import { authorize, getPolicy, type ActionName } from './permissions.js';
+import { ACTION_POLICIES, authorize, type ActionName } from './permissions.js';
 import type { Tier } from './tiers.js';
 
 export interface ActionRequest<T> {
@@ -46,7 +46,7 @@ export function rejected(reason: string): Rejected {
 export function createActionRunner(audit: Pick<AuditLog, 'record'>): ActionRunner {
   return async function runAction<T>(request: ActionRequest<T>): Promise<ActionOutcome<T>> {
     const { actor, action, target, params } = request;
-    const policy = getPolicy(action);
+    const policy = ACTION_POLICIES[action];
     const record = async (result: 'ok' | 'denied' | 'error' | 'confirmation_required') => {
       if (policy.audited) {
         await audit.record({

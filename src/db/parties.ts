@@ -24,10 +24,6 @@ export class PartyStore {
     return this.db.select().from(parties).where(eq(parties.id, id)).get();
   }
 
-  setMessage(id: number, messageId: string): void {
-    this.db.update(parties).set({ messageId }).where(eq(parties.id, id)).run();
-  }
-
   close(id: number): void {
     this.db.update(parties).set({ closed: true }).where(eq(parties.id, id)).run();
   }

@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, type Guild } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Options, type Guild } from 'discord.js';
 import type { Logger } from '../logger.js';
 
 // GuildMembers is a privileged intent: enable "Server Members Intent" in the Developer Portal.
@@ -8,7 +8,6 @@ const baseIntents = [
   GatewayIntentBits.GuildMembers,
   GatewayIntentBits.GuildVoiceStates,
   GatewayIntentBits.GuildMessages,
-  GatewayIntentBits.GuildModeration,
 ];
 
 export function createDiscordClient(options: { messageContent?: boolean } = {}): Client {
@@ -16,11 +15,14 @@ export function createDiscordClient(options: { messageContent?: boolean } = {}):
     intents: options.messageContent
       ? [...baseIntents, GatewayIntentBits.MessageContent]
       : baseIntents,
+    // Nothing reads old messages from the cache; the bot's own cards (panels, agenda, reminders)
+    // sit in quiet channels and stay within the last 20. Bans are always fetched fresh.
+    makeCache: Options.cacheWithLimits({
+      ...Options.DefaultMakeCacheSettings,
+      MessageManager: 20,
+      GuildBanManager: 0,
+    }),
   });
-}
-
-export function isDiscordReady(client: Client): boolean {
-  return client.isReady();
 }
 
 /** Logs in and resolves once the client is ready and the configured guild is reachable. */

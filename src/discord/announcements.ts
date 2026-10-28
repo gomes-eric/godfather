@@ -14,7 +14,6 @@ import type {
   AnnouncementPort,
   OccurrenceView,
   ReminderMessage,
-  RsvpSummary,
 } from '../services/reminder.scheduler.js';
 import { COLORS } from './colors.js';
 import { customId } from './custom-id.js';
@@ -49,7 +48,7 @@ function rsvpButtons(occurrenceId: number) {
   const button = (status: 'yes' | 'maybe' | 'no', emoji: string, style: ButtonStyle) =>
     new ButtonBuilder()
       .setCustomId(customId(RSVP_PREFIX, occurrenceId, status))
-      .setLabel(t.buttons[status])
+      .setLabel(t.statusName[status])
       .setEmoji(emoji)
       .setStyle(style);
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -220,5 +219,3 @@ export function createDiscordAnnouncements(
     },
   };
 }
-
-export type { RsvpSummary };

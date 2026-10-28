@@ -73,7 +73,7 @@ export async function handleRecruitModal(
     character = await ctx.registration.lookup(name);
   } catch (error) {
     if (!(error instanceof GameApiError)) throw error;
-    await interaction.editReply(`⚠️ ${t.apiDown}`);
+    await interaction.editReply(`⚠️ ${ptBR.profile.apiDown}`);
     return true;
   }
   if (!character) {

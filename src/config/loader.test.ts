@@ -7,7 +7,6 @@ const repoServerYaml = fileURLToPath(new URL('../../server.yaml', import.meta.ur
 
 export const minimalYaml = `
 settings:
-  botName: Padrinho
   timezone: America/Sao_Paulo
   community: { enable: true, rulesChannel: rules, updatesChannel: staff }
   afk: { channel: afk, timeoutSeconds: 900 }

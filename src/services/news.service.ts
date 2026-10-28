@@ -28,7 +28,6 @@ const FALLBACK_AFTER_MS = 12 * 60 * 60_000;
  * in another language waits for Steam's fix, then falls back to English.
  */
 export class NewsService implements BackgroundJob {
-  private stopPolling: (() => void) | undefined;
   private readonly fetchJson: FetchJson;
   private readonly now: () => Date;
   /** Posts already logged as waiting for their Portuguese text. */
@@ -106,16 +105,12 @@ export class NewsService implements BackgroundJob {
     return posted;
   }
 
-  start(): void {
+  start(): () => void {
     const minutes = this.settings()?.pollMinutes ?? 15;
-    this.stopPolling = repeat(
+    return repeat(
       minutes * 60_000,
       () => this.poll(),
       (error) => this.deps.logger.warn({ err: error }, 'news poll failed'),
     );
-  }
-
-  stop(): void {
-    this.stopPolling?.();
   }
 }

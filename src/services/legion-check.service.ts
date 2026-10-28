@@ -12,6 +12,7 @@ import type { ManagedObjectStore } from '../db/managed-objects.js';
 import { applyCharacter } from '../discord/character-registration.js';
 import { COLORS } from '../discord/colors.js';
 import type { GuildDirectory } from '../discord/directory.js';
+import { fetchMember } from '../discord/members.js';
 import { rankingMenu } from '../discord/ranking-menu.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
@@ -42,7 +43,6 @@ interface Deps {
  * reported to the officers, and the #ranking board is rebuilt from the fresh numbers.
  */
 export class LegionCheckService implements BackgroundJob {
-  private stopTicking: (() => void) | undefined;
   private running = false;
   private readonly pause: (ms: number) => Promise<void>;
 
@@ -84,7 +84,7 @@ export class LegionCheckService implements BackgroundJob {
 
   private async checkOne(row: RegisteredCharacter): Promise<string[]> {
     const { guild, registrations, characters, config } = this.deps;
-    const member = await guild.members.fetch(row.userId).catch(() => null);
+    const member = await fetchMember(guild, row.userId);
     if (!member) return []; // Left the Discord; nothing to update.
 
     const profile = await characters.profile({ id: row.characterId, serverId: row.serverId }, true);
@@ -205,18 +205,14 @@ export class LegionCheckService implements BackgroundJob {
     }
   }
 
-  start(): void {
+  start(): () => void {
     this.refreshRanking().catch((error: unknown) =>
       this.deps.logger.warn({ err: error }, 'ranking refresh failed'),
     );
-    this.stopTicking = repeat(
+    return repeat(
       TICK_MS,
       () => this.runIfDue(),
       (error) => this.deps.logger.warn({ err: error }, 'legion check crashed'),
     );
-  }
-
-  stop(): void {
-    this.stopTicking?.();
   }
 }

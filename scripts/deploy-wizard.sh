@@ -366,7 +366,7 @@ stage "Conferir e reconectar as IAs"
 say "MCP sem token deve responder 401:"
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$PUBLIC_BASE_URL/mcp" || true)
 if [[ "$code" == "401" ]]; then note "✓ $PUBLIC_BASE_URL/mcp → 401"; else warn "$PUBLIC_BASE_URL/mcp → $code"; fi
-step "No Discord: o Padrinho deve estar online e /event list, /boss list etc. funcionando."
+step "No Discord: o Padrinho deve estar online e /event list, /perfil etc. funcionando."
 step "No PC, aponte o Claude Code para a nova URL (os tokens do banco continuam valendo):"
 note "  claude mcp remove padrinho"
 note "  claude mcp add --transport http padrinho $PUBLIC_BASE_URL/mcp --header \"Authorization: Bearer SEU_TOKEN\""

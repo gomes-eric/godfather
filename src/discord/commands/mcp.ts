@@ -1,8 +1,7 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { unixSeconds as unix } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { COLORS } from '../colors.js';
-import { failureText, outcomeText, replyPrivately } from '../replies.js';
+import { failureText, listEmbed, outcomeText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const t = ptBR.mcp;
@@ -53,11 +52,12 @@ export const mcpCommand: SlashCommand = {
     const actor = await ctx.resolveActor(interaction.user.id);
 
     if (sub === 'create') {
-      const outcome = await ctx.tokens.create(actor, interaction.options.getString('name', true));
+      const name = interaction.options.getString('name', true);
+      const outcome = await ctx.tokens.create(actor, name);
       await replyPrivately(
         interaction,
         outcome.status === 'ok'
-          ? t.created(interaction.options.getString('name', true), outcome.value.token, ctx.mcpUrl)
+          ? t.created(name, outcome.value.token, ctx.mcpUrl)
           : failureText(outcome),
       );
       return;
@@ -70,21 +70,15 @@ export const mcpCommand: SlashCommand = {
     }
 
     const rows = ctx.tokens.list(interaction.user.id);
-    const embed = new EmbedBuilder()
-      .setTitle(t.listTitle)
-      .setColor(COLORS.brand)
-      .setDescription(
-        rows
-          .map((row) =>
-            t.listLine(
-              row.id,
-              row.name,
-              unix(row.createdAt),
-              row.lastUsedAt ? unix(row.lastUsedAt) : null,
-            ),
-          )
-          .join('\n') || t.none,
-      );
+    const lines = rows.map((row) =>
+      t.listLine(
+        row.id,
+        row.name,
+        unix(row.createdAt),
+        row.lastUsedAt ? unix(row.lastUsedAt) : null,
+      ),
+    );
+    const embed = listEmbed(t.listTitle, lines, t.none);
     await replyPrivately(interaction, { embeds: [embed] });
   },
 };

@@ -90,10 +90,6 @@ export type ActionName = keyof typeof ACTION_POLICIES;
 
 export type Authorization = { allowed: true } | { allowed: false; requiredTier: Tier };
 
-export function getPolicy(action: ActionName): ActionPolicy {
-  return ACTION_POLICIES[action];
-}
-
 export function authorize(tier: Tier, action: ActionName): Authorization {
   const { minTier } = ACTION_POLICIES[action];
   return tierAtLeast(tier, minTier) ? { allowed: true } : { allowed: false, requiredTier: minTier };

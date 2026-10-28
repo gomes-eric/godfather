@@ -7,7 +7,6 @@ import { ptBR } from '../i18n/pt-BR.js';
 export interface SendOptions {
   /** With a title the message goes out as an embed. */
   title?: string;
-  color?: number;
   /** Lets @everyone, roles and users in the text ping; off by default. */
   allowMentions?: boolean;
 }
@@ -40,9 +39,7 @@ export class MessageService {
       execute: async () => {
         // A plain message holds 2000 characters; longer text (from the /say form) goes as an embed.
         if (options.title || text.length > PLAIN_MAX) {
-          const embed = new EmbedBuilder()
-            .setDescription(text)
-            .setColor(options.color ?? COLORS.brand);
+          const embed = new EmbedBuilder().setDescription(text).setColor(COLORS.brand);
           if (options.title) embed.setTitle(options.title);
           await channel.send({ embeds: [embed], allowedMentions });
         } else {

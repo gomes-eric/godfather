@@ -70,7 +70,6 @@ export const ptBR = {
       'event.edit': '✏️ Evento editado',
       'event.cancel': '🚫 Evento cancelado',
       'event.template.edit': '🔁 Evento recorrente editado',
-      'voice.own.manage': '🔊 Sala de voz ajustada pelo dono',
       'voice.temp.manage': '🔊 Sala de voz moderada',
       'voice.generator.upsert': '➕ Gerador de voz salvo',
       'voice.generator.delete': '🗑️ Gerador de voz removido',
@@ -101,7 +100,6 @@ export const ptBR = {
       description: 'Descrição',
       name: 'Nome',
       text: 'Texto',
-      how: 'Como',
       deleteMessageSeconds: 'Apagar mensagens (s)',
       occurrenceId: 'Evento',
       assign: 'Atribuir',
@@ -146,8 +144,6 @@ export const ptBR = {
     namePlaceholder: 'Exatamente como no Aion 2 (ex.: Padrinho)',
     nameHint: 'O bot confere no site oficial do Aion 2: classe, poder e legião.',
     alreadyMember: 'Você já faz parte da legião aqui no Discord.',
-    apiDown:
-      'Não consegui falar com o site oficial do Aion 2 agora. Tente de novo em alguns minutos.',
     notFound: (name: string) =>
       `Não achei o personagem **${name}** no Triniel. Confira o nome exatamente como aparece no jogo.`,
     alreadyPending: 'Sua ficha já foi enviada e está com os Oficiais. Aguarde a resposta.',
@@ -439,8 +435,7 @@ export const ptBR = {
       } as Record<string, string>,
       footer: 'Atualizada automaticamente · números para /event cancel e /event rsvps',
     },
-    buttons: { yes: 'Vou', maybe: 'Talvez', no: 'Não vou' },
-    statusName: { yes: 'Vou', maybe: 'Talvez', no: 'Não vou' } as Record<string, string>,
+    statusName: { yes: 'Vou', maybe: 'Talvez', no: 'Não vou' },
     voted: (status: string, title: string) => `Presença registrada em **${title}**: **${status}**.`,
     gone: 'Esse evento não existe mais.',
     agendaEmpty:

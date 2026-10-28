@@ -27,7 +27,6 @@ interface Deps {
  * rewritten in server.yaml, audited as Padrinho.
  */
 export class EventTimesService implements BackgroundJob {
-  private stopPolling: (() => void) | undefined;
   private readonly fetchJson: FetchJson;
   /** Last problem warned per template, so each one goes to #audit-log once. */
   private readonly warned = new Map<string, string>();
@@ -76,16 +75,12 @@ export class EventTimesService implements BackgroundJob {
     return changed;
   }
 
-  start(): void {
+  start(): () => void {
     const hours = this.deps.config.get().settings.eventTimes?.checkHours ?? 6;
-    this.stopPolling = repeat(
+    return repeat(
       hours * 3_600_000,
       () => this.check(),
       (error) => this.deps.logger.warn({ err: error }, 'event time check failed'),
     );
-  }
-
-  stop(): void {
-    this.stopPolling?.();
   }
 }

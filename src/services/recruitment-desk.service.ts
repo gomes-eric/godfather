@@ -5,6 +5,7 @@ import type { Actor } from '../core/actor.js';
 import { sameLegion, type CharacterProfile } from '../core/game-character.js';
 import type { Application, ApplicationStore } from '../db/applications.js';
 import type { GuildDirectory } from '../discord/directory.js';
+import { fetchMember } from '../discord/members.js';
 import { applicationCard } from '../discord/recruitment.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
@@ -52,7 +53,7 @@ export class RecruitmentDesk {
   }
 
   async card(application: Application) {
-    const member = await this.deps.guild.members.fetch(application.userId).catch(() => null);
+    const member = await fetchMember(this.deps.guild, application.userId);
     return applicationCard(application, {
       classEmoji: this.deps.registration.classRole(application.className)?.emoji ?? '🎮',
       avatarUrl: member?.displayAvatarURL({ size: 256 }) ?? null,
@@ -84,8 +85,7 @@ export class RecruitmentDesk {
   /** Approves or refuses an application, then updates its card and welcomes an approved member. */
   async decide(actor: Actor, id: number, approve: boolean): Promise<ServiceOutcome<Application>> {
     const pending = this.deps.applications.get(id);
-    const member =
-      pending && (await this.deps.guild.members.fetch(pending.userId).catch(() => null));
+    const member = pending && (await fetchMember(this.deps.guild, pending.userId));
     if (approve && pending && !member) return rejected(t.leftServer);
 
     let nickname: string | null = null;

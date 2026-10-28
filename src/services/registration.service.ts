@@ -8,7 +8,7 @@ import { normalizeGameName } from '../core/registration.js';
 import type { CharacterStore } from '../db/characters.js';
 import { registerCharacter } from '../discord/character-registration.js';
 import type { GuildDirectory } from '../discord/directory.js';
-import { memberTier } from '../discord/members.js';
+import { fetchMember, memberTier } from '../discord/members.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import { GameApiError, type GameCharacterService } from './game-character.service.js';
@@ -84,7 +84,7 @@ export class RegistrationService {
     userId: string,
     characterName: string,
   ): Promise<ServiceOutcome<string>> {
-    const member = await this.deps.guild.members.fetch(userId).catch(() => null);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(ptBR.members.notMember);
 
     let character: CharacterProfile | null;
@@ -92,7 +92,7 @@ export class RegistrationService {
       character = await this.lookup(characterName);
     } catch (error) {
       if (!(error instanceof GameApiError)) throw error;
-      return rejected(ptBR.recruitment.apiDown);
+      return rejected(ptBR.profile.apiDown);
     }
     if (!character) return rejected(ptBR.recruitment.notFound(normalizeGameName(characterName)));
     const classRole = this.classRole(character.className);
@@ -100,8 +100,7 @@ export class RegistrationService {
 
     const found = character;
     const name = member.displayName;
-    const officer = (await this.deps.guild.members.fetch(actor.userId).catch(() => null))
-      ?.displayName;
+    const officer = (await fetchMember(this.deps.guild, actor.userId))?.displayName;
     return this.deps.runAction({
       actor,
       action: 'member.register',

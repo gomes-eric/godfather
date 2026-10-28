@@ -32,7 +32,10 @@ interface TierChangeInput {
   maxOfficers?: number;
 }
 
-function checkTarget(input: TierChangeInput): MemberRefusal | null {
+/** Nobody acts on a bot, the server owner or themselves. */
+function checkTarget(
+  input: Pick<TierChangeInput, 'actorId' | 'targetId' | 'targetIsBot' | 'targetIsOwner'>,
+): 'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | null {
   if (input.targetIsBot) return 'targetIsBot';
   if (input.targetIsOwner) return 'targetIsOwner';
   if (input.targetId === input.actorId) return 'targetIsSelf';
@@ -85,17 +88,12 @@ export function checkModerationTarget(input: {
   targetIsBot: boolean;
   targetIsOwner: boolean;
 }): ModerationRefusal | null {
-  if (input.targetIsBot) return 'targetIsBot';
-  if (input.targetIsOwner) return 'targetIsOwner';
-  if (input.targetId === input.actorId) return 'targetIsSelf';
+  const refusal = checkTarget(input);
+  if (refusal) return refusal;
   if (TIER_RANK[input.targetTier] >= TIER_RANK[input.actorTier]) return 'targetTooHigh';
   return null;
 }
 
-/**
- * Roles a member should have after moving to `to`: every tier role (and Visitante) removed,
- * then the new tier's role added. Other roles (classes, Bot) are kept.
- */
 export type PartnerRefusal =
   'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | 'alreadyPartner' | 'notPartner' | 'inLegion';
 
@@ -112,9 +110,8 @@ export function decidePartner(input: {
   isPartner: boolean;
   remove: boolean;
 }): PartnerRefusal | null {
-  if (input.targetIsBot) return 'targetIsBot';
-  if (input.targetIsOwner) return 'targetIsOwner';
-  if (input.targetId === input.actorId) return 'targetIsSelf';
+  const refusal = checkTarget(input);
+  if (refusal) return refusal;
   if (input.remove) return input.isPartner ? null : 'notPartner';
   if (input.isPartner) return 'alreadyPartner';
   if (input.targetTier !== 'visitor') return 'inLegion';
@@ -133,6 +130,10 @@ export function rolesForPartner(
   return [...kept, partnerRoleId];
 }
 
+/**
+ * Roles a member should have after moving to `to`: every tier role (and Visitante) removed,
+ * then the new tier's role added. Other roles (classes, Bot) are kept.
+ */
 export function rolesForTier(
   currentRoleIds: string[],
   to: Tier,

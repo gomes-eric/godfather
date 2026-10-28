@@ -2,7 +2,7 @@ import type { Guild, GuildMember } from 'discord.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { checkModerationTarget } from '../core/member-rules.js';
-import { memberTier } from '../discord/members.js';
+import { fetchMember, memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
@@ -35,17 +35,13 @@ export class ModerationService {
     return refusal ? (refusals[refusal] ?? refusal) : null;
   }
 
-  private fetchMember(userId: string) {
-    return this.deps.guild.members.fetch(userId).catch(() => null);
-  }
-
   async kick(
     actor: Actor,
     userId: string,
     reason: string | null,
     confirm: boolean,
   ): Promise<ServiceOutcome<string>> {
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(ptBR.members.notMember);
     const refusal = this.refuse(actor, userId, member, member.user.bot);
     if (refusal) return rejected(refusal);
@@ -75,7 +71,7 @@ export class ModerationService {
     confirm: boolean,
   ): Promise<ServiceOutcome<string>> {
     // Banning works for people who already left, so the member is optional.
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     const user =
       member?.user ?? (await this.deps.guild.client.users.fetch(userId).catch(() => null));
     if (!user) return rejected(ptBR.members.notMember);
@@ -107,7 +103,7 @@ export class ModerationService {
     userId: string,
     reason: string | null,
   ): Promise<ServiceOutcome<string>> {
-    const ban = await this.deps.guild.bans.fetch(userId).catch(() => null);
+    const ban = await this.deps.guild.bans.fetch({ user: userId, force: true }).catch(() => null);
     if (!ban) return rejected(t.notBanned);
 
     const why = reason ?? t.noReason;
@@ -131,7 +127,7 @@ export class ModerationService {
     minutes: number,
     reason: string | null,
   ): Promise<ServiceOutcome<string>> {
-    const member = await this.fetchMember(userId);
+    const member = await fetchMember(this.deps.guild, userId);
     if (!member) return rejected(ptBR.members.notMember);
     const refusal = this.refuse(actor, userId, member, member.user.bot);
     if (refusal) return rejected(refusal);
@@ -164,7 +160,7 @@ export class ModerationService {
     if (!channel?.isTextBased() || !('bulkDelete' in channel)) return rejected(t.notText);
 
     const amount = Math.min(Math.max(count, 1), MAX_PURGE);
-    const author = authorId ? await this.fetchMember(authorId) : null;
+    const author = authorId ? await fetchMember(this.deps.guild, authorId) : null;
     return this.deps.runAction({
       actor,
       action: 'message.purge',

@@ -5,14 +5,17 @@ import { ConfigError } from '../config/loader.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
+import type { ActionName } from '../core/permissions.js';
+import { SNOWFLAKE } from '../core/resolve.js';
 import type { AuditLog } from '../core/audit.js';
 import { TIERS } from '../core/tiers.js';
 import { memberTier } from '../discord/members.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { findChannel, findMember } from '../discord/resolvers.js';
 import { ptBR } from '../i18n/pt-BR.js';
-import { classRoles } from '../config/schema.js';
+import { classRoles, CLOCK_PATTERN, KEY_PATTERN } from '../config/schema.js';
 import { itemLabel, sameLegion } from '../core/game-character.js';
+import { byCombatPower } from '../core/legion-check.js';
 import type { ApplicationStore } from '../db/applications.js';
 import type { CharacterStore } from '../db/characters.js';
 import type { ChannelService } from '../services/channel.service.js';
@@ -95,41 +98,42 @@ const reason = z.string().max(400).optional().describe('Motivo (vai para a audit
 
 /** Registers every Padrinho tool, bound to the calling actor (PLAN.md §8.3). */
 export function registerTools(server: McpServer, s: McpServices, actor: Actor): void {
+  /** Handlers may return a service outcome; it is rendered by `fromOutcome`. */
   const tool = <Shape extends z.ZodRawShape>(
     name: string,
     description: string,
     inputSchema: Shape,
-    handler: (args: z.infer<z.ZodObject<Shape>>) => Promise<ToolResult>,
+    handler: (args: z.infer<z.ZodObject<Shape>>) => Promise<ToolResult | ServiceOutcome<unknown>>,
   ) =>
     server.registerTool(name, { description, inputSchema }, (async (args: unknown) => {
       try {
-        return await handler(args as z.infer<z.ZodObject<Shape>>);
+        const result = await handler(args as z.infer<z.ZodObject<Shape>>);
+        return 'status' in result ? fromOutcome(result) : result;
       } catch (error) {
+        if (error instanceof NotFound) return fail(error.message);
         return fail(
           `Erro ao executar ${name}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }) as never);
 
-  const memberId = (input: string): string | ToolResult => {
+  /** Read-only actions: no target, params or confirmation. */
+  const read = <T>(action: ActionName, execute: () => Promise<T>) =>
+    s.runAction({ actor, action, preview: action, execute });
+
+  const memberId = (input: string): string => {
     const found = findMember(s.guild, input);
-    return found.ok ? found.value.id : fail(found.reason);
+    if (!found.ok) throw new NotFound(found.reason);
+    return found.value.id;
   };
-  /** Runs `run` with the member's id, or explains who couldn't be found. */
-  const withMember = async (
-    input: string,
-    run: (id: string) => Promise<ServiceOutcome<unknown>>,
-  ): Promise<ToolResult> => {
-    const id = memberId(input);
-    return typeof id === 'string' ? fromOutcome(await run(id)) : id;
-  };
-  const channelId = (input: string, voiceOnly = false): string | ToolResult => {
+  const channelId = (input: string, voiceOnly = false): string => {
     const found = findChannel(s.guild, input, (c) =>
       voiceOnly
         ? c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
         : c.type !== ChannelType.GuildCategory,
     );
-    return found.ok ? found.value.id : fail(found.reason);
+    if (!found.ok) throw new NotFound(found.reason);
+    return found.value.id;
   };
 
   // ---- Reading -------------------------------------------------------------------------------
@@ -140,9 +144,10 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     {},
     async () => {
       const byTier: Record<string, number> = {};
+      const tierIds = s.directory.tierRoleIds();
       for (const m of s.guild.members.cache.values()) {
         if (m.user.bot) continue;
-        const tier = ptBR.tier(memberTier(m, s.directory));
+        const tier = ptBR.tier(memberTier(m, s.directory, tierIds));
         byTier[tier] = (byTier[tier] ?? 0) + 1;
       }
       const categories = [...s.guild.channels.cache.values()]
@@ -199,6 +204,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     { query: z.string().optional() },
     async ({ query }) => {
       const needle = query?.toLowerCase();
+      const tierIds = s.directory.tierRoleIds();
       const rows = [...s.guild.members.cache.values()]
         .filter((m) => !m.user.bot)
         .filter(
@@ -212,7 +218,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
           id: m.id,
           name: m.displayName,
           username: m.user.username,
-          tier: ptBR.tier(memberTier(m, s.directory)),
+          tier: ptBR.tier(memberTier(m, s.directory, tierIds)),
           classes: s.directory.classesOf(m).map((r) => r.name),
         }));
       return json(rows);
@@ -220,7 +226,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   );
 
   tool('get_member', 'Detalhes de um membro: cargo, classes, datas.', { member }, async (args) =>
-    withMember(args.member, (id) => s.members.info(actor, id)),
+    s.members.info(actor, memberId(args.member)),
   );
 
   tool(
@@ -229,31 +235,23 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     { channel, limit: z.number().int().min(1).max(50).default(20) },
     async (args) => {
       const id = channelId(args.channel);
-      if (typeof id !== 'string') return id;
-      return fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'message.read',
-          preview: 'message.read',
-          execute: async () => {
-            const target = s.guild.channels.cache.get(id);
-            if (!target?.isTextBased()) throw new Error('não é um canal de texto');
-            const messages = await target.messages.fetch({ limit: args.limit });
-            return {
-              ...(s.messageContent
-                ? {}
-                : {
-                    note: 'O bot está sem o Message Content Intent: o texto de mensagens comuns vem vazio. Ative no Developer Portal e defina DISCORD_MESSAGE_CONTENT=true.',
-                  }),
-              messages: [...messages.values()].reverse().map((m) => ({
-                at: m.createdAt.toISOString(),
-                author: m.member?.displayName ?? m.author.username,
-                content: m.content,
-              })),
-            };
-          },
-        }),
-      );
+      return read('message.read', async () => {
+        const target = s.guild.channels.cache.get(id);
+        if (!target?.isTextBased()) throw new Error('não é um canal de texto');
+        const messages = await target.messages.fetch({ limit: args.limit });
+        return {
+          ...(s.messageContent
+            ? {}
+            : {
+                note: 'O bot está sem o Message Content Intent: o texto de mensagens comuns vem vazio. Ative no Developer Portal e defina DISCORD_MESSAGE_CONTENT=true.',
+              }),
+          messages: [...messages.values()].reverse().map((m) => ({
+            at: m.createdAt.toISOString(),
+            author: m.member?.displayName ?? m.author.username,
+            content: m.content,
+          })),
+        };
+      });
     },
   );
 
@@ -261,15 +259,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'get_audit_log',
     'Últimas ações registradas na auditoria.',
     { limit: z.number().int().min(1).max(50).default(15) },
-    async ({ limit }) =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'audit.read',
-          preview: 'audit.read',
-          execute: async () => s.audit.recent(limit),
-        }),
-      ),
+    async ({ limit }) => read('audit.read', async () => s.audit.recent(limit)),
   );
 
   // ---- Channels and roles --------------------------------------------------------------------
@@ -284,7 +274,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       topic: z.string().max(1024).optional(),
       userLimit: z.number().int().min(0).max(99).optional(),
     },
-    async (args) => fromOutcome(await s.channels.create(actor, args)),
+    async (args) => s.channels.create(actor, args),
   );
 
   tool(
@@ -296,11 +286,11 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       topic: z.string().max(1024).optional(),
       userLimit: z.number().int().min(0).max(99).optional(),
     },
-    async ({ channel: target, ...edit }) => fromOutcome(await s.channels.edit(actor, target, edit)),
+    async ({ channel: target, ...edit }) => s.channels.edit(actor, target, edit),
   );
 
   tool('delete_channel', 'Apaga um canal (destrutivo).', { channel, confirm }, async (args) =>
-    fromOutcome(await s.channels.delete(actor, args.channel, args.confirm === true)),
+    s.channels.delete(actor, args.channel, args.confirm === true),
   );
 
   const roleFields = {
@@ -316,28 +306,28 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'create_role',
     'Cria um cargo avulso sem permissões especiais.',
     { name: z.string().min(1).max(100), ...roleFields },
-    async (args) => fromOutcome(await s.roles.create(actor, args)),
+    async (args) => s.roles.create(actor, args),
   );
   tool(
     'edit_role',
     'Edita nome/cor/exibição de um cargo.',
     { role: z.string(), name: z.string().min(1).max(100).optional(), ...roleFields },
-    async ({ role, ...edit }) => fromOutcome(await s.roles.edit(actor, role, edit)),
+    async ({ role, ...edit }) => s.roles.edit(actor, role, edit),
   );
   tool('delete_role', 'Apaga um cargo (destrutivo).', { role: z.string(), confirm }, async (args) =>
-    fromOutcome(await s.roles.delete(actor, args.role, args.confirm === true)),
+    s.roles.delete(actor, args.role, args.confirm === true),
   );
   tool(
     'assign_role',
     'Dá um cargo (não da hierarquia) a um membro.',
     { member, role: z.string() },
-    async (args) => fromOutcome(await s.roles.setAssignment(actor, args.member, args.role, true)),
+    async (args) => s.roles.setAssignment(actor, args.member, args.role, true),
   );
   tool(
     'remove_role',
     'Remove um cargo (não da hierarquia) de um membro.',
     { member, role: z.string() },
-    async (args) => fromOutcome(await s.roles.setAssignment(actor, args.member, args.role, false)),
+    async (args) => s.roles.setAssignment(actor, args.member, args.role, false),
   );
 
   // ---- Members and moderation ----------------------------------------------------------------
@@ -347,32 +337,27 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'promote_member',
     'Promove um membro (Visitante → Soldado → Oficial).',
     { member, rank },
-    async (args) => withMember(args.member, (id) => s.members.promote(actor, id, args.rank)),
+    async (args) => s.members.promote(actor, memberId(args.member), args.rank),
   );
   tool(
     'demote_member',
     'Rebaixa um membro um nível (destrutivo).',
     { member, rank, confirm },
     async (args) =>
-      withMember(args.member, (id) =>
-        s.members.demote(actor, id, args.rank, args.confirm === true),
-      ),
+      s.members.demote(actor, memberId(args.member), args.rank, args.confirm === true),
   );
   tool(
     'partner_member',
     'Torna Parceiro (amigo que não joga) um Visitante, ou com remove=true tira o Parceiro e volta para Visitante.',
     { member, remove: z.boolean().optional().describe('true para tirar o cargo') },
-    async (args) =>
-      withMember(args.member, (id) => s.members.partner(actor, id, args.remove === true)),
+    async (args) => s.members.partner(actor, memberId(args.member), args.remove === true),
   );
   tool(
     'kick_member',
     'Expulsa um membro (destrutivo).',
     { member, reason, confirm },
     async (args) =>
-      withMember(args.member, (id) =>
-        s.moderation.kick(actor, id, args.reason ?? null, args.confirm === true),
-      ),
+      s.moderation.kick(actor, memberId(args.member), args.reason ?? null, args.confirm === true),
   );
   tool(
     'ban_member',
@@ -385,33 +370,30 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     },
     async (args) => {
       const found = findMember(s.guild, args.member);
-      const id = found.ok ? found.value.id : /^\d{17,20}$/.test(args.member) ? args.member : null;
-      if (!id) return fail(found.ok ? '' : found.reason);
-      return fromOutcome(
-        await s.moderation.ban(
-          actor,
-          id,
-          args.reason ?? null,
-          args.deleteMessagesHours ?? 0,
-          args.confirm === true,
-        ),
+      // Someone who already left can still be banned by id.
+      const id = found.ok ? found.value.id : SNOWFLAKE.test(args.member) ? args.member : null;
+      if (!id) throw new NotFound(found.ok ? '' : found.reason);
+      return s.moderation.ban(
+        actor,
+        id,
+        args.reason ?? null,
+        args.deleteMessagesHours ?? 0,
+        args.confirm === true,
       );
     },
   );
   tool(
     'unban_member',
     'Desbane alguém pelo ID.',
-    { userId: z.string().regex(/^\d{17,20}$/), reason },
-    async (args) => fromOutcome(await s.moderation.unban(actor, args.userId, args.reason ?? null)),
+    { userId: z.string().regex(SNOWFLAKE), reason },
+    async (args) => s.moderation.unban(actor, args.userId, args.reason ?? null),
   );
   tool(
     'timeout_member',
     'Silencia um membro por N minutos (0 remove o timeout).',
     { member, minutes: z.number().int().min(0).max(40320), reason },
     async (args) =>
-      withMember(args.member, (id) =>
-        s.moderation.timeout(actor, id, args.minutes, args.reason ?? null),
-      ),
+      s.moderation.timeout(actor, memberId(args.member), args.minutes, args.reason ?? null),
   );
   tool(
     'purge_messages',
@@ -424,16 +406,8 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     },
     async (args) => {
       const id = channelId(args.channel);
-      if (typeof id !== 'string') return id;
-      let authorId: string | null = null;
-      if (args.member) {
-        const found = memberId(args.member);
-        if (typeof found !== 'string') return found;
-        authorId = found;
-      }
-      return fromOutcome(
-        await s.moderation.purge(actor, id, args.count, authorId, args.confirm === true),
-      );
+      const authorId = args.member ? memberId(args.member) : null;
+      return s.moderation.purge(actor, id, args.count, authorId, args.confirm === true);
     },
   );
 
@@ -447,14 +421,10 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       allowMentions: z.boolean().optional(),
     },
     async (args) => {
-      const id = channelId(args.channel);
-      if (typeof id !== 'string') return id;
-      return fromOutcome(
-        await s.messages.send(actor, id, args.text, {
-          ...(args.title && { title: args.title }),
-          ...(args.allowMentions !== undefined && { allowMentions: args.allowMentions }),
-        }),
-      );
+      return s.messages.send(actor, channelId(args.channel), args.text, {
+        ...(args.title && { title: args.title }),
+        ...(args.allowMentions !== undefined && { allowMentions: args.allowMentions }),
+      });
     },
   );
 
@@ -484,22 +454,15 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       ping: z.boolean().optional().describe('Marcar @everyone (padrão: sim)'),
     },
     async (args) => {
-      let voiceChannelId: string | undefined;
-      if (args.voiceChannel) {
-        const id = channelId(args.voiceChannel, true);
-        if (typeof id !== 'string') return id;
-        voiceChannelId = id;
-      }
-      return fromOutcome(
-        await s.events.create(actor, {
-          title: args.title,
-          when: args.when,
-          ...(args.description && { description: args.description }),
-          ...(args.emoji && { emoji: args.emoji }),
-          ...(voiceChannelId && { voiceChannelId }),
-          ...(args.ping !== undefined && { ping: args.ping }),
-        }),
-      );
+      const voiceChannelId = args.voiceChannel ? channelId(args.voiceChannel, true) : undefined;
+      return s.events.create(actor, {
+        title: args.title,
+        when: args.when,
+        ...(args.description && { description: args.description }),
+        ...(args.emoji && { emoji: args.emoji }),
+        ...(voiceChannelId && { voiceChannelId }),
+        ...(args.ping !== undefined && { ping: args.ping }),
+      });
     },
   );
   tool(
@@ -511,13 +474,13 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       when: z.string().optional(),
       description: z.string().max(1000).optional(),
     },
-    async ({ id, ...edit }) => fromOutcome(await s.events.edit(actor, id, edit)),
+    async ({ id, ...edit }) => s.events.edit(actor, id, edit),
   );
   tool(
     'cancel_event',
     'Cancela um evento, ou só uma data de um recorrente (destrutivo).',
     { id: z.number().int(), confirm },
-    async (args) => fromOutcome(await s.events.cancel(actor, args.id, args.confirm === true)),
+    async (args) => s.events.cancel(actor, args.id, args.confirm === true),
   );
   tool('get_rsvps', 'Quem confirmou presença num evento.', { id: z.number().int() }, async (args) =>
     fromOutcome(await s.events.rsvps(actor, args.id), ({ view, rsvp }) =>
@@ -532,11 +495,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'Muda horário, dias, título ou liga/desliga um evento recorrente (grava no server.yaml).',
     {
       key: z.string(),
-      time: z
-        .string()
-        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-        .optional()
-        .describe('HH:MM, horário de Brasília'),
+      time: z.string().regex(CLOCK_PATTERN).optional().describe('HH:MM, horário de Brasília'),
       days: z.string().optional().describe('"seg qui sáb", "mon,thu,sat" ou "todo dia"'),
       title: z.string().min(1).max(100).optional(),
       enabled: z.boolean().optional(),
@@ -544,12 +503,10 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     async ({ key, days, ...rest }) => {
       const parsedDays = days ? parseDays(days) : undefined;
       if (days && !parsedDays) return fail(`Dias inválidos: "${days}"`);
-      return fromOutcome(
-        await s.events.updateTemplate(actor, key, {
-          ...Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)),
-          ...(parsedDays && { days: parsedDays }),
-        }),
-      );
+      return s.events.updateTemplate(actor, key, {
+        ...Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)),
+        ...(parsedDays && { days: parsedDays }),
+      });
     },
   );
 
@@ -567,101 +524,76 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       member: z.string().optional().describe('Membro do Discord com personagem registrado'),
     },
     async (args) =>
-      fromOutcome(
-        await s
-          .runAction({
-            actor,
-            action: 'character.read',
-            preview: 'character.read',
-            execute: async (): Promise<string | ReturnType<typeof sheetJson>> => {
-              if (args.name) {
-                const ref = await s.characters.find(args.name);
-                return ref
-                  ? sheetJson(await s.characters.sheet(ref))
-                  : ptBR.profile.notFound(args.name);
-              }
-              if (!args.member) return 'Passe name ou member.';
-              const found = findMember(s.guild, args.member);
-              if (!found.ok) return found.reason;
-              const registered = s.registrations.get(found.value.id);
-              if (!registered) return ptBR.profile.memberNotRegistered(found.value.id);
-              return sheetJson(
-                await s.characters.sheet({
-                  id: registered.characterId,
-                  serverId: registered.serverId,
-                }),
-              );
-            },
-          })
-          .catch(gameFailure),
-      ),
+      read('character.read', async (): Promise<string | ReturnType<typeof sheetJson>> => {
+        if (args.name) {
+          const ref = await s.characters.find(args.name);
+          return ref ? sheetJson(await s.characters.sheet(ref)) : ptBR.profile.notFound(args.name);
+        }
+        if (!args.member) return 'Passe name ou member.';
+        const found = findMember(s.guild, args.member);
+        if (!found.ok) return found.reason;
+        const registered = s.registrations.get(found.value.id);
+        if (!registered) return ptBR.profile.memberNotRegistered(found.value.id);
+        return sheetJson(
+          await s.characters.sheet({
+            id: registered.characterId,
+            serverId: registered.serverId,
+          }),
+        );
+      }).catch(gameFailure),
   );
   tool(
     'list_registered_characters',
     'Membros do Discord com personagem registrado, com classe, poder, legião vista na última conferência e se ainda estão no servidor.',
     {},
     async () =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'character.read',
-          preview: 'character.read',
-          execute: async () => {
-            const { legion } = s.config.get().settings.characters;
-            const classes = new Map(classRoles(s.config.get()).map((r) => [r.key, r.name]));
-            return s.registrations
-              .all()
-              .sort((a, b) => (b.combatPower ?? -1) - (a.combatPower ?? -1))
-              .map((row) => {
-                const member = s.guild.members.cache.get(row.userId);
-                return {
-                  character: row.name,
-                  class: classes.get(row.classKey) ?? row.classKey,
-                  combatPower: row.combatPower,
-                  itemLevel: row.itemLevel,
-                  legion: row.legion || null,
-                  inLegion: sameLegion(row.legion, legion),
-                  member: member?.displayName ?? null,
-                  userId: row.userId,
-                  checkedAt: row.checkedAt?.toISOString() ?? null,
-                };
-              });
-          },
-        }),
-      ),
+      read('character.read', async () => {
+        const { legion } = s.config.get().settings.characters;
+        const classes = new Map(classRoles(s.config.get()).map((r) => [r.key, r.name]));
+        return s.registrations
+          .all()
+          .sort(byCombatPower)
+          .map((row) => {
+            const member = s.guild.members.cache.get(row.userId);
+            return {
+              character: row.name,
+              class: classes.get(row.classKey) ?? row.classKey,
+              combatPower: row.combatPower,
+              itemLevel: row.itemLevel,
+              legion: row.legion || null,
+              inLegion: sameLegion(row.legion, legion),
+              member: member?.displayName ?? null,
+              userId: row.userId,
+              checkedAt: row.checkedAt?.toISOString() ?? null,
+            };
+          });
+      }),
   );
   tool(
     'register_character',
     'Registra o personagem de um membro, como uma ficha aprovada: cargo da classe, apelido "emoji Nome", personagem guardado para /perfil e #ranking, e Soldado se ele for Visitante.',
     { member, character: z.string().describe('Nome exato do personagem no jogo') },
-    async (args) =>
-      withMember(args.member, (id) => s.registration.register(actor, id, args.character)),
+    async (args) => s.registration.register(actor, memberId(args.member), args.character),
   );
   tool(
     'list_applications',
     'Fichas de recrutamento (as mais novas primeiro), com o id usado em decide_application.',
     { status: z.enum(['pending', 'approved', 'rejected', 'all']).default('pending') },
     async ({ status }) =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'recruit.read',
-          preview: 'recruit.read',
-          execute: async () =>
-            s.applications.list(status === 'all' ? undefined : status).map((a) => ({
-              id: a.id,
-              status: a.status,
-              character: a.characterName,
-              class: a.className,
-              level: a.level,
-              combatPower: a.combatPower,
-              itemLevel: a.itemLevel,
-              legion: a.legion || null,
-              member: s.guild.members.cache.get(a.userId)?.displayName ?? a.userId,
-              createdAt: a.createdAt.toISOString(),
-              decidedBy: a.decidedBy,
-            })),
-        }),
+      read('recruit.read', async () =>
+        s.applications.list(status === 'all' ? undefined : status).map((a) => ({
+          id: a.id,
+          status: a.status,
+          character: a.characterName,
+          class: a.className,
+          level: a.level,
+          combatPower: a.combatPower,
+          itemLevel: a.itemLevel,
+          legion: a.legion || null,
+          member: s.guild.members.cache.get(a.userId)?.displayName ?? a.userId,
+          createdAt: a.createdAt.toISOString(),
+          decidedBy: a.decidedBy,
+        })),
       ),
   );
   tool(
@@ -680,34 +612,20 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'Roda agora a conferência diária: relê cada personagem no site oficial, atualiza classe e apelido, avisa no canal dos oficiais quem saiu ou entrou na legião e refaz o #ranking. Leva alguns segundos por membro.',
     {},
     async () =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'legion.check',
-          preview: 'legion.check',
-          execute: async () => {
-            const report = await s.legion.check();
-            return report.length > 0 ? report.join('\n') : 'Conferência feita: nada mudou.';
-          },
-        }),
-      ),
+      read('legion.check', async () => {
+        const report = await s.legion.check();
+        return report.length > 0 ? report.join('\n') : 'Conferência feita: nada mudou.';
+      }),
   );
   tool(
     'refresh_ranking',
     'Refaz o card do #ranking com os números guardados (sem consultar o site oficial).',
     {},
     async () =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'legion.check',
-          preview: 'legion.check',
-          execute: async () => {
-            await s.legion.refreshRanking();
-            return '#ranking atualizado.';
-          },
-        }),
-      ),
+      read('legion.check', async () => {
+        await s.legion.refreshRanking();
+        return '#ranking atualizado.';
+      }),
   );
 
   // ---- Voice generators and server.yaml ------------------------------------------------------
@@ -719,49 +637,45 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'upsert_voice_generator',
     'Cria ou edita um gerador de salas de voz no server.yaml. Depois rode apply_server_config.',
     {
-      key: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+      key: z.string().regex(KEY_PATTERN),
       category: z.string().describe('Chave da categoria no server.yaml, ex.: voice-rooms'),
       name: z.string().min(1).max(100).describe('Ex.: "➕ Raid"'),
       nameTemplate: z.string().includes('{n}').describe('Ex.: "Raid {n}"'),
       userLimit: z.number().int().min(0).max(99),
     },
     async (generator) =>
-      fromOutcome(
-        await s
-          .runAction({
-            actor,
-            action: 'voice.generator.upsert',
-            target: generator.key,
-            params: generator,
-            preview: generator.key,
-            execute: async () => {
-              s.config.upsertVoiceGenerator(generator);
-              return `Gerador \`${generator.key}\` salvo no server.yaml. Rode apply_server_config para criá-lo no Discord.`;
-            },
-          })
-          .catch(configFailure),
-      ),
+      s
+        .runAction({
+          actor,
+          action: 'voice.generator.upsert',
+          target: generator.key,
+          params: generator,
+          preview: generator.key,
+          execute: async () => {
+            s.config.upsertVoiceGenerator(generator);
+            return `Gerador \`${generator.key}\` salvo no server.yaml. Rode apply_server_config para criá-lo no Discord.`;
+          },
+        })
+        .catch(configFailure),
   );
   tool(
     'delete_voice_generator',
     'Remove um gerador do server.yaml (destrutivo). Depois rode apply_server_config com prune.',
     { key: z.string(), confirm },
     async (args) =>
-      fromOutcome(
-        await s
-          .runAction({
-            actor,
-            action: 'voice.generator.delete',
-            target: args.key,
-            confirm: args.confirm === true,
-            preview: `Remover o gerador ${args.key} do server.yaml. O canal só some do Discord ao rodar apply_server_config com prune: true.`,
-            execute: async () => {
-              s.config.deleteVoiceGenerator(args.key);
-              return `Gerador \`${args.key}\` removido do server.yaml.`;
-            },
-          })
-          .catch(configFailure),
-      ),
+      s
+        .runAction({
+          actor,
+          action: 'voice.generator.delete',
+          target: args.key,
+          confirm: args.confirm === true,
+          preview: `Remover o gerador ${args.key} do server.yaml. O canal só some do Discord ao rodar apply_server_config com prune: true.`,
+          execute: async () => {
+            s.config.deleteVoiceGenerator(args.key);
+            return `Gerador \`${args.key}\` removido do server.yaml.`;
+          },
+        })
+        .catch(configFailure),
   );
 
   tool(
@@ -769,45 +683,31 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     'Relê o server.yaml do disco sem reiniciar o bot (como /config reload). Um arquivo inválido é recusado e a configuração atual continua.',
     {},
     async () =>
-      fromOutcome(
-        await s
-          .runAction({
-            actor,
-            action: 'config.reload',
-            target: 'server.yaml',
-            preview: 'config.reload',
-            execute: async () => {
-              const config = s.config.reload();
-              const channels = config.categories.reduce((n, c) => n + c.channels.length, 0);
-              return ptBR.config.reloaded(config.roles.length, channels);
-            },
-          })
-          .catch(configFailure),
-      ),
+      s
+        .runAction({
+          actor,
+          action: 'config.reload',
+          target: 'server.yaml',
+          preview: 'config.reload',
+          execute: async () => {
+            const config = s.config.reload();
+            const channels = config.categories.reduce((n, c) => n + c.channels.length, 0);
+            return ptBR.config.reloaded(config.roles.length, channels);
+          },
+        })
+        .catch(configFailure),
   );
 
   tool('get_server_config', 'Conteúdo atual do server.yaml (já validado).', {}, async () =>
-    fromOutcome(
-      await s.runAction({
-        actor,
-        action: 'setup.plan',
-        preview: 'setup.plan',
-        execute: async () => s.config.get(),
-      }),
-    ),
+    read('setup.plan', async () => s.config.get()),
   );
   tool(
     'plan_server_config',
     'Mostra o que o /setup mudaria no Discord para ficar igual ao server.yaml (não altera nada).',
     { prune: z.boolean().optional() },
     async (args) =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'setup.plan',
-          preview: 'setup.plan',
-          execute: async () => formatPlan((await s.setup.plan(args.prune === true)).plan, 6000),
-        }),
+      read('setup.plan', async () =>
+        formatPlan((await s.setup.plan(args.prune === true)).plan, 6000),
       ),
   );
   tool(
@@ -817,23 +717,24 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     async (args) => {
       const prune = args.prune === true;
       const planned = await s.setup.plan(prune);
-      return fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'setup.apply',
-          confirm: args.confirm === true,
-          target: 'server.yaml',
-          params: { prune, ops: planned.plan.ops.length },
-          preview: formatPlan(planned.plan, 3000),
-          execute: async () => {
-            const fresh = await s.setup.plan(prune);
-            return formatResult(fresh.plan, await s.setup.apply(fresh), 3000);
-          },
-        }),
-      );
+      return s.runAction({
+        actor,
+        action: 'setup.apply',
+        confirm: args.confirm === true,
+        target: 'server.yaml',
+        params: { prune, ops: planned.plan.ops.length },
+        preview: formatPlan(planned.plan, 3000),
+        execute: async () => {
+          const fresh = await s.setup.plan(prune);
+          return formatResult(fresh.plan, await s.setup.apply(fresh), 3000);
+        },
+      });
     },
   );
 }
+
+/** A member or channel the tool was given doesn't exist; the reason is shown as is. */
+class NotFound extends Error {}
 
 /** The official Aion 2 site didn't answer: a refusal the user can retry, not a crash. */
 function gameFailure(error: unknown): ServiceOutcome<never> {

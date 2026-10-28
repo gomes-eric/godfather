@@ -1,6 +1,8 @@
 // Pure handling of the game's Steam announcements (store.steampowered.com events API): reading the
 // posts, telling their kind and turning Steam's BBCode into Discord markdown.
 
+import { obj, str } from './text.js';
+
 export interface NewsPost {
   /** Steam event id, the one in store.steampowered.com/news/app/<app>/view/<id>. */
   id: string;
@@ -18,11 +20,6 @@ const CLAN_IMAGES = 'https://clan.akamai.steamstatic.com/images';
 /** Private-use stand-ins for "[" and "]" that the tag rules must not touch. */
 const OPEN = String.fromCharCode(0xe000);
 const CLOSE = String.fromCharCode(0xe001);
-
-type Json = Record<string, unknown>;
-const obj = (value: unknown): Json =>
-  typeof value === 'object' && value !== null ? (value as Json) : {};
-const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 
 /** Steam BBCode → Discord markdown: headings and bold, bullet lists, links; images dropped. */
 export function bbcodeToMarkdown(input: string): string {

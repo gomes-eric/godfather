@@ -8,14 +8,7 @@
 #   none      = nobody may write (used by #musica; slash commands still allowed)
 
 settings:
-  botName: Padrinho
-  locale: pt-BR
   timezone: America/Sao_Paulo   # South America servers use São Paulo time (shugo.gg)
-  game:
-    name: Aion 2
-    server: Triniel
-    region: LATAM
-    faction: Asmodian
   community:
     enable: true
     rulesChannel: rules
@@ -177,18 +170,18 @@ roles:
     name: Bot
     color: "#6E7F99"   # steel
     hoist: true
-  # Classes (self-assigned via buttons in #classes).
+  # Classes, given by the approved recruitment application and the daily legion check.
   # Colors follow the in-game class icons (sampled from https://sistersofmercy.altervista.org/classes/):
   # Guerreiro = blue, Batedor = green, Mago = purple, Sacerdote = pale gold.
   # Each pair uses a deeper and a lighter shade so the two classes stay distinct.
-  - { key: class-gladiator,   name: Gladiador,      class: true, archetype: warrior, emoji: "⚔️", color: "#6EC6F5" }  # sky blue
-  - { key: class-templar,     name: Templário,      class: true, archetype: warrior, emoji: "🛡️", color: "#4A7BD0" }  # deep blue
-  - { key: class-assassin,    name: Assassino,      class: true, archetype: scout,   emoji: "🗡️", color: "#4FB286" }  # emerald
-  - { key: class-ranger,      name: Arqueiro,       class: true, archetype: scout,   emoji: "🏹", color: "#8EF5B7" }  # mint
-  - { key: class-sorcerer,    name: Mago,           class: true, archetype: mage,    emoji: "🔥", color: "#D291EF" }  # lilac
-  - { key: class-spiritmaster, name: Espiritualista, class: true, archetype: mage,   emoji: "👻", color: "#9B59D0" }  # deep purple
-  - { key: class-cleric,      name: Clérigo,        class: true, archetype: priest,  emoji: "✨", color: "#E6C46A" }  # gold
-  - { key: class-chanter,     name: Encantador,     class: true, archetype: priest,  emoji: "📿", color: "#EEE6A8" }  # cream
+  - { key: class-gladiator,   name: Gladiador,      class: true, emoji: "⚔️", color: "#6EC6F5" }  # sky blue
+  - { key: class-templar,     name: Templário,      class: true, emoji: "🛡️", color: "#4A7BD0" }  # deep blue
+  - { key: class-assassin,    name: Assassino,      class: true, emoji: "🗡️", color: "#4FB286" }  # emerald
+  - { key: class-ranger,      name: Arqueiro,       class: true, emoji: "🏹", color: "#8EF5B7" }  # mint
+  - { key: class-sorcerer,    name: Mago,           class: true, emoji: "🔥", color: "#D291EF" }  # lilac
+  - { key: class-spiritmaster, name: Espiritualista, class: true, emoji: "👻", color: "#9B59D0" }  # deep purple
+  - { key: class-cleric,      name: Clérigo,        class: true, emoji: "✨", color: "#E6C46A" }  # gold
+  - { key: class-chanter,     name: Encantador,     class: true, emoji: "📿", color: "#EEE6A8" }  # cream
 
 categories:
   - key: info

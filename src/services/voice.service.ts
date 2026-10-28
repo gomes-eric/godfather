@@ -221,14 +221,11 @@ export class VoiceService {
     if (!room) return;
 
     const channel = this.voiceChannel(channelId);
-    if (!channel) {
-      rooms.delete(channelId);
-      return;
-    }
-    if (channel.members.size > 0) return;
+    if (channel && channel.members.size > 0) return;
 
     rooms.delete(channelId);
     this.renames.delete(channelId);
+    if (!channel) return;
     await channel
       .delete('Temp room is empty')
       .catch((error: unknown) =>
@@ -266,9 +263,9 @@ export class VoiceService {
    * panel asks before opening a form, so nobody types a name only to be refused.
    */
   refusal(actor: Actor, channelId: string | null, type: RoomCommand['type']): string | undefined {
-    const room = channelId ? this.deps.rooms.get(channelId) : undefined;
-    const channel = room && this.voiceChannel(room.channelId);
-    if (!room || !channel) return t.notInRoom;
+    const found = this.roomAndChannel(channelId);
+    if (!found) return t.notInRoom;
+    const { room, channel } = found;
 
     const isOwner = room.ownerId === actor.userId;
     const isOfficer = tierAtLeast(actor.tier, 'officer');
@@ -286,9 +283,16 @@ export class VoiceService {
     return undefined;
   }
 
+  /** A temp room and its Discord channel, when both still exist. */
+  private roomAndChannel(channelId: string | null) {
+    const room = channelId ? this.deps.rooms.get(channelId) : undefined;
+    const channel = room && this.voiceChannel(room.channelId);
+    return room && channel ? { room, channel } : undefined;
+  }
+
   /** Everyone in the room but the actor and bots: who the kick picker offers. */
   occupants(channelId: string, exceptUserId: string): GuildMember[] {
-    const channel = this.deps.rooms.get(channelId) ? this.voiceChannel(channelId) : undefined;
+    const channel = this.roomAndChannel(channelId)?.channel;
     return [...(channel?.members.values() ?? [])].filter(
       (member) => member.id !== exceptUserId && !member.user.bot,
     );
@@ -302,9 +306,7 @@ export class VoiceService {
   ): Promise<ServiceOutcome<string>> {
     const refusal = this.refusal(actor, channelId, command.type);
     if (refusal) return rejected(refusal);
-    const room = channelId ? this.deps.rooms.get(channelId) : undefined;
-    const channel = room && this.voiceChannel(room.channelId);
-    if (!room || !channel) return rejected(t.notInRoom);
+    const { room, channel } = this.roomAndChannel(channelId)!;
 
     if (command.type === 'rename') {
       const name = command.name.trim();

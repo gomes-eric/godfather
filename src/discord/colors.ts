@@ -9,6 +9,5 @@ export const COLORS = {
   green: 0x4fb286,
   slate: 0x6e7f99,
   violet: 0x7c3aed,
-  orchid: 0x9b59d0,
   blue: 0x5b8def,
 } as const;

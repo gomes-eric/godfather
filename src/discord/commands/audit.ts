@@ -1,9 +1,8 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import type { AuditResult } from '../../core/audit.js';
 import { unixSeconds } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { COLORS } from '../colors.js';
-import { failureText, replyPrivately } from '../replies.js';
+import { failureText, listEmbed, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
 const DEFAULT_LIMIT = 10;
@@ -44,10 +43,7 @@ export const auditCommand: SlashCommand = {
       return `<t:${unixSeconds(row.at)}:R> · \`${row.action}\`${target} · <@${row.actorId}> · ${ptBR.audit.result(row.result as AuditResult)}`;
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(ptBR.audit.listTitle)
-      .setColor(COLORS.brand)
-      .setDescription(lines.length > 0 ? lines.join('\n') : ptBR.audit.empty);
+    const embed = listEmbed(ptBR.audit.listTitle, lines, ptBR.audit.empty);
 
     await replyPrivately(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
   },
