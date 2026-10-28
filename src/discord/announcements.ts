@@ -62,7 +62,6 @@ function rsvpButtons(occurrenceId: number) {
 const CARD_COLORS = {
   soon: COLORS.amber,
   now: COLORS.crimson,
-  boss: COLORS.orchid,
   agenda: COLORS.brand,
 };
 
@@ -94,16 +93,14 @@ export function reminderCard(
   ];
   if (o.voiceChannelId)
     fields.push({ name: c.room, value: `<#${o.voiceChannelId}>`, inline: true });
-  if (o.rsvp) {
-    fields.push({
-      name: c.attendance,
-      value: [
-        c.attendanceValue(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length),
-        ...(rsvpClasses ? [`*${rsvpClasses}*`] : []),
-      ].join('\n'),
-      inline: false,
-    });
-  }
+  fields.push({
+    name: c.attendance,
+    value: [
+      c.attendanceValue(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length),
+      ...(rsvpClasses ? [`*${rsvpClasses}*`] : []),
+    ].join('\n'),
+    inline: false,
+  });
   return {
     content: o.ping ? '@everyone' : '',
     title: `${o.emoji}  ${o.title}`,
@@ -111,7 +108,7 @@ export function reminderCard(
       offsetMinutes > 0 ? c.soon(offsetMinutes, unix(o.startsAt)) : c.now,
       ...(o.description ? ['', o.description] : []),
     ].join('\n'),
-    color: !o.rsvp ? CARD_COLORS.boss : offsetMinutes > 0 ? CARD_COLORS.soon : CARD_COLORS.now,
+    color: offsetMinutes > 0 ? CARD_COLORS.soon : CARD_COLORS.now,
     fields,
     footer: c.footer(o.occurrenceId),
   };
@@ -176,7 +173,7 @@ export function createDiscordAnnouncements(
     return {
       content: card.content,
       embeds: [embed],
-      components: message.occurrence.rsvp ? [rsvpButtons(message.occurrence.occurrenceId)] : [],
+      components: [rsvpButtons(message.occurrence.occurrenceId)],
     };
   };
 

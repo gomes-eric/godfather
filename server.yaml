@@ -98,6 +98,13 @@ settings:
   news:
     channel: news
     steamAppId: 3393110       # AION 2 on Steam
+  # Templates with a shugoEvent take their days and time from https://shugo.gg/timers.json:
+  # South America (Triniel), São Paulo time, checked every 6 hours. A change is written back here
+  # and logged in #audit-log.
+  eventTimes:
+    region: global-sa
+    group: 1                  # Triniel's siege group (21:00 / 21:30)
+    checkHours: 6
   # Characters are read from the official Aion 2 site (the same data shugo.gg shows).
   # Triniel (South America, Asmodian side) is server 2403.
   characters:
@@ -323,7 +330,7 @@ voiceGenerators:
   - { key: gen-social,  category: social-rooms,  name: "➕ Criar", nameTemplate: "Social {n}",  userLimit: 99 }
 
 # Recurring events. Times are America/Sao_Paulo (Brasília).
-# Verified against https://shugo.gg/pt-br/timers (South America) on 2026-10-25.
+# shugoEvent: id in https://shugo.gg/timers.json; days and time then follow it (settings.eventTimes).
 # days: mon tue wed thu fri sat sun | daily
 eventTemplates:
   - key: abyss-war
@@ -331,45 +338,19 @@ eventTemplates:
     emoji: "⚔️"
     days: [mon, thu, sat]
     time: "21:00"
+    shugoEvent: artifact-siege
     enabled: true
   - key: abyss-bosses
     title: Chefes do Cerco (Tamasa, Argo, Kairah)
     emoji: "👹"
     days: [mon, thu, sat]
     time: "21:30"
+    shugoEvent: siege-bosses
     enabled: true
   - key: weekly-boss-nahma
     title: Boss Semanal — Senhor Guardião Nahma
     emoji: "🐉"
     days: [fri, sun]
     time: "21:00"
+    shugoEvent: guardian-nahma
     enabled: true
-
-# Respawn-based field bosses (no fixed clock time; see PLAN.md §6.11).
-# Respawn times come from the questlog.gg feed, with manual/AI overrides taking precedence.
-# questlogId: Asmodian versions only (Altgard = 1110xx; the 1010xx ids are the Elyos versions).
-fieldBosses:
-  source:
-    provider: questlog
-    enabled: true            # fetched with a Chrome TLS fingerprint (impit) to get past Cloudflare
-    serverId: 2403           # Triniel (South America)
-    pollIntervalSeconds: 180
-    staleAfterHours: 6       # older readings trigger a warning in #audit-log
-  reminderOffsetsMinutes: [30, 0]
-  bosses:
-    - key: gartua
-      title: Boss Diário — Gartua Imortal
-      emoji: "💀"
-      region: Altgard
-      level: 51
-      questlogId: 111021
-      respawnMinutes: null   # unknown; required only for `/boss killed` (learned later)
-      enabled: true
-    - key: lagta
-      title: Boss Diário — Brigadeiro Lagta
-      emoji: "💀"
-      region: Altgard
-      level: 48
-      questlogId: 111022
-      respawnMinutes: null
-      enabled: true

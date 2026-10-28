@@ -99,6 +99,13 @@
       "when": 1793152971235,
       "tag": "0013_news",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793174273156,
+      "tag": "0014_drop_field_bosses",
+      "breakpoints": true
     }
   ]
 }

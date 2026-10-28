@@ -28,7 +28,7 @@ function formatValue(key: string, value: unknown): string {
     if (key === 'roleId') return `<@&${text}>`;
     if (key === 'userId' || key === 'authorId' || key === 'owner') return `<@${text}>`;
   }
-  if ((key === 'startsAt' || key === 'respawnAt') && !Number.isNaN(Date.parse(text))) {
+  if (key === 'startsAt' && !Number.isNaN(Date.parse(text))) {
     return `<t:${Math.floor(Date.parse(text) / 1000)}:f>`;
   }
   return text.length > MAX_VALUE_LENGTH ? `${text.slice(0, MAX_VALUE_LENGTH)}…` : text;

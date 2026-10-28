@@ -111,7 +111,6 @@ describe('MCP endpoint', () => {
         'ban_member',
         'send_message',
         'apply_server_config',
-        'set_boss_respawn',
         'upsert_voice_generator',
         'get_character',
         'register_character',

@@ -70,7 +70,6 @@ export const ptBR = {
       'event.edit': '✏️ Evento editado',
       'event.cancel': '🚫 Evento cancelado',
       'event.template.edit': '🔁 Evento recorrente editado',
-      'boss.override': '💀 Respawn de boss ajustado',
       'voice.own.manage': '🔊 Sala de voz ajustada pelo dono',
       'voice.temp.manage': '🔊 Sala de voz moderada',
       'voice.generator.upsert': '➕ Gerador de voz salvo',
@@ -99,11 +98,9 @@ export const ptBR = {
       title: 'Título',
       when: 'Quando',
       startsAt: 'Início',
-      respawnAt: 'Respawn',
       description: 'Descrição',
       name: 'Nome',
       text: 'Texto',
-      boss: 'Boss',
       how: 'Como',
       deleteMessageSeconds: 'Apagar mensagens (s)',
       occurrenceId: 'Evento',
@@ -474,6 +471,8 @@ export const ptBR = {
       time: string,
       enabled: boolean,
     ) => `${enabled ? '🟢' : '⚪'} \`${key}\` ${emoji} **${title}** — ${days} às ${time}`,
+    shugoProblem: (title: string, problem: string) =>
+      `⚠️ Não consegui conferir o horário de **${title}** no shugo.gg (${problem}). O horário do server.yaml continua valendo.`,
     templateUpdated: (key: string) =>
       `🔁 Template \`${key}\` atualizado no server.yaml. A agenda e os avisos se ajustam em até 30 segundos.`,
     templateUnknown: (key: string) => `Não existe template \`${key}\`. Veja /event template list.`,
@@ -489,35 +488,6 @@ export const ptBR = {
       sat: 'sáb',
       daily: 'todo dia',
     } as Record<string, string>,
-  },
-
-  bosses: {
-    unknown: (input: string) => `Não conheço o boss "${input}". Veja /boss list.`,
-    badTime:
-      'Não entendi o horário. Exemplos: `09:16` (relógio do mapa) ou `5h44m` (tempo restante).',
-    noRespawn: (name: string) =>
-      `Ainda não sei o tempo de respawn de **${name}**. Use \`/boss set\` com o horário que aparece no mapa (M).`,
-    set: (name: string, unix: number) =>
-      `💀 **${name}** nasce <t:${unix}:t> (<t:${unix}:R>). Os avisos saem automaticamente.`,
-    cleared: (name: string) =>
-      `↩️ Correção manual de **${name}** removida. O horário volta a vir do questlog.gg.`,
-    nothingToClear: (name: string) => `**${name}** não tem correção manual.`,
-    listTitle: '💀 Bosses de campo',
-    alive: '🟢 vivo',
-    unknownStatus: '❔ sem informação',
-    respawn: (unix: number) => `nasce <t:${unix}:t> (<t:${unix}:R>)`,
-    sourceQuestlog: (unix: number) => `questlog.gg · leitura <t:${unix}:R>`,
-    sourceManual: (userId: string) => `definido por <@${userId}>`,
-    feedOff: '-# Leitura automática do questlog.gg desligada (server.yaml). Use /boss set.',
-    reminderSource: (source: string) => `Fonte: ${source}`,
-    region: (region: string) => `📍 ${region}`,
-    warnings: {
-      down: '⚠️ O questlog.gg não responde há mais de 15 minutos. Os timers dos bosses podem estar desatualizados — use `/boss set`.',
-      format:
-        '⚠️ O formato da resposta do questlog.gg mudou e não consigo ler os timers. Use `/boss set` até alguém atualizar o bot.',
-      stale:
-        '⚠️ Ninguém atualiza os timers no questlog.gg há horas (ninguém abriu o mapa com o app deles). Confira e use `/boss set` se precisar.',
-    },
   },
 
   music: {
@@ -702,10 +672,9 @@ export const ptBR = {
         ],
       },
       {
-        title: '📅 Eventos e bosses',
+        title: '📅 Eventos',
         entries: [
           { usage: '/event list', text: 'Eventos dos próximos 7 dias', tier: 'soldier' },
-          { usage: '/boss list', text: 'Próximos respawns dos bosses de campo', tier: 'soldier' },
           {
             usage: '/event create · edit · cancel',
             text: 'Cria, edita ou cancela um evento',
@@ -715,11 +684,6 @@ export const ptBR = {
           {
             usage: '/event template',
             text: 'Liga, desliga ou edita os eventos recorrentes',
-            tier: 'officer',
-          },
-          {
-            usage: '/boss set · killed · clear',
-            text: 'Ajusta o horário de um boss à mão',
             tier: 'officer',
           },
         ],

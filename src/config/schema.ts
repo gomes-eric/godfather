@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { TIERS, type RankedTier } from '../core/tiers.js';
 
 // Schema of server.yaml (PLAN.md §6.1, docs/SERVER_LAYOUT.md). Sections that later phases
-// own (eventTemplates, fieldBosses) stay loose until those phases define them.
+// own (eventTemplates) stay loose until those phases define them.
 
 /** Minimum tier allowed to see or write, plus `bot` (only Padrinho) and `none` (nobody). */
 export const ACCESS_LEVELS = [
@@ -118,31 +118,8 @@ const eventTemplateSchema = z.object({
   ping: z.boolean().optional(),
   reminderOffsetsMinutes: reminderOffsets.optional(),
   enabled: z.boolean().default(true),
-});
-
-const fieldBossSchema = z.object({
-  key,
-  title: z.string().min(1).max(100),
-  emoji: z.string().default('💀'),
-  region: z.string().optional(),
-  level: z.number().int().positive().optional(),
-  /** Id in the questlog.gg feed (Asmodian versions only). */
-  questlogId: z.number().int().positive().optional(),
-  /** Minutes from death to respawn; needed only for `/boss killed`. */
-  respawnMinutes: z.number().int().positive().nullable().default(null),
-  enabled: z.boolean().default(true),
-});
-
-const fieldBossesSchema = z.object({
-  source: z.object({
-    provider: z.literal('questlog'),
-    enabled: z.boolean(),
-    serverId: z.number().int().positive(),
-    pollIntervalSeconds: z.number().int().min(60).default(180),
-    staleAfterHours: z.number().positive().default(6),
-  }),
-  reminderOffsetsMinutes: reminderOffsets,
-  bosses: z.array(fieldBossSchema).default([]),
+  /** Event id in shugo.gg's timers.json; its days and time then follow that file. */
+  shugoEvent: z.string().min(1).optional(),
 });
 
 const voiceAccessSchema = z.object({
@@ -195,6 +172,16 @@ const settingsSchema = z.looseObject({
       channel: key,
       steamAppId: z.number().int().positive(),
       pollMinutes: z.number().int().min(5).default(15),
+    })
+    .optional(),
+  /** Where the templates linked by `shugoEvent` take their days and time from in timers.json. */
+  eventTimes: z
+    .object({
+      /** timers.json region; South America (Triniel) is global-sa, on São Paulo time. */
+      region: z.string().min(1),
+      /** Siege matching group, for events with one start time per group. */
+      group: z.number().int().min(1).default(1),
+      checkHours: z.number().int().min(1).default(6),
     })
     .optional(),
   /**
@@ -253,7 +240,6 @@ export const serverConfigSchema = z
     voiceAccess: z.array(voiceAccessSchema).default([]),
     voiceGenerators: z.array(voiceGeneratorSchema).default([]),
     eventTemplates: z.array(eventTemplateSchema).default([]),
-    fieldBosses: fieldBossesSchema.optional(),
   })
   .superRefine((config, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -367,10 +353,6 @@ export const serverConfigSchema = z
       }
     });
 
-    for (const dup of duplicates((config.fieldBosses?.bosses ?? []).map((b) => b.key))) {
-      issue(['fieldBosses', 'bosses'], `duplicate field boss key "${dup}"`);
-    }
-
     const seenTiers = new Set<string>();
     config.roles.forEach((role, i) => {
       if (!role.tier) return;
@@ -385,7 +367,6 @@ export type RoleConfig = ServerConfig['roles'][number];
 export type CategoryConfig = ServerConfig['categories'][number];
 export type ChannelConfig = CategoryConfig['channels'][number];
 export type EventTemplateConfig = ServerConfig['eventTemplates'][number];
-export type FieldBossConfig = NonNullable<ServerConfig['fieldBosses']>['bosses'][number];
 
 /** The class roles (Gladiador, Clérigo...), in server.yaml order. */
 export function classRoles(config: ServerConfig): RoleConfig[] {

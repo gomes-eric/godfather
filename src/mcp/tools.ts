@@ -25,7 +25,6 @@ import type { LegionCheckService } from '../services/legion-check.service.js';
 import type { RecruitmentDesk } from '../services/recruitment-desk.service.js';
 import type { RegistrationService } from '../services/registration.service.js';
 import { parseDays, type EventService } from '../services/event.service.js';
-import type { FieldBossService } from '../services/field-boss.service.js';
 import type { MemberService } from '../services/member.service.js';
 import type { MessageService } from '../services/message.service.js';
 import type { ModerationService } from '../services/moderation.service.js';
@@ -44,7 +43,6 @@ export interface McpServices {
   moderation: ModerationService;
   messages: MessageService;
   events: EventService;
-  bosses: FieldBossService;
   channels: ChannelService;
   roles: RoleService;
   /** Characters on the official Aion 2 site. */
@@ -553,49 +551,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
         }),
       );
     },
-  );
-
-  // ---- Field bosses --------------------------------------------------------------------------
-
-  tool(
-    'list_field_bosses',
-    'Próximos respawns dos bosses de campo e a origem do horário.',
-    {},
-    async () =>
-      fromOutcome(
-        await s.runAction({
-          actor,
-          action: 'boss.read',
-          preview: 'boss.read',
-          execute: async () =>
-            s.bosses.status().map(({ boss, timer }) => ({
-              key: boss.key,
-              title: boss.title,
-              alive: timer?.alive ?? null,
-              respawnAt: timer?.respawnAt?.toISOString() ?? null,
-              source: timer?.source ?? null,
-              seenAt: timer?.seenAt.toISOString() ?? null,
-            })),
-        }),
-      ),
-  );
-  tool(
-    'set_boss_respawn',
-    'Define o respawn de um boss à mão: relógio do mapa ("09:16") ou tempo restante ("5h44m").',
-    { boss: z.string(), time: z.string() },
-    async (args) => fromOutcome(await s.bosses.set(actor, args.boss, args.time)),
-  );
-  tool(
-    'report_boss_kill',
-    'Registra que o boss acabou de morrer (precisa de respawnMinutes).',
-    { boss: z.string() },
-    async (args) => fromOutcome(await s.bosses.killed(actor, args.boss)),
-  );
-  tool(
-    'clear_boss_override',
-    'Remove o horário manual de um boss.',
-    { boss: z.string() },
-    async (args) => fromOutcome(await s.bosses.clear(actor, args.boss)),
   );
 
   // ---- Characters, registration, recruitment and the legion -----------------------------------

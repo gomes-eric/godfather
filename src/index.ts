@@ -9,7 +9,6 @@ import { ApplicationStore } from './db/applications.js';
 import { CharacterStore } from './db/characters.js';
 import { openDatabase } from './db/client.js';
 import { EventStore } from './db/events.js';
-import { FieldBossStore } from './db/field-bosses.js';
 import { ManagedObjectStore } from './db/managed-objects.js';
 import { PartyStore } from './db/parties.js';
 import { NewsStore } from './db/news.js';
@@ -33,7 +32,6 @@ import { createLogger } from './logger.js';
 import { createMcpHandler } from './mcp/server.js';
 import { ChannelService } from './services/channel.service.js';
 import { EventService } from './services/event.service.js';
-import { FieldBossService } from './services/field-boss.service.js';
 import { GameCharacterService } from './services/game-character.service.js';
 import { LegionCheckService } from './services/legion-check.service.js';
 import { MemberService } from './services/member.service.js';
@@ -41,6 +39,7 @@ import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
 import { MusicGuardService } from './services/music-guard.service.js';
 import { PartyService } from './services/party.service.js';
+import { EventTimesService } from './services/event-times.service.js';
 import { NewsService } from './services/news.service.js';
 import { RecruitmentDesk } from './services/recruitment-desk.service.js';
 import { RecruitmentService } from './services/recruitment.service.js';
@@ -143,12 +142,19 @@ async function main(): Promise<void> {
       .then((synced) => logger.info(synced, 'automatic roles synced'))
       .catch((error: unknown) => logger.warn({ err: error }, 'automatic role sync failed'));
 
-    // Background jobs: reminders, field bosses, game news, the daily legion check.
+    // Background jobs: reminders, shugo.gg event times, game news, the daily legion check.
     const eventStore = new EventStore(database.db);
-    const bosses = new FieldBossService({
-      store: new FieldBossStore(database.db),
+    const scheduler = new ReminderScheduler({
+      store: eventStore,
+      managed,
+      config: () => config.get(),
+      port: createDiscordAnnouncements(guild, directory, () => config.get()),
+      logger,
+    });
+    const eventTimes = new EventTimesService({
       config,
       runAction,
+      botUserId: guild.client.user.id,
       logger,
       warn: async (text) => {
         await directory
@@ -156,14 +162,6 @@ async function main(): Promise<void> {
           ?.send({ content: text, allowedMentions: { parse: [] } });
       },
       onChange: () => void scheduler.tick().catch(() => undefined),
-    });
-    const scheduler = new ReminderScheduler({
-      store: eventStore,
-      managed,
-      config: () => config.get(),
-      port: createDiscordAnnouncements(guild, directory, () => config.get()),
-      logger,
-      sources: [bosses],
     });
     const characters = new GameCharacterService({ config, logger });
     const registrations = new CharacterStore(database.db);
@@ -183,7 +181,7 @@ async function main(): Promise<void> {
       store: new NewsStore(database.db),
       logger,
     });
-    jobs.push(scheduler, bosses, news, legion);
+    jobs.push(scheduler, eventTimes, news, legion);
     for (const job of jobs) job.start();
 
     // Shared by slash commands and MCP tools: both adapters call the same services.
@@ -211,7 +209,6 @@ async function main(): Promise<void> {
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
       events: new EventService({ store: eventStore, scheduler, config, runAction }),
-      bosses,
       channels: new ChannelService({ guild, managed, runAction }),
       roles: new RoleService({ guild, directory, config, runAction }),
       characters,

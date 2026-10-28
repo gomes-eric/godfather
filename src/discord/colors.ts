@@ -2,7 +2,7 @@
 export const COLORS = {
   /** Padrinho's purple: help, lists, and cards without a state of their own. */
   brand: 0xa855f7,
-  /** Asmodian crimson, like the Comandante role: welcome, rules, field bosses, failures. */
+  /** Asmodian crimson, like the Comandante role: welcome, rules, failures. */
   crimson: 0xe0303a,
   gold: 0xd9b45a,
   amber: 0xe6c46a,

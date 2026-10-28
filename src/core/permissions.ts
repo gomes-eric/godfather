@@ -67,9 +67,6 @@ export const ACTION_POLICIES = {
   'event.rsvps.read': policy('officer', { audited: false }),
   'event.read': policy('soldier', { audited: false }),
 
-  'boss.read': policy('soldier', { audited: false }),
-  'boss.override': policy('officer'),
-
   // Self-service on your own room: owning it is the real check (VoiceService), so Parceiros
   // can run their Social rooms. Not audited, like other self-service clicks; an officer acting
   // on someone else's room (voice.temp.manage) still is.

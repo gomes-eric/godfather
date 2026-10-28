@@ -1,5 +1,4 @@
 import { auditCommand } from './audit.js';
-import { bossCommand } from './boss.js';
 import { configCommand } from './config.js';
 import { mcpCommand } from './mcp.js';
 import { eventCommand } from './event.js';
@@ -23,7 +22,6 @@ export const commands: SlashCommand[] = [
   sayCommand,
   voiceCommand,
   eventCommand,
-  bossCommand,
   profileCommand,
   partyCommand,
   mcpCommand,

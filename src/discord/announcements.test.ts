@@ -14,7 +14,6 @@ const war: OccurrenceView = {
   cancelled: false,
   eventId: null,
   templateKey: 'abyss-war',
-  rsvp: true,
 };
 const noVotes = { yes: [], maybe: [], no: [] };
 
@@ -50,21 +49,6 @@ describe('reminderCard', () => {
     expect(card.content).toBe('');
     expect(card.description).toContain('Começou agora');
     expect(card.color).toBe(0xe0303a);
-  });
-
-  it('shows boss respawns in purple without attendance', () => {
-    const card = reminderCard(
-      {
-        occurrence: { ...war, rsvp: false, voiceChannelId: null, description: '📍 Altgard' },
-        offsetMinutes: 30,
-        rsvp: noVotes,
-      },
-      '',
-      SP,
-    );
-    expect(card.color).toBe(0x9b59d0);
-    expect(card.fields.map((f) => f.name)).toEqual(['🕘 Horário']);
-    expect(card.description).toContain('📍 Altgard');
   });
 });
 

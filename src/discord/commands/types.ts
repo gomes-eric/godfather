@@ -10,7 +10,6 @@ import type { AuditLog } from '../../core/audit.js';
 import type { CharacterStore } from '../../db/characters.js';
 import type { Logger } from '../../logger.js';
 import type { EventService } from '../../services/event.service.js';
-import type { FieldBossService } from '../../services/field-boss.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
 import type { LegionCheckService } from '../../services/legion-check.service.js';
 import type { PartyService } from '../../services/party.service.js';
@@ -38,7 +37,6 @@ export interface CommandContext {
   messages: MessageService;
   voice: VoiceService;
   events: EventService;
-  bosses: FieldBossService;
   /** Characters from the official Aion 2 site. */
   characters: GameCharacterService;
   /** Which in-game character each member has (from approved applications). */

@@ -111,26 +111,6 @@ export const rsvps = sqliteTable(
   (table) => [primaryKey({ columns: [table.occurrenceId, table.userId] })],
 );
 
-// Latest known state of each respawn-based field boss (PLAN.md §6.11). A manual entry wins over
-// the questlog.gg feed until its respawn time passes.
-export const fieldBossTimers = sqliteTable('field_boss_timers', {
-  bossKey: text('boss_key').primaryKey(),
-  alive: integer('alive', { mode: 'boolean' }).notNull(),
-  respawnAt: integer('respawn_at', { mode: 'timestamp_ms' }),
-  seenAt: integer('seen_at', { mode: 'timestamp_ms' }).notNull(),
-  source: text('source', { enum: ['questlog', 'manual'] }).notNull(),
-  overrideBy: text('override_by'),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
-
-export const fieldBossSourceHealth = sqliteTable('field_boss_source_health', {
-  provider: text('provider').primaryKey(),
-  lastOkAt: integer('last_ok_at', { mode: 'timestamp_ms' }),
-  lastErrorAt: integer('last_error_at', { mode: 'timestamp_ms' }),
-  lastError: text('last_error'),
-  lastWarnedAt: integer('last_warned_at', { mode: 'timestamp_ms' }),
-});
-
 // Personal MCP tokens (PLAN.md §8.1). Only a SHA-256 hash is stored; the token carries no
 // permissions of its own — each call uses its owner's current Discord roles.
 export const mcpTokens = sqliteTable('mcp_tokens', {
