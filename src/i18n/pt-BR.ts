@@ -257,11 +257,17 @@ export const ptBR = {
     menuGone: 'Esse membro não está mais registrado. O ranking é atualizado todo dia.',
   },
 
-  patchNotes: {
-    author: 'AION 2 · Atualização',
-    intro: 'Saiu uma nova atualização do jogo.',
+  news: {
+    author: {
+      patch: 'AION 2 · Atualização',
+      maintenance: 'AION 2 · Manutenção',
+      event: 'AION 2 · Evento',
+      restriction: 'AION 2 · Restrições de conta',
+      notice: 'AION 2 · Notícia',
+    },
+    intro: 'Saiu uma notícia nova do jogo.',
     seeDetails: 'Detalhes na Steam.',
-    button: 'Ler as notas completas',
+    button: 'Ler na Steam',
     footer: 'Publicado na Steam',
   },
 

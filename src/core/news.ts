@@ -1,7 +1,7 @@
-// Pure handling of the game's Steam announcements (store.steampowered.com events API): picking the
-// patch notes and turning Steam's BBCode into Discord markdown.
+// Pure handling of the game's Steam announcements (store.steampowered.com events API): reading the
+// posts, telling their kind and turning Steam's BBCode into Discord markdown.
 
-export interface PatchNote {
+export interface NewsPost {
   /** Steam event id, the one in store.steampowered.com/news/app/<app>/view/<id>. */
   id: string;
   title: string;
@@ -70,7 +70,55 @@ export function bbcodeToMarkdown(input: string): string {
     .trim();
 }
 
-export interface PatchSummary {
+/** What a post is about, from its title: it picks the card's emoji, color and label. */
+export type NewsKind = 'patch' | 'maintenance' | 'event' | 'restriction' | 'notice';
+
+export function newsKind(title: string): NewsKind {
+  const lower = title.toLowerCase();
+  if (/notas da atualiza|patch notes/.test(lower)) return 'patch';
+  if (/manuten|maintenance/.test(lower)) return 'maintenance';
+  if (/restri[çc][õo]es de conta|account restriction/.test(lower)) return 'restriction';
+  if (/\[event[o]?\]/.test(lower)) return 'event';
+  return 'notice';
+}
+
+/** "Olá, Daevas,", "Saudações, Daevas,", "**Olá Daevas,**": openings that say nothing. */
+const GREETING = /^(\*\*)?((ol[áa]|sauda[çc][õo]es|caros?|prezados?),?\s*)?daevas[,!.]?(\*\*)?$/i;
+
+/**
+ * The start of a post for its card: whole paragraphs up to `max` characters, without the greeting,
+ * and "…" when something was left out.
+ */
+export function newsExcerpt(body: string, max: number): string {
+  const paragraphs = body
+    .split(/\n{2,}/)
+    .map((paragraph) =>
+      paragraph
+        .split('\n')
+        .filter((line) => !GREETING.test(line.trim()))
+        .join('\n')
+        .trim(),
+    )
+    .filter(Boolean);
+  let out = '';
+  for (const paragraph of paragraphs) {
+    const next = out ? `${out}\n\n${paragraph}` : paragraph;
+    if (next.length <= max) {
+      out = next;
+      continue;
+    }
+    if (!out) {
+      // A single long paragraph: cut it at the last line break or space that fits.
+      const cut = paragraph.slice(0, max - 2);
+      const at = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf(' '));
+      out = cut.slice(0, at > 0 ? at : cut.length).trimEnd();
+    }
+    return `${out}\n…`;
+  }
+  return out;
+}
+
+export interface NewsSummary {
   /** "Notas da Atualização" from "[Aviso] Notas da Atualização | 20 outubro (PDT) / …". */
   name: string;
   /** What follows the "|" in the title, e.g. "20 outubro (PDT) / 21 outubro (CEST)". */
@@ -87,8 +135,8 @@ const MAX_HIGHLIGHT_LENGTH = 60;
 const TABLE_HEADER =
   /^(nome( d[aoe]s?)? .+|item( d[aoe]s? .+)?|itens|quantidade( de .+)?|pre[çc]o|descri[çc][ãa]o|categoria|ra[çc]a|regi[ãa]o|recompensas?|mudan[çc]as|imagem|efeito|material|limite( de .+)?|moeda( de .+)?|cidade .+|n[íi]vel( para .+)?|conte[úu]dos?|data( de .+)?|negociar.*|redefini[çc][ãa]o.*|detalhes( d[aoe]s? .+)?)$/i;
 
-/** The patch notes boiled down to their name, date, opening line and highlighted topics. */
-export function summarizePatchNote(note: Pick<PatchNote, 'title' | 'body'>): PatchSummary {
+/** A post boiled down to its name, date, opening line and the highlighted topics of each section. */
+export function summarizeNews(note: Pick<NewsPost, 'title' | 'body'>): NewsSummary {
   const [rawName = note.title, ...rest] = note.title.split('|');
   const name = rawName.replace(/^\s*\[[^\]]*\]\s*/, '').trim() || note.title.trim();
   const when = rest.join('|').trim() || null;
@@ -98,9 +146,12 @@ export function summarizePatchNote(note: Pick<PatchNote, 'title' | 'body'>): Pat
   const plain = (line: string) => line.replace(/\*\*/g, '').trim();
 
   const intro =
-    lines.find((line) => line && !bold(line) && !/^[•◦]/.test(line) && line.length <= 200) ?? null;
+    lines.find(
+      (line) =>
+        line && !bold(line) && !GREETING.test(line) && !/^[•◦]/.test(line) && line.length <= 200,
+    ) ?? null;
 
-  const sections: PatchSummary['sections'] = [];
+  const sections: NewsSummary['sections'] = [];
   for (const line of lines) {
     if (!bold(line)) continue;
     const text = plain(line);
@@ -120,23 +171,17 @@ export function summarizePatchNote(note: Pick<PatchNote, 'title' | 'body'>): Pat
   return { name, when, intro, sections };
 }
 
-/** Announcements whose title contains one of the phrases (any case), oldest first. */
-export function parsePatchNotes(
-  json: unknown,
-  appId: number,
-  titleMatches: readonly string[],
-): PatchNote[] {
+/** Every announcement in the Steam events feed, oldest first. */
+export function parseNews(json: unknown, appId: number): NewsPost[] {
   const events = obj(json).events;
   if (!Array.isArray(events)) return [];
-  const wanted = titleMatches.map((m) => m.toLowerCase());
-  const notes: PatchNote[] = [];
+  const notes: NewsPost[] = [];
   for (const event of events.map(obj)) {
     const id = str(event.gid);
     const title = str(event.event_name).trim();
     const announcement = obj(event.announcement_body);
     const posted = Number(announcement.posttime ?? event.rtime32_start_time);
     if (!id || !title || !Number.isFinite(posted)) continue;
-    if (!wanted.some((m) => title.toLowerCase().includes(m))) continue;
 
     let imageUrl: string | null = null;
     try {

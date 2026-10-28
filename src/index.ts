@@ -12,7 +12,7 @@ import { EventStore } from './db/events.js';
 import { FieldBossStore } from './db/field-bosses.js';
 import { ManagedObjectStore } from './db/managed-objects.js';
 import { PartyStore } from './db/parties.js';
-import { PatchNoteStore } from './db/patch-notes.js';
+import { NewsStore } from './db/news.js';
 import { TempVoiceStore } from './db/temp-voice.js';
 import { createDiscordAnnouncements } from './discord/announcements.js';
 import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
@@ -41,7 +41,7 @@ import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
 import { MusicGuardService } from './services/music-guard.service.js';
 import { PartyService } from './services/party.service.js';
-import { PatchNotesService } from './services/patch-notes.service.js';
+import { NewsService } from './services/news.service.js';
 import { RecruitmentDesk } from './services/recruitment-desk.service.js';
 import { RecruitmentService } from './services/recruitment.service.js';
 import { RegistrationService } from './services/registration.service.js';
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
       .then((synced) => logger.info(synced, 'automatic roles synced'))
       .catch((error: unknown) => logger.warn({ err: error }, 'automatic role sync failed'));
 
-    // Background jobs: reminders, field bosses, patch notes, the daily legion check.
+    // Background jobs: reminders, field bosses, game news, the daily legion check.
     const eventStore = new EventStore(database.db);
     const bosses = new FieldBossService({
       store: new FieldBossStore(database.db),
@@ -177,13 +177,13 @@ async function main(): Promise<void> {
       runAction,
       logger,
     });
-    const patchNotes = new PatchNotesService({
+    const news = new NewsService({
       config,
       directory,
-      store: new PatchNoteStore(database.db),
+      store: new NewsStore(database.db),
       logger,
     });
-    jobs.push(scheduler, bosses, patchNotes, legion);
+    jobs.push(scheduler, bosses, news, legion);
     for (const job of jobs) job.start();
 
     // Shared by slash commands and MCP tools: both adapters call the same services.

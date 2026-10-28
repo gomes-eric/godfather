@@ -145,8 +145,8 @@ export const mcpTokens = sqliteTable('mcp_tokens', {
   revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
 });
 
-// Steam patch-note posts already posted in #patch-notes (messageId null = skipped on first run).
-export const postedPatchNotes = sqliteTable('posted_patch_notes', {
+// Steam announcements already posted in #noticias (messageId null = skipped on first run).
+export const postedNews = sqliteTable('posted_news', {
   id: text('id').primaryKey(),
   messageId: text('message_id'),
   postedAt: integer('posted_at', { mode: 'timestamp_ms' })

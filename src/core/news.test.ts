@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bbcodeToMarkdown, parsePatchNotes, summarizePatchNote } from './patch-notes.js';
+import { bbcodeToMarkdown, newsExcerpt, newsKind, parseNews, summarizeNews } from './news.js';
 
 describe('bbcodeToMarkdown', () => {
   it('turns Steam headings, lists and bold into markdown and keeps escaped brackets', () => {
@@ -24,9 +24,9 @@ describe('bbcodeToMarkdown', () => {
   });
 });
 
-describe('summarizePatchNote', () => {
+describe('summarizeNews', () => {
   it('keeps the name, date, opening line and the bold topics of each section', () => {
-    const summary = summarizePatchNote({
+    const summary = summarizeNews({
       title: '[Aviso] Notas da Atualização | 20 outubro (PDT) / 21 outubro (CEST)',
       body: [
         '**Olá Daevas,**',
@@ -56,7 +56,7 @@ describe('summarizePatchNote', () => {
   });
 
   it('copes with a plain title and no sections', () => {
-    expect(summarizePatchNote({ title: 'Patch Notes', body: '' })).toEqual({
+    expect(summarizeNews({ title: 'Patch Notes', body: '' })).toEqual({
       name: 'Patch Notes',
       when: null,
       intro: null,
@@ -65,7 +65,7 @@ describe('summarizePatchNote', () => {
   });
 });
 
-describe('parsePatchNotes', () => {
+describe('parseNews', () => {
   const event = (gid: string, name: string, posttime: number) => ({
     gid,
     event_name: name,
@@ -76,8 +76,8 @@ describe('parsePatchNotes', () => {
     announcement_body: { posttime, body: '[p]Texto[/p]' },
   });
 
-  it('keeps matching titles, oldest first, with the Steam link and the Portuguese banner', () => {
-    const notes = parsePatchNotes(
+  it('keeps every announcement, oldest first, with the Steam link and the Portuguese banner', () => {
+    const notes = parseNews(
       {
         events: [
           event('2', '[Aviso] Notas da Atualização | 21 outubro', 200),
@@ -86,14 +86,35 @@ describe('parsePatchNotes', () => {
         ],
       },
       3393110,
-      ['Notas da Atualização', 'patch notes'],
     );
-    expect(notes.map((n) => n.id)).toEqual(['1', '2']);
+    expect(notes.map((n) => n.id)).toEqual(['1', '2', '3']);
     expect(notes[1]).toMatchObject({
       url: 'https://store.steampowered.com/news/app/3393110/view/2',
       imageUrl: 'https://clan.akamai.steamstatic.com/images/46074831/br.png',
       body: 'Texto',
     });
-    expect(parsePatchNotes({ nope: 1 }, 1, ['x'])).toEqual([]);
+    expect(parseNews({ nope: 1 }, 1)).toEqual([]);
+  });
+});
+
+describe('newsKind', () => {
+  it('tells the kind of a post from its title', () => {
+    expect(newsKind('[Aviso] Notas da Atualização | 20 outubro')).toBe('patch');
+    expect(newsKind('[Aviso] Manutenção temporária (EU)')).toBe('maintenance');
+    expect(newsKind('Restrições de Conta | 23 outubro')).toBe('restriction');
+    expect(newsKind('[Evento] Enfrente o Desafio')).toBe('event');
+    expect(newsKind('Ludra desperta em 4 de novembro')).toBe('notice');
+  });
+});
+
+describe('newsExcerpt', () => {
+  it('drops the greeting and keeps whole paragraphs that fit', () => {
+    const body = 'Olá, Daevas,\n\nPrimeiro parágrafo.\n\nSegundo parágrafo.\n\nTerceiro.';
+    expect(newsExcerpt(body, 40)).toBe('Primeiro parágrafo.\n\nSegundo parágrafo.\n…');
+    expect(newsExcerpt(body, 500)).toBe('Primeiro parágrafo.\n\nSegundo parágrafo.\n\nTerceiro.');
+  });
+
+  it('cuts a single long paragraph at a space', () => {
+    expect(newsExcerpt('uma frase bem comprida demais', 14)).toBe('uma frase\n…');
   });
 });

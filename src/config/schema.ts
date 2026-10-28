@@ -189,13 +189,11 @@ const settingsSchema = z.looseObject({
    * approved application and the daily check set it. Administrators are not affected.
    */
   lockNicknames: z.boolean().default(false),
-  /** #patch-notes: the game's patch notes from its Steam announcements, in Portuguese. */
-  patchNotes: z
+  /** #noticias: every one of the game's Steam announcements, in Portuguese. */
+  news: z
     .object({
       channel: key,
       steamAppId: z.number().int().positive(),
-      /** An announcement is posted when its title contains one of these (any case). */
-      titleMatches: z.array(z.string().min(1)).min(1),
       pollMinutes: z.number().int().min(5).default(15),
     })
     .optional(),
@@ -291,7 +289,7 @@ export const serverConfigSchema = z
       [['rules', 'channel'], s.rules.channel],
       [['audit', 'channel'], s.audit.channel],
       [['musicGuard', 'channel'], s.musicGuard.channel],
-      [['patchNotes', 'channel'], s.patchNotes?.channel],
+      [['news', 'channel'], s.news?.channel],
       [['recruitment', 'channel'], s.recruitment?.channel],
       [['recruitment', 'reviewChannel'], s.recruitment?.reviewChannel],
       [['recruitment', 'announceChannel'], s.recruitment?.announceChannel],

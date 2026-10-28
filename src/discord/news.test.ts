@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { patchNoteMessage } from './patch-notes.js';
+import { newsMessage } from './news.js';
 
 const note = {
   id: '1',
@@ -17,9 +17,9 @@ const note = {
   ].join('\n'),
 };
 
-describe('patchNoteMessage', () => {
+describe('newsMessage', () => {
   it('is one card with name, date, intro, highlights, banner and a Steam button', () => {
-    const { embeds, components } = patchNoteMessage(note);
+    const { embeds, components } = newsMessage(note);
     const embed = embeds[0]!.toJSON();
 
     expect(embed.title).toBe('📜 Notas da Atualização');
@@ -33,6 +33,26 @@ describe('patchNoteMessage', () => {
       { name: '🔧 Outras Melhorias e Correções de Bugs', value: 'Detalhes na Steam.' },
     ]);
     const button = components[0]!.toJSON().components[0]!;
-    expect(button).toMatchObject({ url: note.url, label: 'Ler as notas completas' });
+    expect(button).toMatchObject({ url: note.url, label: 'Ler na Steam' });
+  });
+
+  it('shows the opening paragraphs of a post without sections, styled by its kind', () => {
+    const { embeds } = newsMessage({
+      ...note,
+      title: '[Aviso] Manutenção | 27 outubro (PDT) / 28 outubro (CET)',
+      body: 'Olá, Daevas,\n\nRealizaremos a manutenção programada.\n\n**__Detalhes:__**\nDuração: 4h30',
+    });
+    const embed = embeds[0]!.toJSON();
+
+    expect(embed.title).toBe('🛠️ Manutenção');
+    expect(embed.author?.name).toBe('AION 2 · Manutenção');
+    expect(embed.description).toBe(
+      [
+        '🗓️ 27 outubro (PDT) / 28 outubro (CET)',
+        'Realizaremos a manutenção programada.',
+        '**__Detalhes:__**\nDuração: 4h30',
+      ].join('\n\n'),
+    );
+    expect(embed.fields ?? []).toEqual([]);
   });
 });
