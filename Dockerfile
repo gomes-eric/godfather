@@ -3,8 +3,9 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-# better-sqlite3 ships prebuilt binaries, so nothing is compiled here.
-RUN npm ci
+# better-sqlite3 loads its prebuilt binary, but npm would still run node-gyp because the package
+# has a binding.gyp; no runtime dependency needs an install script, so they are all skipped.
+RUN npm ci --ignore-scripts
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 # Then drop dev dependencies, and better-sqlite3's C sources and other platforms' binaries.
