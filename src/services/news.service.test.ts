@@ -162,7 +162,7 @@ describe('NewsService with Claude summaries', () => {
     const summaryConfig = {
       get: () => ({
         settings: {
-          news: { ...config.get().settings.news, summary: { model: 'claude-haiku-5-5' } },
+          news: { ...config.get().settings.news, summary: { model: 'claude-sonnet-5-5' } },
         },
         roles: CLASSES.map((key) => ({ key, name: CLASS_NAMES[key], class: true })),
       }),

@@ -188,7 +188,7 @@ async function main(): Promise<void> {
       ...(claude && {
         summarizer: createNewsSummarizer({
           client: claude,
-          model: () => config.get().settings.news?.summary?.model ?? 'claude-haiku-5-5',
+          model: () => config.get().settings.news?.summary?.model ?? 'claude-sonnet-5-5',
           classes: () =>
             classRoles(config.get()).map((role) => ({
               key: role.key,

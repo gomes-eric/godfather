@@ -14,9 +14,7 @@ const classes = [
 describe('news digest prompt', () => {
   it("maps the game's class names to the legion's", () => {
     expect(gameClassName('class-sorcerer')).toBe('Sorcerer');
-    expect(digestSystemPrompt(classes)).toContain(
-      '- Sorcerer → write "Mago" (key `class-sorcerer`)',
-    );
+    expect(digestSystemPrompt(classes)).toContain('- Sorcerer → Mago (chave `class-sorcerer`)');
   });
 
   it('wraps the post as data', () => {
@@ -48,7 +46,7 @@ describe('news digest prompt', () => {
 describe('news digest language', () => {
   it('reads posts in any language and always answers in Brazilian Portuguese', () => {
     const prompt = digestSystemPrompt(classes);
-    expect(prompt).toContain('It may be in any language');
-    expect(prompt).toContain('always write every field of your answer in Brazilian Portuguese');
+    expect(prompt).toContain('Ele pode vir em qualquer idioma');
+    expect(prompt).toContain('escreva todos os campos da resposta em português do Brasil');
   });
 });
