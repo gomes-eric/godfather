@@ -351,7 +351,7 @@ eventTemplates:
 fieldBosses:
   source:
     provider: questlog
-    enabled: true            # set to false if questlog.gg objects or the endpoint breaks; manual /boss still works
+    enabled: false           # off: questlog.gg (Cloudflare) blocks the Oracle Cloud IP; manual /boss still works
     serverId: 2403           # Triniel (South America)
     pollIntervalSeconds: 180
     staleAfterHours: 6       # older readings trigger a warning in #audit-log
