@@ -249,6 +249,10 @@ export const ptBR = {
     menuOption: (combatPower: string, itemLevel: string) =>
       `Ver perfil · ⚔️ ${combatPower} · 🎚️ ${itemLevel}`,
     menuGone: 'Esse membro não está mais registrado. O ranking é atualizado todo dia.',
+    commandBusy:
+      '⏳ Uma conferência já está em andamento. O #ranking é atualizado assim que ela terminar.',
+    commandDone: (members: number, changes: number) =>
+      `🏆 #ranking atualizado: ${members} personagens relidos no site oficial. ${changes > 0 ? `${changes} mudança(s) foram para o relatório no canal dos oficiais.` : 'Nada mudou de classe, nome ou legião.'}`,
   },
 
   news: {
@@ -641,6 +645,11 @@ export const ptBR = {
             usage: '/perfil',
             text: 'Poder de combate, nível de item e equipamentos de um personagem',
             tier: 'visitor',
+          },
+          {
+            usage: '/ranking',
+            text: 'Atualiza o #ranking agora com os dados do site oficial',
+            tier: 'officer',
           },
         ],
       },

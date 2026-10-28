@@ -60,6 +60,11 @@ export class LegionCheckService implements BackgroundJob {
     return checkDue(checkedAt, now) ? this.check() : [];
   }
 
+  /** Whether a check is under way; a second one meanwhile does nothing. */
+  get isChecking(): boolean {
+    return this.running;
+  }
+
   async check(): Promise<string[]> {
     if (this.running) return [];
     this.running = true;

@@ -11,6 +11,7 @@ import type { CharacterStore } from '../../db/characters.js';
 import type { Logger } from '../../logger.js';
 import type { EventService } from '../../services/event.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
+import type { LegionCheckService } from '../../services/legion-check.service.js';
 import type { PartyService } from '../../services/party.service.js';
 import type { RecruitmentDesk } from '../../services/recruitment-desk.service.js';
 import type { RegistrationService } from '../../services/registration.service.js';
@@ -38,6 +39,8 @@ export interface CommandContext {
   characters: GameCharacterService;
   /** Which in-game character each member has (from approved applications). */
   registrations: CharacterStore;
+  /** The legion check and the #ranking board (/ranking). */
+  legion: LegionCheckService;
   /** Party finder (/party). */
   parties: PartyService;
   /** Ties members to their characters (class role, nickname, Soldado). */

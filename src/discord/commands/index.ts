@@ -7,6 +7,7 @@ import { memberCommand } from './member.js';
 import { modCommand } from './mod.js';
 import { partyCommand } from './party.js';
 import { profileCommand } from './profile.js';
+import { rankingCommand } from './ranking.js';
 import { sayCommand } from './say.js';
 import { setupCommand } from './setup.js';
 import { voiceCommand } from './voice.js';
@@ -23,6 +24,7 @@ export const commands: SlashCommand[] = [
   voiceCommand,
   eventCommand,
   profileCommand,
+  rankingCommand,
   partyCommand,
   mcpCommand,
   auditCommand,
