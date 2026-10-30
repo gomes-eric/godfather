@@ -1,11 +1,13 @@
 import type { ConfigStore } from '../config/store.js';
 import {
   parseEquipment,
+  parseItemDetail,
   parseProfile,
   parseSearch,
   type CharacterProfile,
   type CharacterRef,
   type EquipmentItem,
+  type ItemDetail,
 } from '../core/game-character.js';
 import type { Logger } from '../logger.js';
 import { fetchJson, type FetchJson } from './fetch-json.js';
@@ -94,6 +96,25 @@ export class GameCharacterService {
     );
     if (!profile) throw new GameApiError('unexpected character info response');
     return profile;
+  }
+
+  /** One equipped piece in full; throws GameApiError when the site can't give it. */
+  async item(
+    ref: { id: string; serverId: number },
+    piece: Pick<EquipmentItem, 'id' | 'slotPos' | 'enchantLevel'>,
+  ): Promise<ItemDetail> {
+    const query = new URLSearchParams({
+      id: String(piece.id),
+      enchantLevel: String(piece.enchantLevel),
+      characterId: ref.id,
+      serverId: String(ref.serverId),
+      slotPos: String(piece.slotPos),
+      lang: 'pt-br',
+      region: this.lookup.region,
+    });
+    const detail = parseItemDetail(await this.cached(`${API_URL}/equipment/item?${query}`, false));
+    if (!detail) throw new GameApiError('unexpected item detail response');
+    return detail;
   }
 
   async sheet(ref: { id: string; serverId: number }): Promise<CharacterSheet> {

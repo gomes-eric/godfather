@@ -2,7 +2,7 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { CharacterRef } from '../../core/game-character.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { GameApiError, type CharacterSheet } from '../../services/game-character.service.js';
-import { characterCard } from '../profile-card.js';
+import { characterCard, gearMenu } from '../profile-card.js';
 import { failureText } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
@@ -74,6 +74,10 @@ export const profileCommand: SlashCommand = {
     if (outcome.status !== 'ok') return fail(failureText(outcome));
     if ('problem' in outcome.value) return fail(`⚠️ ${outcome.value.problem}`);
 
-    await interaction.editReply({ embeds: [characterCard(outcome.value.sheet, ctx.config.get())] });
+    const { sheet } = outcome.value;
+    await interaction.editReply({
+      embeds: [characterCard(sheet, ctx.config.get())],
+      components: gearMenu(sheet),
+    });
   },
 };

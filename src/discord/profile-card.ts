@@ -1,9 +1,16 @@
-import { EmbedBuilder } from 'discord.js';
+import { ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { classRoles, type ServerConfig } from '../config/schema.js';
-import { itemLabel, matchClass, type EquipmentGroup } from '../core/game-character.js';
+import {
+  itemLabel,
+  matchClass,
+  type EquipmentGroup,
+  type EquipmentItem,
+  type ItemDetail,
+} from '../core/game-character.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { CharacterSheet } from '../services/game-character.service.js';
 import { COLORS } from './colors.js';
+import { customId } from './custom-id.js';
 
 const t = ptBR.profile;
 const GROUPS: { group: EquipmentGroup[]; name: string }[] = [
@@ -56,4 +63,92 @@ export function characterCard(sheet: CharacterSheet, config: ServerConfig): Embe
     ...(classRole?.color !== undefined && { color: classRole.color }),
     serverName: config.settings.characters.serverName,
   });
+}
+
+/** Prefix of the gear menu: `gear:<serverId>:<characterId>`; each option is `<slotPos>:<itemId>:<enchant>`. */
+export const GEAR_PREFIX = 'gear:';
+/** Discord's limit of options in a select menu. */
+const MAX_OPTIONS = 25;
+
+/** The "see a piece's details" menu under a profile card; none when nothing is equipped. */
+export function gearMenu({
+  profile,
+  equipment,
+}: CharacterSheet): ActionRowBuilder<StringSelectMenuBuilder>[] {
+  const pieces = equipment.filter((item) => item.id > 0).slice(0, MAX_OPTIONS);
+  if (pieces.length === 0) return [];
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(customId(GEAR_PREFIX, profile.serverId, profile.id))
+    .setPlaceholder(t.gearPlaceholder)
+    .addOptions(
+      pieces.map((item) => ({
+        label: itemLabel(item).slice(0, 100),
+        description: t.gearOption(t.slots[item.slot] ?? item.slot).slice(0, 100),
+        value: gearValue(item),
+      })),
+    );
+  return [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)];
+}
+
+export function gearValue(item: Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantLevel'>): string {
+  return `${item.slotPos}:${item.id}:${item.enchantLevel}`;
+}
+
+/** `<slotPos>:<itemId>:<enchant>` back to the piece, or undefined when it doesn't parse. */
+export function parseGearValue(
+  value: string,
+): Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantLevel'> | undefined {
+  const [slotPos, id, enchantLevel] = value.split(':').map(Number);
+  return [slotPos, id, enchantLevel].every((n) => Number.isInteger(n))
+    ? { slotPos: slotPos!, id: id!, enchantLevel: enchantLevel! }
+    : undefined;
+}
+
+/** One piece in full: level, enchantment, stats, stones and where it comes from. */
+export function itemCard(item: ItemDetail, characterName: string): EmbedBuilder {
+  const enchant = item.enchantLevel > 0 ? `+${item.enchantLevel} ` : '';
+  const header = [
+    [item.gradeName, item.category].filter(Boolean).join(' · '),
+    [
+      item.level !== null ? t.pieceLevel(item.level) : null,
+      t.enchant(item.enchantLevel, item.maxEnchantLevel),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    ...(item.classes.length > 0 ? [t.classes(item.classes)] : []),
+  ].filter(Boolean);
+
+  const embed = new EmbedBuilder()
+    .setColor(COLORS.brand)
+    .setTitle(`${enchant}${item.name}`.slice(0, 256))
+    .setDescription(header.join('\n'))
+    .setFooter({ text: t.itemFooter(characterName) });
+  if (item.icon) embed.setThumbnail(item.icon);
+
+  const field = (name: string, lines: string[]) => {
+    if (lines.length > 0) embed.addFields({ name, value: lines.join('\n').slice(0, 1024) });
+  };
+  field(
+    t.mainStats,
+    item.mainStats.map(
+      (s) => `${s.name}: **${s.value}**${s.extra ? ` (${s.extra} do encantamento)` : ''}`,
+    ),
+  );
+  field(
+    t.subStats,
+    item.subStats.map((s) => `${s.name}: **${s.value}**`),
+  );
+  field(
+    t.magicStones,
+    item.magicStones.map((s) => `${s.name} **${s.value}**`),
+  );
+  field(
+    t.godStones,
+    item.godStones.map((s) => `**${s.name}**${s.description ? `\n${s.description}` : ''}`),
+  );
+  field(t.trade, [
+    item.tradable ? t.tradable : t.notTradable,
+    ...(item.sources.length > 0 ? [t.sources(item.sources)] : []),
+  ]);
+  return embed;
 }

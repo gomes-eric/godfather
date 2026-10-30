@@ -3,6 +3,7 @@ import {
   itemLabel,
   matchClass,
   parseEquipment,
+  parseItemDetail,
   parseProfile,
   parseSearch,
   sameLegion,
@@ -128,5 +129,55 @@ describe('game character API parsing', () => {
     expect(matchClass('Bardo', roles)).toBeUndefined();
     expect(sameLegion('m4f1a', 'M4F1A')).toBe(true);
     expect(sameLegion('', 'M4F1A')).toBe(false);
+  });
+});
+
+describe('parseItemDetail', () => {
+  it('reads an equipped piece: stats with the enchantment bonus, stones and origin', () => {
+    const item = parseItemDetail({
+      name: 'Maça da Alma Forjada',
+      grade: 'Unique',
+      gradeName: 'Único',
+      icon: 'https://x/icon.png',
+      level: 45,
+      enchantLevel: 10,
+      maxEnchantLevel: 15,
+      categoryName: 'Maça',
+      classNames: ['Clérigo'],
+      mainStats: [
+        { name: 'Ataque', value: '206', extra: '50' },
+        { name: 'Precisão', value: '100', extra: '0' },
+        { name: 'Tolerância a Dano em JvA', value: '0.5%', extra: '0%' },
+      ],
+      subStats: [{ name: 'Poder', value: '15' }],
+      magicStoneStat: [{ name: 'PM', value: '+50' }],
+      godStoneStat: [{ name: 'Pedra Divina: Instinto de Feruk', desc: 'Ao atacar…' }],
+      tradable: false,
+      sources: ['Campanha'],
+    });
+    expect(item).toEqual({
+      name: 'Maça da Alma Forjada',
+      gradeName: 'Único',
+      icon: 'https://x/icon.png',
+      level: 45,
+      enchantLevel: 10,
+      maxEnchantLevel: 15,
+      category: 'Maça',
+      classes: ['Clérigo'],
+      mainStats: [
+        { name: 'Ataque', value: '206', extra: '+50' },
+        { name: 'Precisão', value: '100', extra: null },
+        { name: 'Tolerância a Dano em JvA', value: '0.5%', extra: null },
+      ],
+      subStats: [{ name: 'Poder', value: '15' }],
+      magicStones: [{ name: 'PM', value: '+50' }],
+      godStones: [{ name: 'Pedra Divina: Instinto de Feruk', description: 'Ao atacar…' }],
+      tradable: false,
+      sources: ['Campanha'],
+    });
+  });
+
+  it('gives null for an answer without a name (an error page, a changed API)', () => {
+    expect(parseItemDetail({ status: 404 })).toBeNull();
   });
 });

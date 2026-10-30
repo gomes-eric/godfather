@@ -24,6 +24,10 @@ export interface CharacterProfile extends CharacterRef {
 export type EquipmentGroup = 'weapons' | 'armor' | 'accessories' | 'runes' | 'arcana';
 
 export interface EquipmentItem {
+  /** Item id in the game data (0 when the site left it out); with the slot it fetches the details. */
+  id: number;
+  /** Slot number the official site uses to fetch this piece's details. */
+  slotPos: number;
   name: string;
   slot: string;
   group: EquipmentGroup;
@@ -128,6 +132,8 @@ export function parseEquipment(json: unknown): EquipmentItem[] {
     const name = str(entry.name);
     if (!group || !name) continue;
     items.push({
+      id: num(entry.id) ?? 0,
+      slotPos: num(entry.slotPos) ?? 0,
       name,
       slot,
       group,
@@ -144,6 +150,71 @@ export function itemLabel(item: EquipmentItem): string {
   const enchant = item.enchantLevel > 0 ? `+${item.enchantLevel} ` : '';
   const exceed = item.exceedLevel > 0 ? ` ✦${item.exceedLevel}` : '';
   return `${enchant}${item.name}${exceed}`;
+}
+
+/** One equipped piece in full, as the official site's item tooltip shows it. */
+export interface ItemDetail {
+  name: string;
+  /** "Único", "Lendário"… in Portuguese. */
+  gradeName: string;
+  icon: string | null;
+  /** Item level (the "Nível 45" on the tooltip). */
+  level: number | null;
+  enchantLevel: number;
+  maxEnchantLevel: number | null;
+  /** "Maça", "Runa"… */
+  category: string;
+  /** Classes that can use it; empty when every class can. */
+  classes: string[];
+  /** Base stats; `extra` is what the enchantment adds ("+50"), null when it adds nothing. */
+  mainStats: { name: string; value: string; extra: string | null }[];
+  subStats: { name: string; value: string }[];
+  magicStones: { name: string; value: string }[];
+  godStones: { name: string; description: string }[];
+  tradable: boolean;
+  /** Where it drops or comes from ("Campanha", "Baú de Recompensa"…). */
+  sources: string[];
+}
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.map(str).filter(Boolean) : [];
+const records = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value) ? value.map(obj) : [];
+/** "0", "0%" and "" mean the enchantment adds nothing. */
+const statExtra = (value: unknown): string | null => {
+  const text = str(value);
+  return /^[+-]?0(\.0+)?%?$/.test(text) || !text ? null : `+${text.replace(/^\+/, '')}`;
+};
+
+/** An equipped item's details (/api/character/equipment/item), or null when the answer is unusable. */
+export function parseItemDetail(json: unknown): ItemDetail | null {
+  const item = obj(json);
+  const name = str(item.name);
+  if (!name) return null;
+  return {
+    name,
+    gradeName: str(item.gradeName) || str(item.grade),
+    icon: str(item.icon) || null,
+    level: num(item.level),
+    enchantLevel: num(item.enchantLevel) ?? 0,
+    maxEnchantLevel: num(item.maxEnchantLevel),
+    category: str(item.categoryName),
+    classes: strings(item.classNames),
+    mainStats: records(item.mainStats)
+      .map((s) => ({ name: str(s.name), value: str(s.value), extra: statExtra(s.extra) }))
+      .filter((s) => s.name && s.value),
+    subStats: records(item.subStats)
+      .map((s) => ({ name: str(s.name), value: str(s.value) }))
+      .filter((s) => s.name && s.value),
+    magicStones: records(item.magicStoneStat)
+      .map((s) => ({ name: str(s.name), value: str(s.value) }))
+      .filter((s) => s.name),
+    godStones: records(item.godStoneStat)
+      .map((s) => ({ name: str(s.name), description: str(s.desc) }))
+      .filter((s) => s.name),
+    tradable: item.tradable === true,
+    sources: strings(item.sources),
+  };
 }
 
 const fold = (text: string) =>

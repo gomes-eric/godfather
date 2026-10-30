@@ -11,6 +11,7 @@ import { ptBR } from '../../i18n/pt-BR.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { handleConfirmationButton } from './confirmation.js';
 import { handlePartyButton } from './party.js';
+import { handleGearSelect } from './gear.js';
 import { handleRankingSelect } from './ranking.js';
 import { handleRecruitButton, handleRecruitModal } from './recruitment.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
@@ -34,6 +35,7 @@ const modals: Handler<ModalSubmitInteraction>[] = [
 ];
 const selectMenus: Handler<StringSelectMenuInteraction>[] = [
   handleRankingSelect,
+  handleGearSelect,
   handleRoomKickSelect,
 ];
 
