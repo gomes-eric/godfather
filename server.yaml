@@ -83,8 +83,9 @@ settings:
   # Aprovar/Recusar (officers and up); approving registers the character and makes them Soldado.
   recruitment:
     channel: recruitment       # the "Enviar minha ficha" form
-    reviewChannel: recruitment # each application's card, right below
-    announceChannel: recruitment
+    # Each application's card goes in a private thread here that only the applicant, Oficiais and
+    # Comandantes see; the welcome on approval goes in the same thread.
+    reviewChannel: recruitment
     pingRole: officer
   # Every one of the game's Steam announcements (patch notes, maintenance, events, account
   # restrictions…), read in Portuguese every 15 minutes.

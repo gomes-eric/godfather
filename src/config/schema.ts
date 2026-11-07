@@ -190,15 +190,17 @@ const settingsSchema = z.looseObject({
     })
     .optional(),
   /**
-   * "Enviar minha ficha": applications go to reviewChannel with Aprovar/Recusar, and approved
-   * members are welcomed in announceChannel (no DMs). pingRole is mentioned on each new one.
+   * "Enviar minha ficha": each application gets a private thread in reviewChannel that only the
+   * applicant, Oficiais and Comandantes see, with the card and its Aprovar/Recusar buttons.
+   * pingRole is mentioned on each new one. Approved members are welcomed in announceChannel, or
+   * in their thread when it is left out (no DMs).
    */
   recruitment: z
     .object({
       /** Where /setup posts the "Enviar minha ficha" panel. */
       channel: key,
       reviewChannel: key,
-      announceChannel: key,
+      announceChannel: key.optional(),
       pingRole: key.optional(),
     })
     .optional(),

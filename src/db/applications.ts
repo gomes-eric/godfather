@@ -40,8 +40,8 @@ export class ApplicationStore {
       .all();
   }
 
-  setMessage(id: number, messageId: string): void {
-    this.db.update(applications).set({ messageId }).where(eq(applications.id, id)).run();
+  setMessage(id: number, messageId: string, threadId: string | null): void {
+    this.db.update(applications).set({ messageId, threadId }).where(eq(applications.id, id)).run();
   }
 
   decide(id: number, status: 'approved' | 'rejected', decidedBy: string): void {

@@ -151,6 +151,8 @@ export const ptBR = {
     sent: (name: string) =>
       `✅ Ficha de **${name}** enviada! Ela está no #recrutamento, e um Oficial vai aprovar ou recusar por lá.`,
     newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
+    /** Name of the private thread an application's card goes in. */
+    threadName: (character: string) => `Ficha · ${character}`,
     cardTitle: (name: string) => `📝 Ficha da legião · ${name}`,
     applicant: (id: string) => `👤 <@${id}>`,
     pending: '⏳ Aguardando um Oficial',

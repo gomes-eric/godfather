@@ -1,0 +1,1 @@
+ALTER TABLE `applications` ADD `thread_id` text;

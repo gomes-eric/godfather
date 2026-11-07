@@ -15,6 +15,7 @@ const application: Application = {
   itemLevel: 2000,
   status: 'pending',
   messageId: null,
+  threadId: null,
   decidedBy: null,
   decidedAt: null,
   createdAt: new Date('2026-10-26T00:00:00Z'),

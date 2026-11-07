@@ -71,7 +71,7 @@ export class RecruitmentService {
     });
   }
 
-  attachMessage(id: number, messageId: string): void {
-    this.deps.store.setMessage(id, messageId);
+  attachMessage(id: number, messageId: string, threadId: string | null = null): void {
+    this.deps.store.setMessage(id, messageId, threadId);
   }
 }

@@ -152,6 +152,8 @@ export const applications = sqliteTable('applications', {
     .notNull()
     .default('pending'),
   messageId: text('message_id'),
+  /** The private thread in the review channel that holds the card (null for older cards). */
+  threadId: text('thread_id'),
   decidedBy: text('decided_by'),
   decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })

@@ -1,3 +1,4 @@
+import { ChannelType } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
@@ -31,19 +32,49 @@ function setup(memberInServer = true) {
   const sent: { channel: string; content?: string }[] = [];
   const edits: string[] = [];
   const admitted: string[] = [];
-  const channel = (name: string) => ({
+  const created: { name: string; type: number; invitable: boolean }[] = [];
+  const added: string[] = [];
+  const thread = {
+    id: 'thread-1',
+    archived: false,
+    isThread: () => true,
+    setArchived: async () => undefined,
+    members: { add: async (id: string) => void added.push(id) },
     send: async (message: { content?: string }) => {
-      sent.push({ channel: name, ...(message.content && { content: message.content }) });
-      return { id: `${name}-msg` };
+      sent.push({ channel: 'thread', ...(message.content && { content: message.content }) });
+      return { id: 'card-msg' };
     },
-    messages: {
-      fetch: async (id: string) => ({ edit: async () => void edits.push(id) }),
+    messages: { fetch: async (id: string) => ({ edit: async () => void edits.push(id) }) },
+  };
+  const review = {
+    threads: {
+      create: async (options: { name: string; type: number; invitable: boolean }) => {
+        created.push(options);
+        return thread;
+      },
     },
-  });
+  };
   const member = { id: 'u1', displayAvatarURL: () => 'https://cdn.discordapp.com/avatar.png' };
+  const withRoles = (id: string, roles: string[], bot = false) => ({
+    id,
+    user: { bot },
+    roles: { cache: new Set(roles) },
+  });
+  const everyone = new Map(
+    [
+      withRoles('officer-1', ['officer-role']),
+      withRoles('commander-1', ['commander-role']),
+      withRoles('soldier-1', ['soldier-role']),
+      withRoles('bot-1', ['officer-role'], true),
+    ].map((m) => [m.id, m]),
+  );
   const desk = new RecruitmentDesk({
     guild: {
-      members: { fetch: async () => (memberInServer ? member : Promise.reject(new Error('gone'))) },
+      members: {
+        fetch: async (id?: string) =>
+          id === undefined ? everyone : memberInServer ? member : Promise.reject(new Error('gone')),
+      },
+      channels: { fetch: async (id: string) => (id === thread.id ? thread : null) },
     } as never,
     config: {
       get: () => ({
@@ -52,15 +83,19 @@ function setup(memberInServer = true) {
           recruitment: {
             channel: 'recruitment',
             reviewChannel: 'recruitment',
-            announceChannel: 'recruitment',
             pingRole: 'officer',
           },
         },
       }),
     } as unknown as ConfigStore,
     directory: {
-      channelByKey: (key: string) => channel(key),
+      channelByKey: () => review,
       roleId: () => 'officer-role',
+      tierRoleIds: () => ({
+        officer: 'officer-role',
+        commander: 'commander-role',
+        soldier: 'soldier-role',
+      }),
     } as unknown as GuildDirectory,
     recruitment: new RecruitmentService({
       store: applications,
@@ -79,20 +114,30 @@ function setup(memberInServer = true) {
     } as unknown as RegistrationService,
     logger: { warn: () => undefined } as unknown as Logger,
   });
-  return { desk, applications, sent, edits, admitted };
+  return { desk, applications, sent, edits, admitted, created, added };
 }
 
 describe('RecruitmentDesk', () => {
-  it('posts the card for the officers and remembers it', async () => {
-    const { desk, applications, sent } = setup();
+  it('posts the card in a private thread with only the applicant and the staff', async () => {
+    const { desk, applications, sent, created, added } = setup();
     const outcome = await desk.submit(visitor, character);
 
     expect(outcome.status).toBe('ok');
-    expect(sent[0]!.content).toContain('<@&officer-role>');
-    expect(applications.list()[0]!.messageId).toBe('recruitment-msg');
+    expect(created).toEqual([
+      expect.objectContaining({
+        name: 'Ficha · Padrinho',
+        type: ChannelType.PrivateThread,
+        invitable: false,
+      }),
+    ]);
+    expect(added).toEqual(['u1', 'officer-1', 'commander-1']);
+    expect(sent).toEqual([
+      { channel: 'thread', content: expect.stringContaining('<@&officer-role>') },
+    ]);
+    expect(applications.list()[0]).toMatchObject({ messageId: 'card-msg', threadId: 'thread-1' });
   });
 
-  it('approving registers them, updates the card and welcomes them in the channel', async () => {
+  it('approving registers them, updates the card and welcomes them in the thread', async () => {
     const { desk, sent, edits, admitted } = setup();
     const created = await desk.submit(visitor, character);
     if (created.status !== 'ok') throw new Error('not created');
@@ -101,8 +146,11 @@ describe('RecruitmentDesk', () => {
 
     expect(outcome).toMatchObject({ status: 'ok', value: { status: 'approved' } });
     expect(admitted).toEqual(['u1']);
-    expect(edits).toEqual(['recruitment-msg']);
-    expect(sent.at(-1)!.content).toContain('✨ Padrinho');
+    expect(edits).toEqual(['card-msg']);
+    expect(sent.at(-1)).toEqual({
+      channel: 'thread',
+      content: expect.stringContaining('✨ Padrinho'),
+    });
   });
 
   it('refuses to approve someone who left the server', async () => {
