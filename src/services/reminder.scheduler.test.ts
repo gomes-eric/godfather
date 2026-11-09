@@ -20,7 +20,10 @@ const logger = pino({ level: 'silent' });
 /** Only the Abyss war template, so expectations stay readable. */
 function warOnly(): ServerConfig {
   const config = structuredClone(repoConfig);
-  config.eventTemplates = config.eventTemplates.filter((t) => t.key === 'abyss-war');
+  // The tests run on a Monday; pin the war's days so they don't follow server.yaml's schedule.
+  config.eventTemplates = config.eventTemplates
+    .filter((t) => t.key === 'abyss-war')
+    .map((t) => ({ ...t, days: ['mon', 'thu', 'sat'] }));
   return config;
 }
 
