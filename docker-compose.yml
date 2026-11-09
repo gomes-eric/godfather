@@ -6,6 +6,11 @@ services:
     # The bot uses ~60 MB; a leak restarts it instead of starving the 1 GB host.
     mem_limit: 384m
     env_file: .env
+    # The bot writes server.yaml (event times from shugo.gg, /event template edit). On the server
+    # the file belongs to the deploy user (ubuntu, gid 1001, mode 664): joining that group lets
+    # the container's node user write it without changing its owner, so git pushes still work.
+    group_add:
+      - '1001'
     environment:
       NODE_ENV: production
       DATABASE_PATH: /data/padrinho.db

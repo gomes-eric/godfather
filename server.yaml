@@ -335,14 +335,14 @@ eventTemplates:
   - key: abyss-war
     title: Guerra do Abismo — Cerco de Artefatos
     emoji: "⚔️"
-    days: [mon, thu, sat]
+    days: [thu, sat]
     time: "21:00"
     shugoEvent: artifact-siege
     enabled: true
   - key: abyss-bosses
     title: Chefes do Cerco (Tamasa, Argo, Kairah)
     emoji: "👹"
-    days: [mon, thu, sat]
+    days: [thu, sat]
     time: "21:30"
     shugoEvent: siege-bosses
     enabled: true
