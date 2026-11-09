@@ -153,6 +153,8 @@ export const ptBR = {
     newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
     /** Name of the private thread an application's card goes in. */
     threadName: (character: string) => `Ficha · ${character}`,
+    /** Reason in Discord's audit log when a decided application's thread is deleted. */
+    threadClosedReason: 'Ficha de recrutamento decidida',
     cardTitle: (name: string) => `📝 Ficha da legião · ${name}`,
     applicant: (id: string) => `👤 <@${id}>`,
     pending: '⏳ Aguardando um Oficial',

@@ -214,6 +214,16 @@ async function main(): Promise<void> {
       logger,
     });
     const applications = new ApplicationStore(database.db);
+    const recruitmentDesk = new RecruitmentDesk({
+      guild,
+      config,
+      directory,
+      recruitment: new RecruitmentService({ store: applications, runAction }),
+      applications,
+      registration,
+      logger,
+    });
+    stopJobs.push(recruitmentDesk.start());
     const services = {
       guild,
       config,
@@ -231,15 +241,7 @@ async function main(): Promise<void> {
       registrations,
       registration,
       applications,
-      recruitmentDesk: new RecruitmentDesk({
-        guild,
-        config,
-        directory,
-        recruitment: new RecruitmentService({ store: applications, runAction }),
-        applications,
-        registration,
-        logger,
-      }),
+      recruitmentDesk,
       legion,
       news,
     };

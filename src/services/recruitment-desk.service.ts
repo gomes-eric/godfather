@@ -9,6 +9,7 @@ import { fetchMember } from '../discord/members.js';
 import { applicationCard } from '../discord/recruitment.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
+import { repeat, type BackgroundJob } from '../core/repeat.js';
 import type { RecruitmentService } from './recruitment.service.js';
 import type { RegistrationService } from './registration.service.js';
 
@@ -22,7 +23,12 @@ interface Deps {
   applications: ApplicationStore;
   registration: RegistrationService;
   logger: Logger;
+  now?: () => Date;
 }
+
+/** How long a decided application's private thread stays before it is deleted. */
+export const THREAD_LIFETIME_MS = { approved: 60 * 60_000, rejected: 6 * 60 * 60_000 } as const;
+const SWEEP_MS = 5 * 60_000;
 
 /** The character as stored in the application, in the shape the registration uses. */
 function characterOf(application: Application): CharacterProfile {
@@ -46,7 +52,7 @@ function characterOf(application: Application): CharacterProfile {
  * holds only the form, and carries out a decision (register the character, make them Soldado,
  * update the card, welcome them; no DMs).
  */
-export class RecruitmentDesk {
+export class RecruitmentDesk implements BackgroundJob {
   constructor(private readonly deps: Deps) {}
 
   private settings() {
@@ -179,5 +185,34 @@ export class RecruitmentDesk {
     const channel = await this.cardChannel(application);
     const message = await channel?.messages.fetch(application.messageId);
     await message?.edit({ ...(await this.card(application)), allowedMentions: { parse: [] } });
+  }
+
+  /**
+   * Deletes the private thread of each decided application once its time is up: an hour after an
+   * approval (the welcome has been read), six hours after a refusal. Runs from the stored decision
+   * time, so a restart doesn't lose track. Returns how many threads went.
+   */
+  async sweepThreads(): Promise<number> {
+    const now = (this.deps.now ?? (() => new Date()))().getTime();
+    let deleted = 0;
+    for (const application of this.deps.applications.decidedWithThread()) {
+      if (application.status === 'pending' || !application.decidedAt) continue;
+      if (now - application.decidedAt.getTime() < THREAD_LIFETIME_MS[application.status]) continue;
+      const thread = await this.deps.guild.channels.fetch(application.threadId!).catch(() => null);
+      if (thread?.isThread()) {
+        await thread.delete(t.threadClosedReason);
+        deleted++;
+      }
+      this.deps.applications.forgetThread(application.id);
+    }
+    return deleted;
+  }
+
+  start(): () => void {
+    return repeat(
+      SWEEP_MS,
+      () => this.sweepThreads(),
+      (error) => this.deps.logger.warn({ err: error }, 'application thread sweep failed'),
+    );
   }
 }

@@ -34,11 +34,14 @@ function setup(memberInServer = true) {
   const admitted: string[] = [];
   const created: { name: string; type: number; invitable: boolean }[] = [];
   const added: string[] = [];
+  const deletedThreads: string[] = [];
+  const clock = { now: new Date('2026-11-09T12:00:00Z') };
   const thread = {
     id: 'thread-1',
     archived: false,
     isThread: () => true,
     setArchived: async () => undefined,
+    delete: async () => void deletedThreads.push('thread-1'),
     members: { add: async (id: string) => void added.push(id) },
     send: async (message: { content?: string }) => {
       sent.push({ channel: 'thread', ...(message.content && { content: message.content }) });
@@ -113,8 +116,9 @@ function setup(memberInServer = true) {
       },
     } as unknown as RegistrationService,
     logger: { warn: () => undefined } as unknown as Logger,
+    now: () => clock.now,
   });
-  return { desk, applications, sent, edits, admitted, created, added };
+  return { desk, applications, sent, edits, admitted, created, added, deletedThreads, clock };
 }
 
 describe('RecruitmentDesk', () => {
@@ -162,5 +166,47 @@ describe('RecruitmentDesk', () => {
       status: 'rejected',
     });
     expect(applications.get(created.value.id)!.status).toBe('pending');
+  });
+
+  const later = (clock: { now: Date }, minutes: number) =>
+    (clock.now = new Date(clock.now.getTime() + minutes * 60_000));
+
+  it("deletes an approved application's thread an hour after the decision", async () => {
+    const { desk, applications, deletedThreads, clock } = setup();
+    const created = await desk.submit(visitor, character);
+    if (created.status !== 'ok') throw new Error('not created');
+    await desk.decide(officer, created.value.id, true);
+    const decidedAt = applications.get(created.value.id)!.decidedAt!;
+    clock.now = decidedAt;
+
+    later(clock, 59);
+    expect(await desk.sweepThreads()).toBe(0);
+    later(clock, 1);
+    expect(await desk.sweepThreads()).toBe(1);
+    expect(deletedThreads).toEqual(['thread-1']);
+    expect(applications.get(created.value.id)).toMatchObject({ threadId: null, messageId: null });
+    expect(await desk.sweepThreads()).toBe(0);
+  });
+
+  it("keeps a refused application's thread for six hours", async () => {
+    const { desk, applications, deletedThreads, clock } = setup();
+    const created = await desk.submit(visitor, character);
+    if (created.status !== 'ok') throw new Error('not created');
+    await desk.decide(officer, created.value.id, false);
+    clock.now = applications.get(created.value.id)!.decidedAt!;
+
+    later(clock, 5 * 60 + 59);
+    expect(await desk.sweepThreads()).toBe(0);
+    later(clock, 1);
+    expect(await desk.sweepThreads()).toBe(1);
+    expect(deletedThreads).toEqual(['thread-1']);
+  });
+
+  it("leaves pending applications' threads alone", async () => {
+    const { desk, deletedThreads, clock } = setup();
+    await desk.submit(visitor, character);
+    later(clock, 7 * 24 * 60);
+    expect(await desk.sweepThreads()).toBe(0);
+    expect(deletedThreads).toEqual([]);
   });
 });

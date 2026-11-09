@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import type { Db } from './client.js';
 import { applications } from './schema.js';
 
@@ -42,6 +42,24 @@ export class ApplicationStore {
 
   setMessage(id: number, messageId: string, threadId: string | null): void {
     this.db.update(applications).set({ messageId, threadId }).where(eq(applications.id, id)).run();
+  }
+
+  /** Decided applications whose private thread still exists. */
+  decidedWithThread(): Application[] {
+    return this.db
+      .select()
+      .from(applications)
+      .where(and(isNotNull(applications.threadId), isNotNull(applications.decidedAt)))
+      .all();
+  }
+
+  /** The thread (and the card in it) is gone. */
+  forgetThread(id: number): void {
+    this.db
+      .update(applications)
+      .set({ threadId: null, messageId: null })
+      .where(eq(applications.id, id))
+      .run();
   }
 
   decide(id: number, status: 'approved' | 'rejected', decidedBy: string): void {
