@@ -552,6 +552,8 @@ export const ptBR = {
       const examples = [...prefixes.map((p) => `\`${p}play\``), '`/play`'].join(', ');
       return `<@${userId}> 🎵 aqui só vale comando de música (${examples}...). Sua mensagem foi apagada para o canal ficar limpo.`;
     },
+    elsewhere: (userId: string, musicChannelId: string) =>
+      `<@${userId}> 🎵 comandos de música só funcionam no <#${musicChannelId}> ou no chat da sua sala de voz. Sua mensagem foi apagada.`,
   },
 
   resolve: {

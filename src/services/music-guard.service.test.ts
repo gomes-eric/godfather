@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keepInMusicChannel, NoticeThrottle } from './music-guard.service.js';
+import { isMusicCommand, keepInMusicChannel, NoticeThrottle } from './music-guard.service.js';
 
 describe('keepInMusicChannel', () => {
   const person = { authorIsBot: false, system: false };
@@ -30,5 +30,22 @@ describe('NoticeThrottle', () => {
 
     now = 10 * 60_000;
     expect(throttle.take('ana')).toBe(true);
+  });
+});
+
+describe('isMusicCommand', () => {
+  const jockie = new Set(['411916947773587456']);
+
+  it('takes the prefixes and a music bot mention at the start as commands', () => {
+    for (const content of ['m!p never gonna', '  M!skip', '<@411916947773587456> play x']) {
+      expect(isMusicCommand(content, ['m!'], jockie), content).toBe(true);
+    }
+    expect(isMusicCommand('<@!411916947773587456> p x', ['m!'], jockie)).toBe(true);
+  });
+
+  it('leaves ordinary chat alone, including mentions of people', () => {
+    for (const content of ['bora tocar m!p depois?', 'oi <@411916947773587456>', '<@1> olha']) {
+      expect(isMusicCommand(content, ['m!'], jockie), content).toBe(false);
+    }
   });
 });

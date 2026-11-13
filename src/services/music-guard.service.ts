@@ -41,9 +41,28 @@ export function keepInMusicChannel(
   return commandPrefixes.some((prefix) => text.startsWith(prefix.toLowerCase()));
 }
 
+/**
+ * A text command for a music bot: one of the prefixes (`m!play`) or a mention of a music bot at the
+ * start (`@Jockie Music play`), which Jockie also takes as a prefix.
+ */
+export function isMusicCommand(
+  content: string,
+  commandPrefixes: readonly string[],
+  musicBotIds: ReadonlySet<string>,
+): boolean {
+  const text = content.trimStart().toLowerCase();
+  if (commandPrefixes.some((prefix) => text.startsWith(prefix.toLowerCase()))) return true;
+  const mention = /^<@!?(\d+)>/.exec(text);
+  return mention !== null && musicBotIds.has(mention[1]!);
+}
+
 const USER_TYPES = new Set([MessageType.Default, MessageType.Reply]);
 
-/** Keeps #musica for music commands only (PLAN.md §6.7). */
+/**
+ * Keeps music where it belongs (PLAN.md §6.7): #musica holds only music commands, and a music
+ * command typed in any other text channel (not a voice channel's chat) is deleted. The music bots
+ * can't see those channels anyway, so the command would only sit there unanswered.
+ */
 export class MusicGuardService {
   private readonly throttle = new NoticeThrottle();
 
@@ -55,7 +74,11 @@ export class MusicGuardService {
     if (!message.inGuild()) return;
     const { musicGuard } = this.deps.config.get().settings;
     const channel = this.deps.directory.channelByKey(musicGuard.channel);
-    if (!channel || message.channelId !== channel.id) return;
+    if (!channel) return;
+    if (message.channelId !== channel.id) {
+      await this.outsideMusicChannel(message, channel.id);
+      return;
+    }
     if (
       keepInMusicChannel(
         {
@@ -74,14 +97,38 @@ export class MusicGuardService {
       { user: message.author.tag },
       'removed a non-command message from #musica',
     );
-    // No DMs: a deleted message has no interaction to answer privately, so the notice is a
-    // short reply in the channel that mentions only the author and deletes itself.
-    if (this.throttle.take(message.author.id)) {
-      const notice = await channel.send({
-        content: ptBR.music.notice(message.author.id, musicGuard.commandPrefixes),
-        allowedMentions: { users: [message.author.id] },
-      });
-      setTimeout(() => void notice.delete().catch(() => undefined), NOTICE_LIFETIME_MS);
-    }
+    await this.tell(message, ptBR.music.notice(message.author.id, musicGuard.commandPrefixes));
+  }
+
+  /** Deletes a music command typed outside #musica and the voice channels' chat. */
+  private async outsideMusicChannel(message: Message<true>, musicChannelId: string): Promise<void> {
+    if (message.author.bot || !USER_TYPES.has(message.type)) return;
+    if (message.channel.isVoiceBased()) return;
+    // Any other bot mentioned at the start is taken as a music bot; Padrinho is not one.
+    const musicBotIds = new Set(
+      message.mentions.users
+        .filter((user) => user.bot && user.id !== message.client.user.id)
+        .map((user) => user.id),
+    );
+    const { commandPrefixes } = this.deps.config.get().settings.musicGuard;
+    if (!isMusicCommand(message.content, commandPrefixes, musicBotIds)) return;
+
+    await message.delete();
+    this.deps.logger.debug(
+      { user: message.author.tag, channel: message.channelId },
+      'removed a music command outside #musica',
+    );
+    await this.tell(message, ptBR.music.elsewhere(message.author.id, musicChannelId));
+  }
+
+  // No DMs: a deleted message has no interaction to answer privately, so the notice is a short
+  // message in the same channel that mentions only the author and deletes itself.
+  private async tell(message: Message<true>, content: string): Promise<void> {
+    if (!this.throttle.take(message.author.id) || !message.channel.isSendable()) return;
+    const notice = await message.channel.send({
+      content,
+      allowedMentions: { users: [message.author.id] },
+    });
+    setTimeout(() => void notice.delete().catch(() => undefined), NOTICE_LIFETIME_MS);
   }
 }
