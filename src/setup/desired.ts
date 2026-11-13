@@ -41,6 +41,12 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
   const tiers = Object.fromEntries(
     Object.entries(tierRoleKeys(config)).filter(([, key]) => !administrators.has(key)),
   );
+  // Text channels outside botTextChannels hide themselves from that bots role.
+  const botScope = config.botTextChannels;
+  const botDenies = (channelKey: string) =>
+    botScope && !botScope.channels.includes(channelKey)
+      ? [{ roleKey: botScope.role, deny: PermissionFlagsBits.ViewChannel }]
+      : [];
   const voiceAllows = config.voiceAccess.map((entry) => ({
     roleKey: entry.role,
     allow: permissionBits(entry.allow),
@@ -103,10 +109,13 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
               allow: permissionBits(extra.permissions),
             })),
           ],
-          extraDenies: channel.deny.map((extra) => ({
-            roleKey: extra.role,
-            deny: permissionBits(extra.permissions),
-          })),
+          extraDenies: [
+            ...(isVoice ? [] : botDenies(channel.key)),
+            ...channel.deny.map((extra) => ({
+              roleKey: extra.role,
+              deny: permissionBits(extra.permissions),
+            })),
+          ],
         }),
         tags:
           channel.type === 'forum'

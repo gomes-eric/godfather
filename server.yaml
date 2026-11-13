@@ -311,12 +311,20 @@ categories:
     channels:
       - { key: afk, type: voice, name: AFK }
 
-# Bots (Jockie Music, Rythm, future ones) may join any voice channel.
-# Restricting the music bots' slash commands to #musica is a manual step (Server Settings → Integrations).
+# Bots (Jockie Music, Rythm, future ones) may join any voice channel and use its chat, so music
+# commands work there too (temp rooms copy their generator's permissions).
 voiceAccess:
   - role: bots
-    allow: [ViewChannel, Connect, Speak]
+    allow: [ViewChannel, Connect, Speak, SendMessages, EmbedLinks, ReadMessageHistory]
     scope: all-voice
+
+# Music commands only in #musica and in the voice channels' chat: every other text channel hides
+# itself from the Bot role, so the music bots don't see (or answer) commands typed there. This needs
+# the music bots' own integration roles without Administrator (Server Settings → Roles). To also
+# hide their slash commands elsewhere, limit each bot in Server Settings → Integrations → Channels.
+botTextChannels:
+  role: bots
+  channels: [music]
 
 # Join-to-create generators (handled by Padrinho, no third-party bot). Each sits alone in its
 # category, so the rooms it creates (Dungeon 01, 02...) stay grouped below it.

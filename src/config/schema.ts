@@ -133,6 +133,16 @@ const voiceAccessSchema = z.object({
   scope: z.literal('all-voice'),
 });
 
+/**
+ * The text channels a bots role may see (besides every voice channel's chat, from voiceAccess):
+ * every other text channel denies it ViewChannel, so the music bots read and answer commands
+ * only there. Only works on bots without Administrator.
+ */
+const botTextChannelsSchema = z.object({
+  role: key,
+  channels: z.array(key).min(1),
+});
+
 const AFK_TIMEOUTS = [60, 300, 900, 1800, 3600] as const;
 
 const settingsSchema = z.looseObject({
@@ -245,6 +255,7 @@ export const serverConfigSchema = z
     roles: z.array(roleSchema).min(1),
     categories: z.array(categorySchema).min(1),
     voiceAccess: z.array(voiceAccessSchema).default([]),
+    botTextChannels: botTextChannelsSchema.optional(),
     voiceGenerators: z.array(voiceGeneratorSchema).default([]),
     eventTemplates: z.array(eventTemplateSchema).default([]),
   })
@@ -338,6 +349,14 @@ export const serverConfigSchema = z
       if (!roleKeys.includes(entry.role))
         issue(['voiceAccess', i, 'role'], `unknown role key "${entry.role}"`);
     });
+    if (config.botTextChannels) {
+      const { role, channels } = config.botTextChannels;
+      if (!roleKeys.includes(role))
+        issue(['botTextChannels', 'role'], `unknown role key "${role}"`);
+      for (const channel of channels.filter((c) => !textChannelKeys.has(c))) {
+        issue(['botTextChannels', 'channels'], `"${channel}" is not a text channel key`);
+      }
+    }
     config.voiceGenerators.forEach((generator, i) => {
       if (!categoryKeys.includes(generator.category)) {
         issue(['voiceGenerators', i, 'category'], `unknown category key "${generator.category}"`);
