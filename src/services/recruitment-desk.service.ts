@@ -56,6 +56,11 @@ export interface SentForm {
 export const THREAD_LIFETIME_MS = { approved: 60 * 60_000, rejected: 6 * 60 * 60_000 } as const;
 const SWEEP_MS = 5 * 60_000;
 
+type DecisionPlan =
+  | { kind: 'none' }
+  | { kind: 'standing'; standing: Standing }
+  | { kind: 'newAlliance'; legion: string };
+
 const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
   tier: 'member.promote',
   ally: 'member.ally',
@@ -65,19 +70,7 @@ const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
 };
 
 function characterOf(application: Application): CharacterProfile | null {
-  if (!application.characterId || !application.characterName) return null;
-  return {
-    id: application.characterId,
-    name: application.characterName,
-    serverId: application.serverId ?? 0,
-    className: application.className ?? '',
-    level: application.level ?? 0,
-    combatPower: application.combatPower,
-    itemLevel: application.itemLevel,
-    legion: application.legion,
-    title: null,
-    avatarUrl: null,
-  };
+  return application.character && { ...application.character, title: null, avatarUrl: null };
 }
 
 export class RecruitmentDesk implements BackgroundJob {
@@ -96,7 +89,7 @@ export class RecruitmentDesk implements BackgroundJob {
 
   async card(application: Application) {
     const member = await fetchMember(this.deps.guild, application.userId);
-    const className = application.className;
+    const className = application.character?.className;
     return applicationCard(application, {
       classEmoji: (className && this.deps.registration.classRole(className)?.emoji) || '🎮',
       avatarUrl: member?.displayAvatarURL({ size: 256 }) ?? null,
@@ -122,7 +115,7 @@ export class RecruitmentDesk implements BackgroundJob {
       legion: this.settings().characters.legion,
       alliances: config.get().alliances,
       takenBySomeoneElse: owner !== undefined,
-      restrictionNeedsOfficer: ['manual', 'transfer'].includes(
+      restrictionNeedsOfficer: ['officer', 'transfer'].includes(
         this.deps.members.restrictionOf(actor.userId) ?? '',
       ),
     });
@@ -194,7 +187,7 @@ export class RecruitmentDesk implements BackgroundJob {
         })();
     if (!parent) return undefined;
     const member = await fetchMember(this.deps.guild, application.userId);
-    const name = application.characterName ?? member?.displayName ?? application.userId;
+    const name = application.character?.name ?? member?.displayName ?? application.userId;
     const thread = await parent.threads.create({
       name: (fromCheck ? t.reviewThreadName(name) : t.threadName(name)).slice(0, 100),
       type: ChannelType.PrivateThread,
@@ -244,15 +237,16 @@ export class RecruitmentDesk implements BackgroundJob {
     if (kind === 'restricted' && application.origin !== 'check') {
       return rejected(t.restrictedOnlyReviews);
     }
-    if ((kind === 'member' || kind === 'ally') && !application.characterId) {
+    const character = application.character;
+    if ((kind === 'member' || kind === 'ally') && !character) {
       return rejected(t.noCharacterForKind);
     }
     let allianceLegion: string | null = null;
     if (kind === 'ally') {
-      if (!application.legion) return rejected(t.noLegionForKind);
+      if (!character?.legion) return rejected(t.noLegionForKind);
       allianceLegion =
-        findAlliance(this.deps.config.get().alliances, application.legion)?.legion ??
-        application.legion;
+        findAlliance(this.deps.config.get().alliances, character.legion)?.legion ??
+        character.legion;
     }
     const outcome = await this.deps.recruitment.changeKind(actor, id, kind, allianceLegion);
     if (outcome.status === 'ok') {
@@ -269,22 +263,10 @@ export class RecruitmentDesk implements BackgroundJob {
     const member = await fetchMember(this.deps.guild, pending.userId);
     if (!member && (approve || pending.origin === 'check')) return rejected(t.leftServer);
 
-    let target: Standing | undefined;
-    if (approve && member && this.isNewAlliance(pending)) {
-      const refusal = this.deps.members.refusalFor(actor, member, SOLDIER);
-      if (refusal) return rejected(refusal);
-    }
-    if (approve) {
-      const prepared = await this.prepareApproval(actor, pending);
-      if (prepared.status !== 'ok') return prepared;
-      target = prepared.value;
-    } else if (pending.origin === 'check' && pending.previousStanding) {
-      target = decodeStanding(pending.previousStanding);
-    }
-    if (member && target) {
-      const refusal = this.deps.members.refusalFor(actor, member, target);
-      if (refusal) return rejected(refusal);
-    }
+    const plan = this.planDecision(actor, pending, member, approve);
+    if (plan.status !== 'ok') return plan;
+    const target = await this.realize(actor, plan.value);
+    if (target && target.status !== 'ok') return target;
 
     let nickname: string | null = null;
     const outcome = await this.deps.recruitment.decide(actor, id, approve, async (application) => {
@@ -300,7 +282,7 @@ export class RecruitmentDesk implements BackgroundJob {
           t.approvedReason,
         );
       }
-      await this.moveTo(actor, member, target);
+      await this.moveTo(actor, member, target.value);
     });
     if (outcome.status !== 'ok') return outcome;
 
@@ -316,24 +298,49 @@ export class RecruitmentDesk implements BackgroundJob {
     return outcome;
   }
 
-  private async prepareApproval(
+  private planDecision(
     actor: Actor,
     application: Application,
-  ): Promise<ServiceOutcome<Standing>> {
-    const alliances = () => this.deps.config.get().alliances;
-    let standing = approvedStanding(application.kind, application.allianceLegion, alliances());
-    if (!standing && application.kind === 'ally') {
-      const legion = application.allianceLegion ?? application.legion;
-      if (!tierAtLeast(actor.tier, 'commander')) {
-        return rejected(t.newAllianceNeedsCommander(legion));
+    member: GuildMember | null,
+    approve: boolean,
+  ): ServiceOutcome<DecisionPlan> {
+    const refuse = (to: Standing) =>
+      member ? this.deps.members.refusalFor(actor, member, to) : null;
+    const settle = (plan: DecisionPlan, checkedAs: Standing): ServiceOutcome<DecisionPlan> => {
+      const refusal = refuse(checkedAs);
+      return refusal ? rejected(refusal) : { status: 'ok', value: plan };
+    };
+
+    if (!approve) {
+      if (application.origin !== 'check' || !application.previousStanding) {
+        return { status: 'ok', value: { kind: 'none' } };
       }
-      const created = await this.deps.alliances.add(actor, legion);
-      if (created.status !== 'ok') return created;
-      standing = approvedStanding('ally', legion, alliances());
+      const previous = decodeStanding(application.previousStanding);
+      return settle({ kind: 'standing', standing: previous }, previous);
     }
+
+    const alliances = this.deps.config.get().alliances;
+    const standing = approvedStanding(application.kind, application.allianceLegion, alliances);
+    if (standing) return settle({ kind: 'standing', standing }, standing);
+
+    const legion = application.allianceLegion ?? application.character?.legion ?? '';
+    if (!tierAtLeast(actor.tier, 'commander')) return rejected(t.newAllianceNeedsCommander(legion));
+    const allyRank = SOLDIER;
+    return settle({ kind: 'newAlliance', legion }, allyRank);
+  }
+
+  private async realize(
+    actor: Actor,
+    plan: DecisionPlan,
+  ): Promise<ServiceOutcome<Standing> | undefined> {
+    if (plan.kind === 'none') return undefined;
+    if (plan.kind === 'standing') return { status: 'ok', value: plan.standing };
+    const created = await this.deps.alliances.add(actor, plan.legion);
+    if (created.status !== 'ok') return created;
+    const standing = approvedStanding('ally', plan.legion, this.deps.config.get().alliances);
     return standing
       ? { status: 'ok', value: standing }
-      : rejected(t.newAllianceNeedsCommander(application.allianceLegion ?? ''));
+      : rejected(t.newAllianceNeedsCommander(plan.legion));
   }
 
   private async moveTo(actor: Actor, member: GuildMember, to: Standing): Promise<void> {
@@ -360,12 +367,17 @@ export class RecruitmentDesk implements BackgroundJob {
       application.kind === 'ally'
         ? t.welcomeAlly(
             application.userId,
-            application.allianceLegion ?? application.legion,
+            application.allianceLegion ?? application.character?.legion ?? '',
             (chatKey && this.deps.directory.channelByKey(chatKey)?.id) || null,
           )
         : application.kind === 'partner'
           ? t.welcomePartner(application.userId)
-          : t.welcome(application.userId, legion, nickname, sameLegion(application.legion, legion));
+          : t.welcome(
+              application.userId,
+              legion,
+              nickname,
+              sameLegion(application.character?.legion ?? '', legion),
+            );
     await announce?.send({ content, allowedMentions: { users: [application.userId] } });
   }
 

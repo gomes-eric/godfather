@@ -14,7 +14,7 @@ import { notifyOfficers } from '../discord/officer-notices.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import { GameApiError, type GameCharacterService } from './game-character.service.js';
-import type { LegionCheckService } from './legion-check.service.js';
+import type { RankingBoard } from './ranking-board.service.js';
 import type { MemberService } from './member.service.js';
 
 const t = ptBR.registration;
@@ -26,7 +26,7 @@ interface Deps {
   registrations: CharacterStore;
   characters: GameCharacterService;
   members: MemberService;
-  legion: LegionCheckService;
+  ranking: RankingBoard;
   runAction: ActionRunner;
   logger: Logger;
 }
@@ -55,7 +55,7 @@ export class RegistrationService {
     classRole: RoleConfig,
     reason: string,
   ): Promise<string | null> {
-    const { directory, registrations, legion, logger } = this.deps;
+    const { directory, registrations, ranking, logger } = this.deps;
     const previousOwner = this.ownerOf(character.id, member.id);
     if (previousOwner) await this.takeFrom(actor, previousOwner, member.id, character.name);
     const nickname = await registerCharacter(
@@ -65,8 +65,8 @@ export class RegistrationService {
       classRole,
       reason,
     );
-    legion
-      .refreshRanking()
+    ranking
+      .refresh()
       .catch((error: unknown) => logger.warn({ err: error }, 'ranking refresh failed'));
     return nickname;
   }

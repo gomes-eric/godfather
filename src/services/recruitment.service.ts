@@ -2,7 +2,7 @@ import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action
 import type { Actor } from '../core/actor.js';
 import type { ApplicationKind, FormKind } from '../core/application-rules.js';
 import type { CharacterProfile } from '../core/game-character.js';
-import type { Application, ApplicationStore } from '../db/applications.js';
+import type { Application, ApplicationCharacter, ApplicationStore } from '../db/applications.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
 const t = ptBR.recruitment;
@@ -23,17 +23,19 @@ export interface ReviewInput {
   previousStanding: string;
 }
 
-function characterColumns(c: CharacterProfile | null) {
-  return {
-    characterId: c?.id ?? null,
-    characterName: c?.name ?? null,
-    serverId: c?.serverId ?? null,
-    className: c?.className ?? null,
-    level: c?.level ?? null,
-    legion: c?.legion ?? '',
-    combatPower: c?.combatPower ?? null,
-    itemLevel: c?.itemLevel ?? null,
-  };
+function storedCharacter(c: CharacterProfile | null): ApplicationCharacter | null {
+  return (
+    c && {
+      id: c.id,
+      name: c.name,
+      serverId: c.serverId,
+      className: c.className,
+      level: c.level,
+      legion: c.legion,
+      combatPower: c.combatPower,
+      itemLevel: c.itemLevel,
+    }
+  );
 }
 
 export class RecruitmentService {
@@ -58,7 +60,7 @@ export class RecruitmentService {
       execute: async () =>
         this.deps.store.create({
           userId: actor.userId,
-          ...characterColumns(input.character),
+          character: storedCharacter(input.character),
           kind: input.kind,
           requestedKind: input.picked,
           allianceLegion: input.allianceLegion,
@@ -77,7 +79,7 @@ export class RecruitmentService {
       execute: async () =>
         this.deps.store.create({
           userId: input.userId,
-          ...characterColumns(input.character),
+          character: storedCharacter(input.character),
           kind: input.kind,
           requestedKind: input.kind,
           origin: 'check',
@@ -99,7 +101,7 @@ export class RecruitmentService {
     return this.deps.runAction({
       actor,
       action: 'recruit.kind',
-      target: application.characterName ?? application.userId,
+      target: application.character?.name ?? application.userId,
       params: { userId: application.userId, from: application.kind, to: kind },
       preview: kind,
       execute: async () => {
@@ -121,13 +123,13 @@ export class RecruitmentService {
     return this.deps.runAction({
       actor,
       action: 'recruit.decide',
-      target: application.characterName ?? application.userId,
+      target: application.character?.name ?? application.userId,
       params: {
         userId: application.userId,
         kind: application.kind,
         decision: approve ? 'approved' : 'rejected',
       },
-      preview: application.characterName ?? application.userId,
+      preview: application.character?.name ?? application.userId,
       execute: async () => {
         await carryOut(application);
         this.deps.store.decide(id, approve ? 'approved' : 'rejected', actor.userId);

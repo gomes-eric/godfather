@@ -37,7 +37,7 @@ function setup(
   options: {
     memberInServer?: boolean;
     takenBy?: string;
-    restrictedBy?: 'manual' | 'check';
+    restrictedBy?: 'officer' | 'check';
     refusal?: string;
   } = {},
 ) {
@@ -251,7 +251,7 @@ describe('RecruitmentDesk', () => {
   });
 
   it('does not let someone an officer restricted back in on their own', async () => {
-    const s = setup({ restrictedBy: 'manual' });
+    const s = setup({ restrictedBy: 'officer' });
     const outcome = await s.desk.submit(visitor, asMember('M4F1A'));
     expect(outcome).toMatchObject({ status: 'ok', value: { autoApproved: false } });
     expect(s.moves).toEqual([]);
@@ -274,7 +274,7 @@ describe('RecruitmentDesk', () => {
       picked: 'partner',
       character: null,
     });
-    expect(application).toMatchObject({ kind: 'partner', characterName: null });
+    expect(application).toMatchObject({ kind: 'partner', character: null });
     expect(s.created[0]).toMatchObject({ name: 'Ficha · padrinho_discord' });
 
     await s.desk.decide(officer, application.id, true);

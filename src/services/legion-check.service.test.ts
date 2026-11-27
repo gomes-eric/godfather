@@ -11,6 +11,7 @@ import { RestrictionStore } from '../db/restrictions.js';
 import type { Standing } from '../core/standing.js';
 import type { GameCharacterService } from './game-character.service.js';
 import { LegionCheckService } from './legion-check.service.js';
+import { RankingBoard } from './ranking-board.service.js';
 import type { MemberService } from './member.service.js';
 import type { ReviewInput } from './recruitment.service.js';
 
@@ -123,7 +124,13 @@ function setup(
     guild: guild as never,
     config,
     directory,
-    managed: new ManagedObjectStore(db.db),
+    ranking: new RankingBoard({
+      guild: guild as never,
+      config,
+      directory,
+      managed: new ManagedObjectStore(db.db),
+      registrations,
+    }),
     registrations,
     characters: {
       profile: async () => ({ ...profile, combatPower: 150, itemLevel: 2100 }),
@@ -216,7 +223,7 @@ describe('LegionCheckService', () => {
       { name: 'Padrinho', className: 'Clérigo', legion: 'M4F1A' },
       { standingRole: 'restricted' },
     );
-    restrictions.set({ userId: 'u1', origin: 'manual', reason: 'spam', by: 'officer' });
+    restrictions.set({ userId: 'u1', origin: 'officer', reason: 'spam', by: 'officer' });
     await service.check();
     expect(moves).toEqual([]);
   });

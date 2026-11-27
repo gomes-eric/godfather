@@ -188,7 +188,7 @@ export class MemberService {
       },
       done: t.restricted,
       already: t.refusals.alreadyRestricted!,
-      restriction: { origin: 'manual', reason },
+      restriction: { origin: 'officer', reason },
     });
     if (outcome.status === 'ok') {
       await notifyOfficers(this.deps, t.restrictNotice(actor.userId, userId, fromName, reason));
@@ -271,7 +271,7 @@ export class MemberService {
     member: GuildMember,
     to: Standing,
     byUserId: string,
-    restriction: RestrictionCause = { origin: 'manual', reason: null },
+    restriction: RestrictionCause = { origin: 'officer', reason: null },
   ): Promise<void> {
     const roles = rolesForStanding(memberRoleIds(member), to, this.deps.directory.standingRoles());
     if (!roles) throw new Error(`a role for ${this.standingName(to)} is missing`);

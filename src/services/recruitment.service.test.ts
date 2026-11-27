@@ -51,7 +51,7 @@ describe('RecruitmentService', () => {
     const first = await service.apply(actor('u1'), form);
     expect(first).toMatchObject({
       status: 'ok',
-      value: { characterName: 'Padrinho', kind: 'member', origin: 'form', status: 'pending' },
+      value: { character: { name: 'Padrinho' }, kind: 'member', origin: 'form', status: 'pending' },
     });
     expect(await service.apply(actor('u1'), form)).toMatchObject({ status: 'rejected' });
     expect(await service.apply(actor('u2', 'soldier'), form)).toMatchObject({

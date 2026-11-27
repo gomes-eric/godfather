@@ -158,7 +158,7 @@ export const applications = sqliteTable('applications', {
 
 export const restrictions = sqliteTable('restrictions', {
   userId: text('user_id').primaryKey(),
-  origin: text('origin', { enum: ['check', 'manual', 'transfer'] }).notNull(),
+  origin: text('origin', { enum: ['check', 'officer', 'transfer'] }).notNull(),
   reason: text('reason'),
   by: text('by').notNull(),
   at: integer('at', { mode: 'timestamp_ms' })

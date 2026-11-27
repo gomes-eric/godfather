@@ -3,14 +3,13 @@ import { classRoles, type RoleConfig } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
 import { systemActor } from '../core/actor.js';
-import { matchClass, sameLegion } from '../core/game-character.js';
+import { matchClass } from '../core/game-character.js';
 import {
   characterChanges,
   checkDue,
   legionTransition,
   departuresLookTrustworthy,
   MAX_DEPARTURES,
-  rankingLines,
   type Transition,
 } from '../core/legion-check.js';
 import type { CharacterProfile } from '../core/game-character.js';
@@ -20,20 +19,18 @@ import { registrationNickname } from '../core/registration.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
 import type { CharacterSnapshot, CharacterStore, RegisteredCharacter } from '../db/characters.js';
 import type { RestrictionStore } from '../db/restrictions.js';
-import type { ManagedObjectStore } from '../db/managed-objects.js';
 import { applyCharacter } from '../discord/character-registration.js';
 import { COLORS } from '../discord/colors.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { fetchMember, memberStanding } from '../discord/members.js';
-import { rankingMenu } from '../discord/ranking-menu.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
 import type { MemberService } from './member.service.js';
+import type { RankingBoard } from './ranking-board.service.js';
 import type { ReviewInput } from './recruitment.service.js';
 
 const t = ptBR.legionCheck;
-const RANKING_MESSAGE_KEY = 'ranking-board';
 const TICK_MS = 60 * 60_000;
 const PAUSE_MS = 1_500;
 
@@ -41,7 +38,7 @@ interface Deps {
   guild: Guild;
   config: ConfigStore;
   directory: GuildDirectory;
-  managed: ManagedObjectStore;
+  ranking: RankingBoard;
   registrations: CharacterStore;
   characters: GameCharacterService;
   runAction: ActionRunner;
@@ -109,7 +106,7 @@ export class LegionCheckService implements BackgroundJob {
       }
       const report = await this.applyMoves(checked);
       await this.postReport(report);
-      await this.refreshRanking();
+      await this.deps.ranking.refresh();
       this.deps.logger.info({ changes: report.length }, 'legion check done');
       return report;
     } finally {
@@ -273,60 +270,10 @@ export class LegionCheckService implements BackgroundJob {
     await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
   }
 
-  async refreshRanking(): Promise<void> {
-    const { config, directory, managed, registrations, guild } = this.deps;
-    const settings = config.get().settings.characters;
-    const channel = settings.rankingChannel
-      ? directory.channelByKey(settings.rankingChannel)
-      : undefined;
-    if (!channel) return;
-
-    // Ask Discord who is still in the server: the member cache only holds those seen since startup.
-    const inLegion = registrations.all().filter((row) => sameLegion(row.legion, settings.legion));
-    const present =
-      inLegion.length > 0
-        ? await guild.members.fetch({ user: inLegion.map((row) => row.userId) })
-        : new Map<string, unknown>();
-    const rows = inLegion
-      .filter((row) => present.has(row.userId))
-      .map((row) => ({
-        userId: row.userId,
-        name: row.name,
-        classEmoji: this.classRole(row.classKey)?.emoji ?? '🎮',
-        combatPower: row.combatPower,
-        itemLevel: row.itemLevel,
-      }));
-    const lines = rankingLines(rows);
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.gold)
-      .setTitle(t.rankingTitle(settings.legion))
-      .setDescription(
-        [
-          t.rankingIntro,
-          '',
-          ...(lines.length > 0 ? [...lines, '', t.menuHint] : [t.rankingEmpty]),
-        ].join('\n'),
-      )
-      .setFooter({ text: t.rankingFooter })
-      .setTimestamp(new Date());
-
-    const stored = managed.get('message', RANKING_MESSAGE_KEY);
-    const existing = stored
-      ? await channel.messages.fetch(stored.discordId).catch(() => null)
-      : null;
-    const payload = { embeds: [embed], components: rankingMenu(rows) };
-    if (existing) {
-      await existing.edit(payload);
-    } else {
-      const sent = await channel.send({ ...payload, allowedMentions: { parse: [] } });
-      managed.set('message', RANKING_MESSAGE_KEY, sent.id, null);
-    }
-  }
-
   start(): () => void {
-    this.refreshRanking().catch((error: unknown) =>
-      this.deps.logger.warn({ err: error }, 'ranking refresh failed'),
-    );
+    this.deps.ranking
+      .refresh()
+      .catch((error: unknown) => this.deps.logger.warn({ err: error }, 'ranking refresh failed'));
     return repeat(
       TICK_MS,
       () => this.runIfDue(),

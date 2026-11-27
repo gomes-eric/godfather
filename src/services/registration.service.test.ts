@@ -7,7 +7,7 @@ import { openDatabase } from '../db/client.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
-import type { LegionCheckService } from './legion-check.service.js';
+import type { RankingBoard } from './ranking-board.service.js';
 import type { MemberService } from './member.service.js';
 import { RegistrationService } from './registration.service.js';
 
@@ -80,7 +80,7 @@ function setup(options: { found?: boolean; tierRoles?: Record<string, string> } 
         return { status: 'ok', value: 'ok' };
       },
     } as unknown as MemberService,
-    legion: { refreshRanking: async () => undefined } as unknown as LegionCheckService,
+    ranking: { refresh: async () => undefined } as unknown as RankingBoard,
     runAction: (async (r: { execute: () => Promise<unknown> }) => ({
       status: 'ok',
       value: await r.execute(),

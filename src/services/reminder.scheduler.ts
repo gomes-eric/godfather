@@ -169,10 +169,18 @@ export class ReminderScheduler implements BackgroundJob {
 
   private async runTick(): Promise<TickReport> {
     const now = this.now();
-    const { store, config, logger } = this.deps;
-    const timeZone = config().settings.timezone;
     const until = new Date(now.getTime() + WINDOW_MS);
+    this.syncTemplateOccurrences(now, until);
+    this.scheduleReminders(now, until);
+    const report = await this.sendDueReminders(now);
+    report.agendaUpdated = await this.refreshAgenda(this.upcoming(now));
+    return report;
+  }
 
+  /** The templates' occurrences in the window exist, and ones no template wants any more go. */
+  private syncTemplateOccurrences(now: Date, until: Date): void {
+    const { store, config } = this.deps;
+    const timeZone = config().settings.timezone;
     const wanted = new Set<string>();
     for (const template of config().eventTemplates.filter((t) => t.enabled)) {
       for (const startsAt of templateOccurrences(template, now, until, timeZone)) {
@@ -185,7 +193,10 @@ export class ReminderScheduler implements BackgroundJob {
         store.deleteOccurrence(occurrence.id);
       }
     }
+  }
 
+  private scheduleReminders(now: Date, until: Date): void {
+    const { store } = this.deps;
     const recent = new Date(now.getTime() - LOOKBACK_MS);
     for (const occurrence of store.occurrencesBetween(recent, until)) {
       if (occurrence.cancelledAt || !this.view(occurrence)) continue;
@@ -197,7 +208,10 @@ export class ReminderScheduler implements BackgroundJob {
         );
       }
     }
+  }
 
+  private async sendDueReminders(now: Date): Promise<TickReport> {
+    const { store, logger } = this.deps;
     const report: TickReport = { sent: 0, skipped: 0, failed: 0, agendaUpdated: false };
     for (const reminder of store.dueReminders(now)) {
       const occurrence = store.getOccurrence(reminder.occurrenceId);
@@ -224,8 +238,6 @@ export class ReminderScheduler implements BackgroundJob {
         logger.warn({ err: error, reminder: reminder.id }, 'failed to post reminder; will retry');
       }
     }
-
-    report.agendaUpdated = await this.refreshAgenda(this.upcoming(now));
     return report;
   }
 

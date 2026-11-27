@@ -53,7 +53,7 @@ export function legionTransition(input: {
   now: string;
   legion: string;
   alliances: readonly Alliance[];
-  restrictedBy: 'check' | 'manual' | 'transfer' | undefined;
+  restrictedBy: 'check' | 'officer' | 'transfer' | undefined;
 }): Transition | null {
   const { standing, before, now, legion } = input;
   const nowIn = sameLegion(now, legion);

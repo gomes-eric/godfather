@@ -33,6 +33,7 @@ import { ChannelService } from './services/channel.service.js';
 import { EventService } from './services/event.service.js';
 import { GameCharacterService } from './services/game-character.service.js';
 import { LegionCheckService } from './services/legion-check.service.js';
+import { RankingBoard } from './services/ranking-board.service.js';
 import { MemberService } from './services/member.service.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
@@ -170,20 +171,7 @@ async function main(): Promise<void> {
     const registrations = new CharacterStore(database.db);
     const restrictions = new RestrictionStore(database.db);
     const members = new MemberService({ guild, directory, config, restrictions, runAction });
-    const late: { desk?: RecruitmentDesk } = {};
-    const legion = new LegionCheckService({
-      guild,
-      config,
-      directory,
-      managed,
-      registrations,
-      characters,
-      runAction,
-      members,
-      restrictions,
-      review: async (input) => late.desk?.openReview(input),
-      logger,
-    });
+    const ranking = new RankingBoard({ guild, config, directory, managed, registrations });
     const claude = createClaudeClient(env, logger);
     logger.info({ enabled: claude !== null }, 'Claude API (workload identity federation)');
     const news = new NewsService({
@@ -223,7 +211,7 @@ async function main(): Promise<void> {
       registrations,
       characters,
       members,
-      legion,
+      ranking,
       runAction,
       logger,
     });
@@ -239,7 +227,19 @@ async function main(): Promise<void> {
       alliances,
       logger,
     });
-    late.desk = recruitmentDesk;
+    const legion = new LegionCheckService({
+      guild,
+      config,
+      directory,
+      ranking,
+      registrations,
+      characters,
+      runAction,
+      members,
+      restrictions,
+      review: (input) => recruitmentDesk.openReview(input),
+      logger,
+    });
     stopJobs.push(recruitmentDesk.start(), legion.start());
     const services = {
       guild,
@@ -261,6 +261,7 @@ async function main(): Promise<void> {
       applications,
       recruitmentDesk,
       legion,
+      ranking,
       news,
     };
 

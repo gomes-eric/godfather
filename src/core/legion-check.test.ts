@@ -81,7 +81,7 @@ describe('legionTransition', () => {
     standing: Parameters<typeof legionTransition>[0]['standing'],
     before: string,
     now: string,
-    restrictedBy?: 'check' | 'manual',
+    restrictedBy?: 'check' | 'officer',
   ) => legionTransition({ standing, before, now, legion: 'M4F1A', alliances, restrictedBy });
 
   it('restricts a Soldado who left, or makes them Aliado of an allied legion', () => {
@@ -124,6 +124,6 @@ describe('legionTransition', () => {
     expect(go(restricted, 'Outra', 'Noxus', 'check')).toMatchObject({
       to: { kind: 'ally', allianceKey: 'ally-noxus' },
     });
-    expect(go(restricted, 'Outra', 'M4F1A', 'manual')).toBeNull();
+    expect(go(restricted, 'Outra', 'M4F1A', 'officer')).toBeNull();
   });
 });

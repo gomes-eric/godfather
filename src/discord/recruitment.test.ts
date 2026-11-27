@@ -6,14 +6,16 @@ import { applicationCard } from './recruitment.js';
 const application: Application = {
   id: 3,
   userId: 'u1',
-  characterId: 'c1',
-  characterName: 'Padrinho',
-  serverId: 2403,
-  className: 'Clérigo',
-  level: 45,
-  legion: '',
-  combatPower: 100000,
-  itemLevel: 2000,
+  character: {
+    id: 'c1',
+    name: 'Padrinho',
+    serverId: 2403,
+    className: 'Clérigo',
+    level: 45,
+    legion: '',
+    combatPower: 100000,
+    itemLevel: 2000,
+  },
   kind: 'member',
   requestedKind: 'member',
   origin: 'form',
@@ -81,7 +83,7 @@ describe('applicationCard', () => {
 
   it('shows a Parceiro without a character by their Discord name', () => {
     const embed = applicationCard(
-      { ...application, kind: 'partner', characterId: null, characterName: null },
+      { ...application, kind: 'partner', character: null },
       look,
     ).embeds[0]!.toJSON();
     expect(embed.title).toBe('📝 Ficha · padrinho_discord');

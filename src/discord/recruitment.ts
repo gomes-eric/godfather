@@ -102,8 +102,8 @@ export function applicationCard(
     .setColor(STATUS_COLORS[a.status])
     .setTitle(
       fromCheck
-        ? t.reviewTitle(a.characterName ?? look.applicantName)
-        : t.cardTitle(a.characterName ?? look.applicantName),
+        ? t.reviewTitle(a.character?.name ?? look.applicantName)
+        : t.cardTitle(a.character?.name ?? look.applicantName),
     )
     .setFooter({ text: fromCheck ? t.reviewFooter(a.id) : t.footer(a.id) })
     .setTimestamp(a.createdAt)
@@ -113,19 +113,20 @@ export function applicationCard(
       { name: t.statusField, value: status, inline: true },
     );
   if (notices.length > 0) embed.setDescription(notices.join('\n\n'));
-  if (a.characterName) {
+  const c = a.character;
+  if (c) {
     embed.addFields(
       {
         name: t.classField,
-        value: `${look.classEmoji} ${a.className ?? '—'} · ${t.level(a.level ?? 0)}`,
+        value: `${look.classEmoji} ${c.className} · ${t.level(c.level)}`,
         inline: true,
       },
       {
         name: t.powerField,
-        value: `⚔️ ${formatStat(a.combatPower)} · 🎚️ ${formatStat(a.itemLevel)}`,
+        value: `⚔️ ${formatStat(c.combatPower)} · 🎚️ ${formatStat(c.itemLevel)}`,
         inline: true,
       },
-      { name: t.legionField, value: a.legion || t.noLegion, inline: true },
+      { name: t.legionField, value: c.legion || t.noLegion, inline: true },
     );
   } else {
     embed.addFields({ name: t.characterField, value: t.noCharacter, inline: true });
@@ -166,8 +167,8 @@ export function kindMenu(application: Application): ActionRowBuilder<StringSelec
         value: kind,
         label:
           kind === 'ally'
-            ? application.legion
-              ? `${t.kinds.ally.label} · ${application.legion}`
+            ? application.character?.legion
+              ? `${t.kinds.ally.label} · ${application.character.legion}`
               : t.allyNoLegionOption
             : t.kinds[kind].label,
         emoji: t.kinds[kind].emoji,
