@@ -1,66 +1,56 @@
-import type { Guild } from 'discord.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
-import { tierAtLeast } from '../core/tiers.js';
 import type { Party, PartyStore } from '../db/parties.js';
-import type { GuildDirectory } from '../discord/directory.js';
-import { partyCard, type PartyView } from '../discord/party-card.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
 const t = ptBR.party;
 
 export type PartyAction = 'join' | 'leave' | 'close';
 
+export interface PartyView {
+  id: number;
+  activity: string;
+  startsAt: string | null;
+  ownerId: string;
+  slots: number;
+  closed: boolean;
+  members: { id: string; emoji: string }[];
+}
+
+export interface PartyUpdate {
+  view: PartyView;
+  /** Set when this join took the last slot: the call to post, and whom it pings. */
+  filled?: { text: string; mentionIds: string[] };
+}
+
 export class PartyService {
   constructor(
     private readonly deps: {
-      guild: Guild;
-      directory: GuildDirectory;
       store: PartyStore;
       runAction: ActionRunner;
+      classEmoji: (userId: string) => string | undefined;
     },
   ) {}
-
-  private classEmoji(userId: string): string {
-    const member = this.deps.guild.members.cache.get(userId);
-    return (member && this.deps.directory.classesOf(member)[0]?.emoji) ?? '🎮';
-  }
-
-  view(party: Party): PartyView {
-    return {
-      id: party.id,
-      activity: party.activity,
-      startsAt: party.startsAt,
-      ownerId: party.ownerId,
-      slots: party.slots,
-      closed: party.closed,
-      members: this.deps.store.members(party.id).map((id) => ({ id, emoji: this.classEmoji(id) })),
-    };
-  }
 
   create(
     actor: Actor,
     input: { channelId: string; activity: string; slots: number; startsAt: string | null },
-  ): Promise<ServiceOutcome<Party>> {
+  ): Promise<ServiceOutcome<PartyView>> {
     return this.deps.runAction({
       actor,
       action: 'party.create',
       target: input.activity,
       params: input,
       preview: input.activity,
-      execute: async () => this.deps.store.create({ ...input, ownerId: actor.userId }),
+      execute: async () => this.view(this.deps.store.create({ ...input, ownerId: actor.userId })),
     });
-  }
-
-  card(party: Party) {
-    return partyCard(this.view(party));
   }
 
   async act(
     actor: Actor,
     partyId: number,
     action: PartyAction,
-  ): Promise<ServiceOutcome<{ party: Party; justFilled: boolean }>> {
+  ): Promise<ServiceOutcome<PartyUpdate>> {
     const { store } = this.deps;
     const party = store.get(partyId);
     if (!party) return rejected(t.gone);
@@ -75,24 +65,37 @@ export class PartyService {
     } else if (action === 'leave') {
       if (!isMember) return rejected(t.notIn);
       if (isOwner) return rejected(t.ownerCantLeave);
-    } else if (!isOwner && !tierAtLeast(actor.tier, 'officer')) {
-      return rejected(t.onlyOwnerCloses);
     }
 
     return this.deps.runAction({
       actor,
-      action: action === 'close' ? 'party.close' : 'party.join',
+      action: action === 'close' && !isOwner ? 'party.close.any' : (`party.${action}` as const),
       target: party.activity,
       params: { partyId, action },
       preview: party.activity,
-      execute: async () => {
+      execute: async (): Promise<PartyUpdate> => {
         if (action === 'join') store.join(party.id, actor.userId);
         if (action === 'leave') store.leave(party.id, actor.userId);
         if (action === 'close') store.close(party.id);
-        const updated = store.get(party.id)!;
-        const justFilled = action === 'join' && store.members(party.id).length >= updated.slots;
-        return { party: updated, justFilled };
+        const view = this.view(store.get(party.id)!);
+        const ids = view.members.map((m) => m.id);
+        if (action !== 'join' || ids.length < view.slots) return { view };
+        return { view, filled: { text: t.filled(view.activity, ids), mentionIds: ids } };
       },
     });
+  }
+
+  private view(party: Party): PartyView {
+    return {
+      id: party.id,
+      activity: party.activity,
+      startsAt: party.startsAt,
+      ownerId: party.ownerId,
+      slots: party.slots,
+      closed: party.closed,
+      members: this.deps.store
+        .members(party.id)
+        .map((id) => ({ id, emoji: this.deps.classEmoji(id) ?? '🎮' })),
+    };
   }
 }

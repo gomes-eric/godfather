@@ -195,3 +195,34 @@ export function normalizeClock(input: string): string {
   const match = input.trim().match(/^(\d{1,2})(?:[:h](\d{2})?)?h?$/);
   return match ? `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}` : input;
 }
+
+const DAY_ALIASES: Record<string, Weekday | 'daily'> = {
+  daily: 'daily',
+  'todo dia': 'daily',
+  todos: 'daily',
+  sun: 'sun',
+  dom: 'sun',
+  mon: 'mon',
+  seg: 'mon',
+  tue: 'tue',
+  ter: 'tue',
+  wed: 'wed',
+  qua: 'wed',
+  thu: 'thu',
+  qui: 'thu',
+  fri: 'fri',
+  sex: 'fri',
+  sat: 'sat',
+  sab: 'sat',
+};
+
+export function parseDays(input: string): (Weekday | 'daily')[] | null {
+  const normalized = fold(input);
+  if (DAY_ALIASES[normalized] === 'daily') return ['daily'];
+  const days = normalized
+    .split(/[\s,;/]+/)
+    .filter(Boolean)
+    .map((word) => DAY_ALIASES[word.slice(0, 3)]);
+  if (days.length === 0 || days.some((d) => d === undefined || d === 'daily')) return null;
+  return [...new Set(days as Weekday[])];
+}

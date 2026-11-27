@@ -4,11 +4,9 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from 'discord.js';
-import type { EventTemplatePatch } from '../../config/store.js';
 import type { ServiceOutcome } from '../../core/action.js';
-import { normalizeClock, unixSeconds as unix } from '../../core/schedule.js';
+import { unixSeconds as unix } from '../../core/schedule.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import { parseDays } from '../../services/event.service.js';
 import { COLORS } from '../colors.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
 import { failureText, listEmbed, outcomeText, replyPrivately } from '../replies.js';
@@ -152,43 +150,32 @@ export const eventCommand: SlashCommand = {
 
     if (group === 'template') {
       if (sub === 'list') {
-        const lines = ctx.config
-          .get()
-          .eventTemplates.map((tpl) =>
-            t.templateLine(
-              tpl.key,
-              tpl.emoji,
-              tpl.title,
-              tpl.days.map((d) => t.weekdays[d] ?? d).join(' '),
-              tpl.time,
-              tpl.enabled,
-            ),
-          );
+        const outcome = await ctx.events.templates(actor);
+        if (outcome.status !== 'ok') {
+          await replyText(interaction, failureText(outcome));
+          return;
+        }
+        const lines = outcome.value.map((tpl) =>
+          t.templateLine(
+            tpl.key,
+            tpl.emoji,
+            tpl.title,
+            tpl.days.map((d) => t.weekdays[d] ?? d).join(' '),
+            tpl.time,
+            tpl.enabled,
+          ),
+        );
         const embed = listEmbed(t.templateListTitle, lines, t.agendaEmpty);
         await replyPrivately(interaction, { embeds: [embed] });
         return;
       }
 
       const key = interaction.options.getString('key', true);
-      const patch: EventTemplatePatch = {};
-      if (sub === 'enable') patch.enabled = true;
-      if (sub === 'disable') patch.enabled = false;
-      if (sub === 'edit') {
-        const time = opt('time');
-        const days = opt('days');
-        const title = opt('title');
-        if (time) patch.time = normalizeClock(time);
-        if (title) patch.title = title;
-        if (days) {
-          const parsed = parseDays(days);
-          if (!parsed) {
-            await replyText(interaction, `⚠️ ${t.templateInvalid(days)}`);
-            return;
-          }
-          patch.days = parsed;
-        }
-      }
-      await replyOutcome(interaction, await ctx.events.updateTemplate(actor, key, patch));
+      const edit =
+        sub === 'edit'
+          ? { time: opt('time'), days: opt('days'), title: opt('title') }
+          : { enabled: sub === 'enable' };
+      await replyOutcome(interaction, await ctx.events.updateTemplate(actor, key, edit));
       return;
     }
 

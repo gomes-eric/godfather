@@ -38,30 +38,22 @@ describe('MCP endpoint', () => {
         return { ...entry, id: audit.length, at: new Date() };
       },
     });
-    const applications = {
-      list: () => [
-        {
-          id: 7,
-          status: 'pending',
-          character: {
-            name: 'Padrinho',
-            className: 'Clérigo',
-            level: 45,
-            combatPower: 100,
-            itemLevel: 2000,
-            legion: '',
-          },
-          userId: 'u1',
-          createdAt: new Date(),
-          decidedBy: null,
-        },
-      ],
+    const recruitment = {
+      list: (actor: Actor) =>
+        runAction({
+          actor,
+          action: 'recruit.read',
+          preview: 'recruit.read',
+          execute: async () => [
+            { id: 7, status: 'pending', character: { name: 'Padrinho' }, member: 'u1' },
+          ],
+        }),
     };
     const guild = { members: { cache: new Map() } };
     const services = {
       config,
       runAction,
-      applications,
+      recruitment,
       guild,
       messageContent: false,
     } as unknown as McpServices;
@@ -181,6 +173,28 @@ describe('MCP endpoint', () => {
     expect(textOf(result)).toContain('Comandante');
   });
 
+  it('keeps the server out of reach of a token whose owner is now a Visitante', async () => {
+    tier = 'visitor';
+    const client = await connect();
+
+    for (const name of ['list_members', 'list_channels', 'list_roles', 'get_server_overview']) {
+      const result = await client.callTool({ name, arguments: {} });
+      expect(result.isError, name).toBe(true);
+      expect(textOf(result)).toContain('Oficial');
+    }
+    expect(audit[0]).toMatchObject({
+      action: 'member.read',
+      result: 'denied',
+      actor: { userId: 'padrinho', tier: 'visitor', source: 'mcp' },
+    });
+    expect(audit.map((e) => e.action)).toEqual([
+      'member.read',
+      'server.read',
+      'server.read',
+      'server.read',
+    ]);
+  });
+
   it('reloads server.yaml after a hand edit', async () => {
     writeFileSync(path, readFileSync(path, 'utf8').replace(/legion: M4F1A/, 'legion: M4F1A Nova'));
     expect(config.get().settings.characters.legion).toBe('M4F1A');
@@ -197,7 +211,7 @@ describe('MCP endpoint', () => {
     const client = await connect();
     const result = await client.callTool({ name: 'list_applications', arguments: {} });
     expect(JSON.parse(textOf(result))).toEqual([
-      expect.objectContaining({ id: 7, character: 'Padrinho', status: 'pending' }),
+      expect.objectContaining({ id: 7, character: { name: 'Padrinho' }, status: 'pending' }),
     ]);
 
     tier = 'soldier';

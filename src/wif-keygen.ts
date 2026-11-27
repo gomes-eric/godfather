@@ -1,7 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CLAUDE_AUDIENCE, generateSigningKey, loadSigningKey, publicJwk } from './core/wif-jwt.js';
-import { WIF_SUBJECT, wifKeyPath } from './services/claude.js';
+import {
+  CLAUDE_AUDIENCE,
+  generateSigningKey,
+  loadSigningKey,
+  publicJwk,
+  WIF_SUBJECT,
+  wifKeyPath,
+} from './core/wif-jwt.js';
 
 const path = wifKeyPath(process.env.DATABASE_PATH ?? './data/padrinho.db');
 const issuer = process.env.PUBLIC_BASE_URL;

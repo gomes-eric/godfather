@@ -1,5 +1,6 @@
 import { MessageType, type Message } from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
+import { musicVerdict, type GuardedMessage } from '../core/music-guard.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
@@ -12,7 +13,7 @@ export class NoticeThrottle {
 
   constructor(
     private readonly everyMs = NOTICE_EVERY_MS,
-    private readonly now: () => number = Date.now,
+    private readonly now: () => number = () => Date.now(),
   ) {}
 
   take(userId: string): boolean {
@@ -24,31 +25,40 @@ export class NoticeThrottle {
   }
 }
 
-export function keepInMusicChannel(
-  message: { authorIsBot: boolean; system: boolean; content: string },
-  commandPrefixes: readonly string[],
-): boolean {
-  if (message.authorIsBot || message.system) return true;
-  const text = message.content.trimStart().toLowerCase();
-  return commandPrefixes.some((prefix) => text.startsWith(prefix.toLowerCase()));
-}
-
-/**
- * A text command for a music bot: one of the prefixes (`m!play`) or a mention of a music bot at the
- * start (`@Jockie Music play`), which Jockie also takes as a prefix.
- */
-export function isMusicCommand(
-  content: string,
-  commandPrefixes: readonly string[],
-  musicBotIds: ReadonlySet<string>,
-): boolean {
-  const text = content.trimStart().toLowerCase();
-  if (commandPrefixes.some((prefix) => text.startsWith(prefix.toLowerCase()))) return true;
-  const mention = /^<@!?(\d+)>/.exec(text);
-  return mention !== null && musicBotIds.has(mention[1]!);
+/** A message the guard removes, and the channel it was sent in. */
+export interface GuardTarget {
+  authorId: string;
+  delete(): Promise<void>;
+  /** Posts in the message's channel, mentioning only its author; null where the bot can't post. */
+  notify(content: string): Promise<{ delete(): Promise<unknown> } | null>;
 }
 
 const USER_TYPES = new Set([MessageType.Default, MessageType.Reply]);
+
+function guarded(message: Message<true>, musicChannelId: string): GuardedMessage {
+  return {
+    inMusicChannel: message.channelId === musicChannelId,
+    authorIsBot: message.author.bot,
+    isUserMessage: USER_TYPES.has(message.type),
+    inVoiceChat: message.channel.isVoiceBased(),
+    content: message.content,
+    mentionedBotIds: message.mentions.users.filter((user) => user.bot).map((user) => user.id),
+    botId: message.client.user.id,
+  };
+}
+
+function target(message: Message<true>): GuardTarget {
+  return {
+    authorId: message.author.id,
+    delete: async () => {
+      await message.delete();
+    },
+    notify: async (content) =>
+      message.channel.isSendable()
+        ? message.channel.send({ content, allowedMentions: { users: [message.author.id] } })
+        : null,
+  };
+}
 
 export class MusicGuardService {
   private readonly throttle = new NoticeThrottle();
@@ -62,58 +72,28 @@ export class MusicGuardService {
     const { musicGuard } = this.deps.config.get().settings;
     const channel = this.deps.directory.channelByKey(musicGuard.channel);
     if (!channel) return;
-    if (message.channelId !== channel.id) {
-      await this.outsideMusicChannel(message, channel.id);
-      return;
-    }
-    if (
-      keepInMusicChannel(
-        {
-          authorIsBot: message.author.bot,
-          system: !USER_TYPES.has(message.type),
-          content: message.content,
-        },
-        musicGuard.commandPrefixes,
-      )
-    ) {
-      return;
-    }
+    const verdict = musicVerdict(guarded(message, channel.id), musicGuard);
+    if (verdict === 'keep') return;
 
-    await message.delete();
+    const author = message.author.id;
+    await this.remove(
+      target(message),
+      verdict.notice === 'here'
+        ? ptBR.music.notice(author, musicGuard.commandPrefixes)
+        : ptBR.music.elsewhere(author, channel.id),
+    );
     this.deps.logger.debug(
-      { user: message.author.tag },
-      'removed a non-command message from #musica',
+      { user: message.author.tag, channel: message.channelId, notice: verdict.notice },
+      'music guard removed a message',
     );
-    await this.tell(message, ptBR.music.notice(message.author.id, musicGuard.commandPrefixes));
-  }
-
-  private async outsideMusicChannel(message: Message<true>, musicChannelId: string): Promise<void> {
-    if (message.author.bot || !USER_TYPES.has(message.type)) return;
-    if (message.channel.isVoiceBased()) return;
-    const musicBotIds = new Set(
-      message.mentions.users
-        .filter((user) => user.bot && user.id !== message.client.user.id)
-        .map((user) => user.id),
-    );
-    const { commandPrefixes } = this.deps.config.get().settings.musicGuard;
-    if (!isMusicCommand(message.content, commandPrefixes, musicBotIds)) return;
-
-    await message.delete();
-    this.deps.logger.debug(
-      { user: message.author.tag, channel: message.channelId },
-      'removed a music command outside #musica',
-    );
-    await this.tell(message, ptBR.music.elsewhere(message.author.id, musicChannelId));
   }
 
   // No DMs: a deleted message has no interaction to answer privately, so the notice is a short
   // message in the same channel that mentions only the author and deletes itself.
-  private async tell(message: Message<true>, content: string): Promise<void> {
-    if (!this.throttle.take(message.author.id) || !message.channel.isSendable()) return;
-    const notice = await message.channel.send({
-      content,
-      allowedMentions: { users: [message.author.id] },
-    });
-    setTimeout(() => void notice.delete().catch(() => undefined), NOTICE_LIFETIME_MS);
+  async remove(message: GuardTarget, notice: string): Promise<void> {
+    await message.delete();
+    if (!this.throttle.take(message.authorId)) return;
+    const sent = await message.notify(notice);
+    if (sent) setTimeout(() => void sent.delete().catch(() => undefined), NOTICE_LIFETIME_MS);
   }
 }

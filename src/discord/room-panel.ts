@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import type { RoomAccess } from '../core/voice-rooms.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { RoomPanelView } from '../services/voice-port.js';
 import { COLORS } from './colors.js';
 import { customId, parseCustomId } from './custom-id.js';
 
@@ -12,12 +12,6 @@ export const ROOM_KICK_PREFIX = 'room-kick:';
 
 export type PanelAction =
   'lock' | 'unlock' | 'hide' | 'unhide' | 'limit' | 'rename' | 'kick' | 'claim';
-
-export interface RoomPanelView extends RoomAccess {
-  roomId: string;
-  ownerId: string;
-  userLimit: number;
-}
 
 export function parsePanelCustomId(
   id: string,

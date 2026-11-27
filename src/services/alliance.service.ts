@@ -8,8 +8,9 @@ import { RESTRICTED } from '../core/standing.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
-import type { MemberService } from './member.service.js';
+import type { Roster } from './roster.service.js';
 import type { SetupService } from './setup.service.js';
+import { ownLegion } from '../config/views.js';
 
 const t = ptBR.alliances;
 
@@ -24,7 +25,7 @@ interface Deps {
   config: ConfigStore;
   directory: GuildDirectory;
   setup: SetupService;
-  members: MemberService;
+  roster: Roster;
   runAction: ActionRunner;
   logger: Logger;
 }
@@ -50,7 +51,7 @@ export class AllianceService {
     const { config } = this.deps;
     const name = legion.trim().replace(/\s+/g, ' ');
     if (!name) return rejected(t.emptyName);
-    if (sameLegion(name, config.get().settings.characters.legion)) return rejected(t.ownLegion);
+    if (sameLegion(name, ownLegion(config.get()))) return rejected(t.ownLegion);
     const existing = findAlliance(config.get().alliances, name);
     if (existing) return rejected(t.exists(existing.legion));
     if (!config.get().settings.allyRole) return rejected(ptBR.members.noAllyRole);
@@ -59,7 +60,7 @@ export class AllianceService {
       ...config.get().roles.map((r) => r.key),
       ...config.get().alliances.map((a) => a.key),
     ]);
-    return this.deps.runAction({
+    const outcome = await this.deps.runAction({
       actor,
       action: 'alliance.add',
       target: name,
@@ -68,13 +69,16 @@ export class AllianceService {
       execute: async () => {
         config.addAlliance({ key, legion: name });
         const result = await this.deps.setup.syncRoles([key]);
-        if (result.failures.length > 0) {
-          this.deps.logger.warn({ failures: result.failures }, 'alliance role not created');
-          return t.addedWithoutRole(name);
-        }
-        return t.added(name);
+        if (result.failures.length === 0) return true;
+        this.deps.logger.warn({ failures: result.failures }, 'alliance role not created');
+        config.removeAlliance(key);
+        return false;
       },
     });
+    if (outcome.status !== 'ok') return outcome;
+    return outcome.value
+      ? { status: 'ok', value: t.added(name) }
+      : rejected(t.roleNotCreated(name));
   }
 
   async remove(actor: Actor, legion: string, confirm: boolean): Promise<ServiceOutcome<string>> {
@@ -95,12 +99,9 @@ export class AllianceService {
       execute: async () => {
         let restricted = 0;
         for (const member of allies) {
-          const outcome = await this.deps.members.move(actor, member.id, RESTRICTED, {
-            action: 'member.restrict',
-            preview: (name, from) =>
-              ptBR.members.restrictPreview(name, from, t.removedReason(alliance.legion)),
-            done: ptBR.members.restricted,
-            restriction: { origin: 'check', reason: t.removedReason(alliance.legion) },
+          const outcome = await this.deps.roster.change(actor, member.id, {
+            to: RESTRICTED,
+            cause: { kind: 'allianceEnded', legion: alliance.legion },
           });
           if (outcome.status === 'ok') restricted++;
         }

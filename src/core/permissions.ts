@@ -34,6 +34,7 @@ export const ACTION_POLICIES = {
   'member.read': policy('officer', { audited: false }),
   'member.register': policy('officer'),
 
+  'server.read': policy('officer', { audited: false }),
   'channel.create': policy('commander'),
   'channel.edit': policy('commander'),
   'channel.delete': policy('commander', { destructive: true }),
@@ -51,7 +52,9 @@ export const ACTION_POLICIES = {
 
   'party.create': policy('soldier', { audited: false }),
   'party.join': policy('soldier', { audited: false }),
+  'party.leave': policy('soldier', { audited: false }),
   'party.close': policy('soldier', { audited: false }),
+  'party.close.any': policy('officer', { audited: false }),
 
   'message.send': policy('officer'),
   'message.purge': policy('officer', { destructive: true }),

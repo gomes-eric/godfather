@@ -1,8 +1,9 @@
 import type { ConfigStore } from '../config/store.js';
 import type { GuildDirectory } from './directory.js';
+import { officerChannelKey } from '../config/views.js';
 
 export function officerChannel(directory: GuildDirectory, config: ConfigStore) {
-  const key = config.get().settings.characters.reportChannel;
+  const key = officerChannelKey(config.get());
   return key ? directory.channelByKey(key) : undefined;
 }
 

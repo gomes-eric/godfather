@@ -4,6 +4,10 @@ import {
   checkDue,
   CHECK_EVERY_MS,
   legionTransition,
+  legionToStore,
+  memberVerdict,
+  batchVerdict,
+  reviewFor,
   RANKING_SIZE,
   rankingLines,
 } from './legion-check.js';
@@ -125,5 +129,63 @@ describe('legionTransition', () => {
       to: { kind: 'ally', allianceKey: 'ally-noxus' },
     });
     expect(go(restricted, 'Outra', 'M4F1A', 'officer')).toBeNull();
+  });
+});
+
+describe('memberVerdict and the batch', () => {
+  const alliances = [{ key: 'ally-noxus', legion: 'Noxus' }];
+  const soldier = { kind: 'tier', tier: 'soldier' } as const;
+  const before = { name: 'Padrinho', classKey: 'class-cleric', legion: 'M4F1A' };
+  const verdict = (
+    now: Partial<typeof before>,
+    checkedAt: Date | null = new Date('2026-11-01T00:00:00Z'),
+  ) =>
+    memberVerdict({
+      before: { ...before, checkedAt },
+      now: { ...before, ...now },
+      legion: 'M4F1A',
+      alliances,
+      standing: soldier,
+      restrictedBy: undefined,
+    });
+
+  it('says what changed and what to apply', () => {
+    const v = verdict({ name: 'Padrinho2', classKey: 'class-sorcerer' });
+    expect(v.events).toEqual([
+      { kind: 'renamed', from: 'Padrinho', to: 'Padrinho2' },
+      { kind: 'classChanged', from: 'class-cleric', to: 'class-sorcerer' },
+    ]);
+    expect(v.sync).toEqual({ name: 'Padrinho2', classKey: 'class-sorcerer' });
+    expect(v.transition).toBeNull();
+  });
+
+  it('treats the first check of an old registration as the baseline: no moves, no legion reports', () => {
+    const v = verdict({ legion: 'Outra' }, null);
+    expect(v.transition).toBeNull();
+    expect(v.events).toEqual([]);
+  });
+
+  it('holds back every move when more than 3 leave, keeping the old legion stored', () => {
+    const left = verdict({ legion: 'Outra' });
+    const batch = batchVerdict([left, left, left, left]);
+    expect(batch).toEqual({ departures: 4, holdBack: true });
+    expect(legionToStore(left, true)).toBe('M4F1A');
+    expect(legionToStore(left, false)).toBe('Outra');
+    expect(batchVerdict([left, left, left]).holdBack).toBe(false);
+  });
+
+  it('asks for a review with the previous standing, typed', () => {
+    const toAlly = verdict({ legion: 'Noxus' }).transition!;
+    expect(reviewFor(toAlly, soldier)).toEqual({
+      kind: 'ally',
+      allianceKey: 'ally-noxus',
+      previous: soldier,
+    });
+    const left = verdict({ legion: 'Outra' }).transition!;
+    expect(reviewFor(left, soldier)).toEqual({
+      kind: 'restricted',
+      allianceKey: null,
+      previous: soldier,
+    });
   });
 });

@@ -10,7 +10,8 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import type { RoomCommand } from '../../services/voice.service.js';
+import type { RoomMember } from '../../services/voice-port.js';
+import { isSimpleRoomCommand, type RoomCommand } from '../../services/voice.service.js';
 import type { CommandContext } from '../commands/types.js';
 import { customId } from '../custom-id.js';
 import { outcomeText, replyPrivately } from '../replies.js';
@@ -22,7 +23,6 @@ import {
 } from '../room-panel.js';
 
 const t = ptBR.voice;
-const DIRECT = new Set(['lock', 'unlock', 'hide', 'unhide', 'claim']);
 /** A select menu holds at most 25 options. */
 const MAX_KICK_OPTIONS = 25;
 
@@ -54,14 +54,14 @@ function textModal(roomId: string, action: 'rename' | 'limit', value: string): M
     .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
 }
 
-function kickPicker(roomId: string, occupants: ReturnType<CommandContext['voice']['occupants']>) {
+function kickPicker(roomId: string, occupants: RoomMember[]) {
   const picker = new StringSelectMenuBuilder()
     .setCustomId(customId(ROOM_KICK_PREFIX, 'kick', roomId))
     .setPlaceholder(t.panel.kickPlaceholder)
     .addOptions(
       occupants.slice(0, MAX_KICK_OPTIONS).map((member) => ({
         label: member.displayName.slice(0, 100),
-        description: member.user.username.slice(0, 100),
+        description: member.username.slice(0, 100),
         value: member.id,
       })),
     );
@@ -76,22 +76,23 @@ export async function handleRoomPanelButton(
   if (!parsed) return false;
   const { action, roomId } = parsed;
 
-  if (DIRECT.has(action)) {
+  if (isSimpleRoomCommand(action)) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await run(interaction, ctx, roomId, { type: action as 'lock' | 'unlock' | 'claim' });
+    await run(interaction, ctx, roomId, { type: action });
     return true;
   }
   if (action !== 'rename' && action !== 'limit' && action !== 'kick') return false;
 
   const actor = await ctx.resolveActor(interaction.user.id);
-  const refusal = ctx.voice.refusal(actor, roomId, action);
-  if (refusal) {
-    await replyPrivately(interaction, `⚠️ ${refusal}`);
+  const check = ctx.voice.check(actor, roomId, action);
+  if (!check.allowed) {
+    await replyPrivately(interaction, `⚠️ ${check.reason}`);
     return true;
   }
+  const { room } = check;
 
   if (action === 'kick') {
-    const occupants = ctx.voice.occupants(roomId, interaction.user.id);
+    const occupants = room.occupants.filter((o) => !o.bot && o.id !== actor.userId);
     await replyPrivately(
       interaction,
       occupants.length === 0
@@ -101,11 +102,7 @@ export async function handleRoomPanelButton(
     return true;
   }
 
-  const channel = interaction.guild?.channels.cache.get(roomId);
-  const current =
-    action === 'rename'
-      ? (channel?.name ?? '')
-      : String(channel && 'userLimit' in channel ? channel.userLimit : 0);
+  const current = action === 'rename' ? room.name : String(room.userLimit);
   await interaction.showModal(textModal(roomId, action, current));
   return true;
 }

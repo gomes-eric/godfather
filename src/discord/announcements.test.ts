@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { OccurrenceView } from '../services/reminder.scheduler.js';
+import type { OccurrenceView, ReminderMessage } from '../services/event-calendar.js';
 import { agendaDescription, reminderCard } from './announcements.js';
 
 const SP = 'America/Sao_Paulo';
@@ -15,13 +15,25 @@ const war: OccurrenceView = {
   eventId: null,
   templateKey: 'abyss-war',
 };
-const noVotes = { yes: [], maybe: [], no: [] };
+const reminder = (overrides: Partial<ReminderMessage> = {}): ReminderMessage => ({
+  occurrence: war,
+  offsetMinutes: 30,
+  rsvp: { yes: [], maybe: [], no: [] },
+  classes: [],
+  superseded: false,
+  ...overrides,
+});
 
 describe('reminderCard', () => {
   it('pings, counts down, shows the Brasília time, room and attendance', () => {
     const card = reminderCard(
-      { occurrence: war, offsetMinutes: 30, rsvp: { yes: ['a', 'b'], maybe: ['c'], no: [] } },
-      '2 Clérigo',
+      reminder({
+        rsvp: { yes: ['a', 'b'], maybe: ['c'], no: [] },
+        classes: [
+          { name: 'Clérigo', count: 2 },
+          { name: 'Gladiador', count: 1 },
+        ],
+      }),
       SP,
     );
 
@@ -33,22 +45,38 @@ describe('reminderCard', () => {
       { name: '📍 Sala', value: '<#555>', inline: true },
       {
         name: '🙋 Presença',
-        value: '✅ **2** vão · ❔ **1** talvez · ❌ **0** não vão\n*2 Clérigo*',
+        value: '✅ **2** vão · ❔ **1** talvez · ❌ **0** não vão\n*2 Clérigo, 1 Gladiador*',
         inline: false,
       },
     ]);
     expect(card.footer).toBe('M4F1A · evento #12');
+    expect(card.rsvpOpen).toBe(true);
   });
 
   it('turns red and says it started for the 0-minute reminder; no ping when disabled', () => {
     const card = reminderCard(
-      { occurrence: { ...war, ping: false }, offsetMinutes: 0, rsvp: noVotes },
-      '',
+      reminder({ occurrence: { ...war, ping: false }, offsetMinutes: 0 }),
       SP,
     );
     expect(card.content).toBe('');
     expect(card.description).toContain('Começou agora');
     expect(card.color).toBe(0xe0303a);
+  });
+
+  it('says a card posted for an earlier time was rescheduled, without stale attendance', () => {
+    const card = reminderCard(reminder({ superseded: true }), SP);
+    expect(card.description).toBe(
+      '🕘 **Evento remarcado** para <t:1793059200:F> (<t:1793059200:R>). Um novo aviso sai antes do novo horário.',
+    );
+    expect(card.fields.map((f) => f.name)).toEqual(['🕘 Horário', '📍 Sala']);
+    expect(card.rsvpOpen).toBe(true);
+  });
+
+  it('closes the RSVP of a cancelled event', () => {
+    const card = reminderCard(reminder({ occurrence: { ...war, cancelled: true } }), SP);
+    expect(card.description).toBe('🚫 **Evento cancelado.**');
+    expect(card.fields.map((f) => f.name)).toEqual(['🕘 Horário', '📍 Sala']);
+    expect(card.rsvpOpen).toBe(false);
   });
 });
 

@@ -33,7 +33,7 @@ const KIND_TO_TYPE = {
   forum: ChannelType.GuildForum,
 } as const satisfies Record<ChannelKind | 'category', ChannelType>;
 
-function kindOf(type: ChannelType): SnapshotChannelKind {
+export function kindOf(type: ChannelType): SnapshotChannelKind {
   const entry = Object.entries(KIND_TO_TYPE).find(([, t]) => t === type);
   return (entry?.[0] as SnapshotChannelKind | undefined) ?? 'other';
 }

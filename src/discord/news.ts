@@ -5,7 +5,7 @@ import {
   EmbedBuilder,
   type MessageMentionOptions,
 } from 'discord.js';
-import type { NewsDigest } from '../core/news-digest.js';
+import { CARD_POINTS, CARD_SECTIONS, type NewsDigest } from '../core/news-digest.js';
 import {
   newsExcerpt,
   newsKind,
@@ -14,7 +14,9 @@ import {
   type NewsPost,
 } from '../core/news.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { NewsPort } from '../services/news.service.js';
 import { COLORS } from './colors.js';
+import type { GuildDirectory } from './directory.js';
 
 const t = ptBR.news;
 
@@ -38,10 +40,14 @@ function sectionEmoji(title: string): string {
   return '📌';
 }
 
-export function newsMessage(note: NewsPost): {
+export interface NewsMessage {
+  content?: string;
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
-} {
+  allowedMentions: MessageMentionOptions;
+}
+
+export function newsMessage(note: NewsPost): NewsMessage {
   const kind = newsKind(note.title);
   const style = KIND_STYLE[kind];
   const summary = summarizeNews(note);
@@ -71,7 +77,7 @@ export function newsMessage(note: NewsPost): {
     }
   }
 
-  return { embeds: [embed], components: [linkRow(note.url)] };
+  return { embeds: [embed], components: [linkRow(note.url)], allowedMentions: { parse: [] } };
 }
 
 function linkRow(url: string) {
@@ -83,21 +89,19 @@ function linkRow(url: string) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(link);
 }
 
-export interface DigestPing {
+export interface DigestMentions {
   everyone: boolean;
   roleIds: string[];
 }
 
-const MAX_SECTIONS = 4;
-const MAX_POINTS = 4;
 const DESCRIPTION_MAX = 4096;
 
 export function digestDescription(
   digest: Pick<NewsDigest, 'when' | 'summary' | 'sections'>,
 ): string {
   let text = [digest.when && `🗓️ ${digest.when}`, digest.summary].filter(Boolean).join('\n\n');
-  for (const section of digest.sections.slice(0, MAX_SECTIONS)) {
-    const points = section.points.slice(0, MAX_POINTS).map((point) => `- ${point}`);
+  for (const section of digest.sections.slice(0, CARD_SECTIONS)) {
+    const points = section.points.slice(0, CARD_POINTS).map((point) => `- ${point}`);
     if (points.length === 0) continue;
     const block = [`### ${section.emoji} ${section.title}`, ...points].join('\n');
     const next = text ? `${text}\n\n${block}` : block;
@@ -110,13 +114,8 @@ export function digestDescription(
 export function digestMessage(
   note: Pick<NewsPost, 'url' | 'imageUrl' | 'postedAt'>,
   digest: NewsDigest,
-  ping: DigestPing,
-): {
-  content: string;
-  embeds: EmbedBuilder[];
-  components: ActionRowBuilder<ButtonBuilder>[];
-  allowedMentions: MessageMentionOptions;
-} {
+  ping: DigestMentions,
+): NewsMessage {
   const style = KIND_STYLE[digest.kind];
   const embed = new EmbedBuilder()
     .setColor(style.color)
@@ -141,5 +140,15 @@ export function digestMessage(
     embeds: [embed],
     components: [linkRow(note.url)],
     allowedMentions: { parse: ping.everyone ? ['everyone'] : [], roles: ping.roleIds },
+  };
+}
+
+export function createDiscordNewsPort(directory: GuildDirectory): NewsPort {
+  return {
+    channel(key) {
+      const channel = directory.channelByKey(key);
+      return channel && { post: async (message) => (await channel.send(message)).id };
+    },
+    roleId: (key) => directory.roleId(key),
   };
 }

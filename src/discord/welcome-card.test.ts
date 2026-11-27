@@ -1,6 +1,6 @@
 import type { EmbedBuilder } from 'discord.js';
 import { describe, expect, it } from 'vitest';
-import { renderWelcome, welcomeCard } from './welcome.service.js';
+import { renderWelcome, welcomeCard } from './welcome-card.js';
 
 describe('renderWelcome', () => {
   const channels: Record<string, string> = { recruitment: '111', rules: '222' };

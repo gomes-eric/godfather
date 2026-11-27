@@ -1,75 +1,71 @@
-import { EmbedBuilder, type Guild, type GuildMember } from 'discord.js';
-import { classRoles, type RoleConfig } from '../config/schema.js';
+import { EmbedBuilder } from 'discord.js';
+import { classRoles } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
-import type { ActionRunner } from '../core/action.js';
-import { systemActor } from '../core/actor.js';
-import { matchClass } from '../core/game-character.js';
+import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
+import { systemActor, type Actor } from '../core/actor.js';
+import { matchClass, type CharacterProfile } from '../core/game-character.js';
 import {
-  characterChanges,
+  batchVerdict,
   checkDue,
-  legionTransition,
-  departuresLookTrustworthy,
+  legionToStore,
   MAX_DEPARTURES,
-  type Transition,
+  memberVerdict,
+  reviewFor,
+  type CheckEvent,
+  type MemberVerdict,
 } from '../core/legion-check.js';
-import type { CharacterProfile } from '../core/game-character.js';
-import { encodeStanding, type Standing } from '../core/standing.js';
-import type { ActionName } from '../core/permissions.js';
-import { registrationNickname } from '../core/registration.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
-import type { CharacterSnapshot, CharacterStore, RegisteredCharacter } from '../db/characters.js';
+import { allyOf, type Standing } from '../core/standing.js';
+import type { CharacterStore, RegisteredCharacter } from '../db/characters.js';
 import type { RestrictionStore } from '../db/restrictions.js';
-import { applyCharacter } from '../discord/character-registration.js';
 import { COLORS } from '../discord/colors.js';
+import { officerChannel } from '../discord/officer-notices.js';
 import type { GuildDirectory } from '../discord/directory.js';
-import { fetchMember, memberStanding } from '../discord/members.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
-import type { MemberService } from './member.service.js';
 import type { RankingBoard } from './ranking-board.service.js';
-import type { ReviewInput } from './recruitment.service.js';
+import type { ReviewRequest } from './recruitment.service.js';
+import type { Roster } from './roster.service.js';
+import { ownLegion } from '../config/views.js';
 
 const t = ptBR.legionCheck;
+/** How often to look whether a check is due. */
 const TICK_MS = 60 * 60_000;
+/** Pause between characters, to be gentle with the official site. */
 const PAUSE_MS = 1_500;
 
 interface Deps {
-  guild: Guild;
   config: ConfigStore;
   directory: GuildDirectory;
   ranking: RankingBoard;
   registrations: CharacterStore;
   characters: GameCharacterService;
-  runAction: ActionRunner;
-  members: MemberService;
+  roster: Roster;
   restrictions: RestrictionStore;
-  review: (input: ReviewInput) => Promise<void>;
+  /** Opens a review for the officers (Recruitment.openReview). */
+  review: (request: ReviewRequest) => Promise<void>;
+  botUserId: string;
+  runAction: ActionRunner;
   logger: Logger;
   pause?: (ms: number) => Promise<void>;
 }
 
 interface Checked {
   userId: string;
+  from: Standing;
+  character: CharacterProfile;
+  verdict: MemberVerdict;
   lines: string[];
-  snapshot: CharacterSnapshot;
-  legionBefore: string;
-  move?: {
-    member: GuildMember;
-    from: Standing;
-    transition: Transition;
-    character: CharacterProfile;
-  };
+  combatPower: number | null;
+  itemLevel: number | null;
 }
 
-const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
-  tier: 'member.promote',
-  ally: 'member.ally',
-  partner: 'member.partner',
-  restricted: 'member.restrict',
-  visitor: 'member.demote',
-};
-
+/**
+ * Once a day, re-reads every registered character on the official site and carries out what the
+ * core's verdict says: new class or name applied, standing moves (with reviews for the officers),
+ * the officers' report, and the #ranking board rebuilt from the fresh numbers.
+ */
 export class LegionCheckService implements BackgroundJob {
   private running = false;
   private readonly pause: (ms: number) => Promise<void>;
@@ -78,8 +74,12 @@ export class LegionCheckService implements BackgroundJob {
     this.pause = deps.pause ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
-  private classRole(key: string): RoleConfig | undefined {
-    return classRoles(this.deps.config.get()).find((role) => role.key === key);
+  private bot() {
+    return systemActor(this.deps.botUserId);
+  }
+
+  private className(key: string): string {
+    return classRoles(this.deps.config.get()).find((role) => role.key === key)?.name ?? key;
   }
 
   async runIfDue(now = new Date()): Promise<string[]> {
@@ -89,6 +89,20 @@ export class LegionCheckService implements BackgroundJob {
 
   get isChecking(): boolean {
     return this.running;
+  }
+
+  /** /ranking and MCP: the check now, as an audited action, unless one is under way. */
+  async runNow(actor: Actor): Promise<ServiceOutcome<{ report: string[]; members: number }>> {
+    if (this.running) return rejected(t.commandBusy);
+    return this.deps.runAction({
+      actor,
+      action: 'legion.check',
+      preview: 'legion.check',
+      execute: async () => ({
+        report: await this.check(),
+        members: this.deps.registrations.all().length,
+      }),
+    });
   }
 
   async check(): Promise<string[]> {
@@ -104,7 +118,7 @@ export class LegionCheckService implements BackgroundJob {
         if (result) checked.push(result);
         await this.pause(PAUSE_MS);
       }
-      const report = await this.applyMoves(checked);
+      const report = await this.carryOutAll(checked);
       await this.postReport(report);
       await this.deps.ranking.refresh();
       this.deps.logger.info({ changes: report.length }, 'legion check done');
@@ -115,152 +129,127 @@ export class LegionCheckService implements BackgroundJob {
   }
 
   private async checkOne(row: RegisteredCharacter): Promise<Checked | undefined> {
-    const { guild, characters, config } = this.deps;
-    const member = await fetchMember(guild, row.userId);
-    if (!member) return undefined;
+    const { characters, config, roster } = this.deps;
+    const from = await roster.standingOf(row.userId);
+    if (!from) return undefined;
 
-    const profile = await characters.profile({ id: row.characterId, serverId: row.serverId }, true);
-    const classRole = matchClass(profile.className, classRoles(config.get()));
-    const legion = config.get().settings.characters.legion;
-    const now = {
-      name: profile.name,
-      classKey: classRole?.key ?? row.classKey,
-      legion: profile.legion,
-    };
-    const changes = characterChanges(row, now, legion);
-    const firstCheckSetsBaseline = !row.checkedAt;
-    if (firstCheckSetsBaseline) {
-      changes.leftLegion = false;
-      changes.joinedLegion = false;
-    }
-    const lines: string[] = [];
-
-    if (changes.renamed || changes.classChanged) {
-      await this.syncMember(member, now.name, now.classKey);
-      if (changes.renamed) {
-        lines.push(t.renamed(member.id, changes.renamed.from, changes.renamed.to));
+    const character = await characters.profile(
+      { id: row.characterId, serverId: row.serverId },
+      true,
+    );
+    const classKey = matchClass(character.className, classRoles(config.get()))?.key ?? row.classKey;
+    const verdict = memberVerdict({
+      before: row,
+      now: { name: character.name, classKey, legion: character.legion },
+      legion: ownLegion(config.get()),
+      alliances: config.get().alliances,
+      standing: from,
+      restrictedBy: this.deps.restrictions.get(row.userId)?.origin,
+    });
+    if (verdict.sync) {
+      const synced = await roster.change(this.bot(), row.userId, {
+        character: { classKey: verdict.sync.classKey, gameName: verdict.sync.name },
+        cause: { kind: 'legionCheck' },
+      });
+      if (synced.status !== 'ok') {
+        this.deps.logger.warn({ user: row.userId, synced }, 'class or nickname not updated');
       }
-      if (changes.classChanged) {
-        const name = (key: string) => this.classRole(key)?.name ?? key;
-        lines.push(
-          t.classChanged(member.id, name(changes.classChanged.from), name(changes.classChanged.to)),
-        );
-      }
-    }
-
-    const snapshot = { ...now, combatPower: profile.combatPower, itemLevel: profile.itemLevel };
-    const from = memberStanding(member, this.deps.directory);
-    const transition = !firstCheckSetsBaseline
-      ? legionTransition({
-          standing: from,
-          before: row.legion,
-          now: profile.legion,
-          legion,
-          alliances: config.get().alliances,
-          restrictedBy: this.deps.restrictions.get(member.id)?.origin,
-        })
-      : null;
-    if (!transition) {
-      if (changes.leftLegion) lines.push(t.left(member.id, now.name, legion, now.legion));
-      if (changes.joinedLegion) lines.push(t.joined(member.id, now.name, legion));
     }
     return {
-      userId: member.id,
-      lines,
-      snapshot,
-      legionBefore: row.legion,
-      ...(transition && { move: { member, from, transition, character: profile } }),
+      userId: row.userId,
+      from,
+      character,
+      verdict,
+      lines: verdict.events.map((event) => this.eventLine(row.userId, character.name, event)),
+      combatPower: character.combatPower,
+      itemLevel: character.itemLevel,
     };
   }
 
-  private async applyMoves(checked: Checked[]): Promise<string[]> {
+  private eventLine(userId: string, name: string, event: CheckEvent): string {
+    const legion = ownLegion(this.deps.config.get());
+    switch (event.kind) {
+      case 'renamed':
+        return t.renamed(userId, event.from, event.to);
+      case 'classChanged':
+        return t.classChanged(userId, this.className(event.from), this.className(event.to));
+      case 'left':
+        return t.left(userId, name, legion, event.now);
+      case 'joined':
+        return t.joined(userId, name, legion);
+    }
+  }
+
+  private async carryOutAll(checked: Checked[]): Promise<string[]> {
     const report = checked.flatMap((c) => c.lines);
-    const departures = checked.filter((c) => c.move?.transition.departure).length;
-    const holdBack = !departuresLookTrustworthy(departures);
+    const { departures, holdBack } = batchVerdict(checked.map((c) => c.verdict));
     if (holdBack) report.push(t.tooManyDepartures(departures, MAX_DEPARTURES));
 
     for (const c of checked) {
-      if (c.move && holdBack) {
-        report.push(t.heldBack(c.userId, c.snapshot.name, c.snapshot.legion));
-      } else if (c.move) {
-        report.push(...(await this.carryOut(c.move)));
+      if (c.verdict.transition && holdBack) {
+        report.push(t.heldBack(c.userId, c.character.name, c.character.legion));
+      } else if (c.verdict.transition) {
+        report.push(...(await this.carryOut(c)));
       }
-      const legion = c.move && holdBack ? c.legionBefore : c.snapshot.legion;
-      this.deps.registrations.updateSnapshot(c.userId, { ...c.snapshot, legion });
+      this.deps.registrations.updateSnapshot(c.userId, {
+        ...c.verdict.now,
+        legion: legionToStore(c.verdict, holdBack),
+        combatPower: c.combatPower,
+        itemLevel: c.itemLevel,
+      });
     }
     return report;
   }
 
-  private async carryOut(move: NonNullable<Checked['move']>): Promise<string[]> {
-    const { member, from, transition, character } = move;
-    const bot = systemActor(this.deps.guild.client.user.id);
-    const { members } = this.deps;
-    const fromName = members.standingName(from);
-    const legion = this.deps.config.get().settings.characters.legion;
+  private async carryOut(c: Checked): Promise<string[]> {
+    const transition = c.verdict.transition!;
+    const { roster } = this.deps;
+    const { character, userId, from } = c;
+    const fromName = roster.standingName(from);
     const lines: string[] = [];
 
-    const to = transition.kind === 'move' ? transition.to : undefined;
-    if (to) {
-      const outcome = await members.move(bot, member.id, to, {
-        action: MOVE_ACTION[to.kind],
-        preview: (name, was) => `${was} → ${members.standingName(to)}: ${name}`,
-        done: (name) => name,
-        restriction: { origin: 'check', reason: t.restrictReason },
+    if (transition.kind === 'move') {
+      const to = transition.to;
+      const outcome = await roster.change(this.bot(), userId, {
+        to,
+        cause: { kind: 'legionCheck' },
       });
       if (outcome.status !== 'ok') {
-        this.deps.logger.warn({ user: member.id, outcome }, 'legion check could not move member');
-        lines.push(t.moveFailed(member.id, character.name, members.standingName(to)));
-        return lines;
+        this.deps.logger.warn({ user: userId, outcome }, 'legion check could not move member');
+        return [t.moveFailed(userId, character.name, roster.standingName(to))];
       }
       lines.push(
         transition.why === 'returned'
-          ? t.returned(member.id, character.name, members.standingName(to))
-          : t.moved(
-              member.id,
-              character.name,
-              character.legion,
-              fromName,
-              members.standingName(to),
-            ),
+          ? t.returned(userId, character.name, roster.standingName(to))
+          : t.moved(userId, character.name, character.legion, fromName, roster.standingName(to)),
       );
     } else {
-      lines.push(t.leaderLeft(member.id, character.name, legion, character.legion, fromName));
+      const legion = ownLegion(this.deps.config.get());
+      lines.push(t.leaderLeft(userId, character.name, legion, character.legion, fromName));
     }
 
-    if (transition.review) {
+    const review = reviewFor(transition, from);
+    if (review) {
       await this.deps
         .review({
-          userId: member.id,
-          kind: to?.kind === 'ally' ? 'ally' : 'restricted',
+          userId,
+          kind: review.kind,
           character,
-          allianceLegion: to?.kind === 'ally' ? (members.legionOf(to) ?? character.legion) : null,
-          previousStanding: encodeStanding(from),
+          allianceLegion: review.allianceKey
+            ? (roster.legionOf(allyOf(review.allianceKey)) ?? character.legion)
+            : null,
+          previous: review.previous,
         })
         .catch((error: unknown) =>
-          this.deps.logger.warn({ err: error, user: member.id }, 'could not open the review'),
+          this.deps.logger.warn({ err: error, user: userId }, 'could not open the review'),
         );
     }
     return lines;
   }
 
-  private async syncMember(member: GuildMember, name: string, classKey: string): Promise<void> {
-    const classRole = this.classRole(classKey);
-    if (!classRole) return;
-    const nickname = registrationNickname(classRole.emoji ?? '', name);
-    await this.deps.runAction({
-      actor: systemActor(this.deps.guild.client.user.id),
-      action: 'member.sync',
-      target: nickname,
-      params: { userId: member.id, class: classKey, gameName: name },
-      preview: nickname,
-      execute: () => applyCharacter(member, this.deps.directory, { name, classRole }, t.syncReason),
-    });
-  }
-
   private async postReport(lines: string[]): Promise<void> {
     if (lines.length === 0) return;
-    const key = this.deps.config.get().settings.characters.reportChannel;
-    const channel = key ? this.deps.directory.channelByKey(key) : undefined;
+    const channel = officerChannel(this.deps.directory, this.deps.config);
     if (!channel) return;
     const embed = new EmbedBuilder()
       .setColor(COLORS.gold)

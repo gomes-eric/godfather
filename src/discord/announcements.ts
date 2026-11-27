@@ -4,44 +4,22 @@ import {
   ButtonStyle,
   EmbedBuilder,
   MessageType,
-  type Guild,
   type MessageCreateOptions,
 } from 'discord.js';
-import { classRoles, type ServerConfig } from '../config/schema.js';
+import type { ServerConfig } from '../config/schema.js';
 import { localParts, unixSeconds as unix } from '../core/schedule.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type {
   AnnouncementPort,
   OccurrenceView,
   ReminderMessage,
-} from '../services/reminder.scheduler.js';
+} from '../services/event-calendar.js';
 import { COLORS } from './colors.js';
 import { customId } from './custom-id.js';
 import type { GuildDirectory } from './directory.js';
 
 const t = ptBR.events;
 export const RSVP_PREFIX = 'rsvp:';
-
-function classBreakdown(
-  guild: Guild,
-  directory: GuildDirectory,
-  config: ServerConfig,
-  userIds: string[],
-): string {
-  const counts = new Map<string, number>();
-  for (const role of classRoles(config)) {
-    const roleId = directory.roleId(role.key);
-    if (!roleId) continue;
-    const count = userIds.filter((id) =>
-      guild.members.cache.get(id)?.roles.cache.has(roleId),
-    ).length;
-    if (count > 0) counts.set(role.name, count);
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => `${count} ${name}`)
-    .join(', ');
-}
 
 function rsvpButtons(occurrenceId: number) {
   const button = (status: 'yes' | 'maybe' | 'no', emoji: string, style: ButtonStyle) =>
@@ -60,6 +38,7 @@ function rsvpButtons(occurrenceId: number) {
 const CARD_COLORS = {
   soon: COLORS.amber,
   now: COLORS.crimson,
+  cancelled: COLORS.slate,
   agenda: COLORS.brand,
 };
 
@@ -76,38 +55,49 @@ export interface ReminderCard {
   color: number;
   fields: { name: string; value: string; inline: boolean }[];
   footer: string;
+  /** Whether the card carries the RSVP buttons. */
+  rsvpOpen: boolean;
 }
 
-export function reminderCard(
-  message: ReminderMessage,
-  rsvpClasses: string,
-  timeZone: string,
-): ReminderCard {
-  const { occurrence: o, offsetMinutes, rsvp } = message;
+export function reminderCard(message: ReminderMessage, timeZone: string): ReminderCard {
+  const { occurrence: o, offsetMinutes, rsvp, classes, superseded } = message;
   const c = t.card;
   const fields: ReminderCard['fields'] = [
     { name: c.time, value: c.timeValue(clock(o.startsAt, timeZone)), inline: true },
   ];
   if (o.voiceChannelId)
     fields.push({ name: c.room, value: `<#${o.voiceChannelId}>`, inline: true });
-  fields.push({
-    name: c.attendance,
-    value: [
-      c.attendanceValue(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length),
-      ...(rsvpClasses ? [`*${rsvpClasses}*`] : []),
-    ].join('\n'),
-    inline: false,
-  });
+  if (!o.cancelled && !superseded) {
+    const breakdown = classes.map(({ name, count }) => `${count} ${name}`).join(', ');
+    fields.push({
+      name: c.attendance,
+      value: [
+        c.attendanceValue(rsvp.yes.length, rsvp.maybe.length, rsvp.no.length),
+        ...(breakdown ? [`*${breakdown}*`] : []),
+      ].join('\n'),
+      inline: false,
+    });
+  }
+
+  const headline = o.cancelled
+    ? c.cancelled
+    : superseded
+      ? c.rescheduled(unix(o.startsAt))
+      : offsetMinutes > 0
+        ? c.soon(offsetMinutes, unix(o.startsAt))
+        : c.now;
   return {
     content: o.ping ? '@everyone' : '',
     title: `${o.emoji}  ${o.title}`,
-    description: [
-      offsetMinutes > 0 ? c.soon(offsetMinutes, unix(o.startsAt)) : c.now,
-      ...(o.description ? ['', o.description] : []),
-    ].join('\n'),
-    color: offsetMinutes > 0 ? CARD_COLORS.soon : CARD_COLORS.now,
+    description: [headline, ...(o.description ? ['', o.description] : [])].join('\n'),
+    color: o.cancelled
+      ? CARD_COLORS.cancelled
+      : offsetMinutes > 0 || superseded
+        ? CARD_COLORS.soon
+        : CARD_COLORS.now,
     fields,
     footer: c.footer(o.occurrenceId),
+    rsvpOpen: !o.cancelled,
   };
 }
 
@@ -145,7 +135,6 @@ export function agendaDescription(items: OccurrenceView[], timeZone: string, now
 }
 
 export function createDiscordAnnouncements(
-  guild: Guild,
   directory: GuildDirectory,
   config: () => ServerConfig,
 ): AnnouncementPort {
@@ -156,8 +145,7 @@ export function createDiscordAnnouncements(
   };
 
   const payload = (message: ReminderMessage) => {
-    const classes = classBreakdown(guild, directory, config(), message.rsvp.yes);
-    const card = reminderCard(message, classes, config().settings.timezone);
+    const card = reminderCard(message, config().settings.timezone);
     const embed = new EmbedBuilder()
       .setTitle(card.title)
       .setDescription(card.description)
@@ -168,7 +156,7 @@ export function createDiscordAnnouncements(
     return {
       content: card.content,
       embeds: [embed],
-      components: [rsvpButtons(message.occurrence.occurrenceId)],
+      components: card.rsvpOpen ? [rsvpButtons(message.occurrence.occurrenceId)] : [],
     };
   };
 
@@ -188,14 +176,14 @@ export function createDiscordAnnouncements(
       await existing?.edit({ ...payload(message), allowedMentions: { parse: [] } });
     },
 
-    async upsertAgenda(messageId, items) {
+    async upsertAgenda(messageId, items, now) {
       const target = channel(config().settings.eventDefaults.agendaChannel);
       const embed = new EmbedBuilder()
         .setTitle(t.agenda.title)
         .setColor(CARD_COLORS.agenda)
-        .setDescription(agendaDescription(items, config().settings.timezone, new Date()))
+        .setDescription(agendaDescription(items, config().settings.timezone, now))
         .setFooter({ text: t.agenda.footer })
-        .setTimestamp(new Date());
+        .setTimestamp(now);
       const body = { embeds: [embed], allowedMentions: { parse: [] } };
 
       const existing = messageId ? await target.messages.fetch(messageId).catch(() => null) : null;

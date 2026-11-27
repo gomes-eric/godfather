@@ -1,7 +1,6 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { unixSeconds } from '../../core/schedule.js';
 import type { Tier } from '../../core/tiers.js';
-import { findAlliance } from '../../core/alliances.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { COLORS } from '../colors.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
@@ -111,40 +110,39 @@ export const memberCommand: SlashCommand = {
 
     if (sub === 'promote') {
       await runWithConfirmation(interaction, ctx.confirmations, () =>
-        ctx.members.promote(actor, user.id, rank),
+        ctx.roster.promote(actor, user.id, rank),
       );
       return;
     }
     if (sub === 'partner') {
       const remove = interaction.options.getBoolean('remove') ?? false;
       await runWithConfirmation(interaction, ctx.confirmations, () =>
-        ctx.members.partner(actor, user.id, remove),
+        ctx.roster.partner(actor, user.id, remove),
       );
       return;
     }
     if (sub === 'ally') {
       const legion = interaction.options.getString('legion', true);
-      const alliance = findAlliance(ctx.config.get().alliances, legion);
       await runWithConfirmation(interaction, ctx.confirmations, () =>
-        ctx.members.ally(actor, user.id, alliance?.key ?? legion),
+        ctx.roster.ally(actor, user.id, legion),
       );
       return;
     }
     if (sub === 'restrict') {
       const reason = interaction.options.getString('reason', true);
       await runWithConfirmation(interaction, ctx.confirmations, () =>
-        ctx.members.restrict(actor, user.id, reason),
+        ctx.roster.restrict(actor, user.id, reason),
       );
       return;
     }
     if (sub === 'demote') {
       await runWithConfirmation(interaction, ctx.confirmations, (confirm) =>
-        ctx.members.demote(actor, user.id, rank, confirm),
+        ctx.roster.demote(actor, user.id, rank, confirm),
       );
       return;
     }
 
-    const outcome = await ctx.members.info(actor, user.id);
+    const outcome = await ctx.roster.info(actor, user.id);
     if (outcome.status !== 'ok') {
       await replyPrivately(interaction, failureText(outcome));
       return;

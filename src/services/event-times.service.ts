@@ -1,21 +1,21 @@
-import type { ActionRunner } from '../core/action.js';
 import { systemActor } from '../core/actor.js';
 import { sameSchedule, scheduleFor, TIMERS_URL } from '../core/event-times.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
+import type { EventTemplateConfig } from '../config/schema.js';
 import type { ConfigStore } from '../config/store.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
+import type { EventCalendar } from './event-calendar.js';
 import { fetchJson, type FetchJson } from './fetch-json.js';
 
 const t = ptBR.events;
 
 interface Deps {
-  config: ConfigStore;
-  runAction: ActionRunner;
+  config: Pick<ConfigStore, 'get'>;
+  calendar: Pick<EventCalendar, 'updateTemplate'>;
   botUserId: string;
   logger: Logger;
   warn: (text: string) => Promise<void>;
-  onChange?: () => void;
   fetchJson?: FetchJson;
 }
 
@@ -39,29 +39,30 @@ export class EventTimesService implements BackgroundJob {
     for (const template of linked) {
       const schedule = scheduleFor(timers, template.shugoEvent!, target);
       if ('error' in schedule) {
-        if (this.warned.get(template.key) !== schedule.error) {
-          this.warned.set(template.key, schedule.error);
-          this.deps.logger.warn({ template: template.key, problem: schedule.error }, 'event time');
-          await this.deps.warn(t.shugoProblem(template.title, schedule.error));
-        }
+        await this.warnOnce(
+          template,
+          schedule.error,
+          t.shugoProblem(template.title, schedule.error),
+        );
         continue;
       }
+      if (!sameSchedule(schedule, template)) {
+        const outcome = await this.deps.calendar.updateTemplate(
+          systemActor(this.deps.botUserId),
+          template.key,
+          { days: schedule.days.join(' '), time: schedule.time, source: TIMERS_URL },
+        );
+        if (outcome.status !== 'ok') {
+          const problem = outcome.status === 'rejected' ? outcome.reason : outcome.status;
+          await this.warnOnce(template, problem, t.shugoRejected(template.title, problem));
+          continue;
+        }
+        changed.push(template.key);
+      }
       this.warned.delete(template.key);
-      if (sameSchedule(schedule, template)) continue;
-
-      await this.deps.runAction({
-        actor: systemActor(this.deps.botUserId),
-        action: 'event.template.edit',
-        target: template.key,
-        params: { ...schedule, source: TIMERS_URL },
-        preview: template.key,
-        execute: async () => this.deps.config.updateEventTemplate(template.key, schedule),
-      });
-      changed.push(template.key);
     }
     if (changed.length > 0) {
       this.deps.logger.info({ templates: changed }, 'event times updated from shugo.gg');
-      this.deps.onChange?.();
     }
     return changed;
   }
@@ -73,5 +74,12 @@ export class EventTimesService implements BackgroundJob {
       () => this.check(),
       (error) => this.deps.logger.warn({ err: error }, 'event time check failed'),
     );
+  }
+
+  private async warnOnce(template: EventTemplateConfig, problem: string, text: string) {
+    if (this.warned.get(template.key) === problem) return;
+    this.warned.set(template.key, problem);
+    this.deps.logger.warn({ template: template.key, problem }, 'event time');
+    await this.deps.warn(text);
   }
 }

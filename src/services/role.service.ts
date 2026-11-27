@@ -1,9 +1,10 @@
-import type { Guild, Role } from 'discord.js';
-import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
+import { refusedRequest, type ActionRunner, type ServiceOutcome } from '../core/action.js';
+import { standingRoleIds } from '../core/standing.js';
 import type { Actor } from '../core/actor.js';
 import type { GuildDirectory } from '../discord/directory.js';
-import { findMember, findRole } from '../discord/resolvers.js';
+import { pickMember, pickRole } from '../discord/resolvers.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { GuildAdminPort, RoleFields, RoleView } from './guild-admin-port.js';
 
 const t = ptBR.roles;
 
@@ -15,40 +16,38 @@ export interface RoleInput {
 }
 
 interface Deps {
-  guild: Guild;
-  directory: GuildDirectory;
+  guild: GuildAdminPort;
+  directory: Pick<GuildDirectory, 'standingRoles'>;
   runAction: ActionRunner;
 }
 
 const parseColor = (color: string | undefined) =>
   color && /^#[0-9a-f]{6}$/i.test(color) ? Number.parseInt(color.slice(1), 16) : undefined;
 
+function roleFields(input: RoleInput): RoleFields {
+  const color = parseColor(input.color);
+  return {
+    ...(input.name && { name: input.name }),
+    ...(color !== undefined && { color }),
+    ...(input.hoist !== undefined && { hoist: input.hoist }),
+    ...(input.mentionable !== undefined && { mentionable: input.mentionable }),
+  };
+}
+
 export class RoleService {
   constructor(private readonly deps: Deps) {}
 
-  private refuse(role: Role, forAssignment: boolean): string | null {
+  private refusal(role: RoleView, forAssignment: boolean): string | null {
     if (role.managed) return t.integration;
-    const me = this.deps.guild.members.me;
-    if (me && role.position >= me.roles.highest.position) return t.aboveBot;
+    const top = this.deps.guild.botTopRolePosition();
+    if (top !== null && role.position >= top) return t.aboveBot;
     if (forAssignment) {
-      const s = this.deps.directory.standingRoles();
-      const standing = new Set(
-        [
-          ...Object.values(s.tiers),
-          ...Object.values(s.alliances),
-          s.visitor,
-          s.partner,
-          s.restricted,
-          s.ally,
-        ].filter((id): id is string => id !== undefined),
-      );
-      if (standing.has(role.id)) return t.tierRole;
+      if (standingRoleIds(this.deps.directory.standingRoles()).has(role.id)) return t.tierRole;
     }
     return null;
   }
 
   async create(actor: Actor, input: RoleInput & { name: string }): Promise<ServiceOutcome<string>> {
-    const color = parseColor(input.color);
     return this.deps.runAction({
       actor,
       action: 'role.create',
@@ -56,25 +55,23 @@ export class RoleService {
       params: { ...input },
       preview: input.name,
       execute: async () => {
-        const role = await this.deps.guild.roles.create({
-          name: input.name,
-          ...(color !== undefined && { colors: { primaryColor: color } }),
-          ...(input.hoist !== undefined && { hoist: input.hoist }),
-          ...(input.mentionable !== undefined && { mentionable: input.mentionable }),
-          permissions: [],
-        });
+        const role = await this.deps.guild.createRole({ ...roleFields(input), name: input.name });
         return t.created(role.name);
       },
     });
   }
 
   async edit(actor: Actor, roleInput: string, input: RoleInput): Promise<ServiceOutcome<string>> {
-    const found = findRole(this.deps.guild, roleInput);
-    if (!found.ok) return rejected(found.reason);
+    const found = pickRole(this.deps.guild.roles(), roleInput);
+    if (!found.ok) {
+      return this.deps.runAction(
+        refusedRequest(
+          { actor, action: 'role.edit', target: roleInput, params: { ...input } },
+          found.reason,
+        ),
+      );
+    }
     const role = found.value;
-    const refusal = this.refuse(role, false);
-    if (refusal) return rejected(refusal);
-    const color = parseColor(input.color);
 
     return this.deps.runAction({
       actor,
@@ -82,24 +79,22 @@ export class RoleService {
       target: role.name,
       params: { roleId: role.id, ...input },
       preview: role.name,
+      check: () => this.refusal(role, false),
       execute: async () => {
-        await role.edit({
-          ...(input.name && { name: input.name }),
-          ...(color !== undefined && { colors: { primaryColor: color } }),
-          ...(input.hoist !== undefined && { hoist: input.hoist }),
-          ...(input.mentionable !== undefined && { mentionable: input.mentionable }),
-        });
+        await this.deps.guild.editRole(role.id, roleFields(input));
         return t.edited(input.name ?? role.name);
       },
     });
   }
 
   async delete(actor: Actor, roleInput: string, confirm: boolean): Promise<ServiceOutcome<string>> {
-    const found = findRole(this.deps.guild, roleInput);
-    if (!found.ok) return rejected(found.reason);
+    const found = pickRole(this.deps.guild.roles(), roleInput);
+    if (!found.ok) {
+      return this.deps.runAction(
+        refusedRequest({ actor, action: 'role.delete', target: roleInput }, found.reason),
+      );
+    }
     const role = found.value;
-    const refusal = this.refuse(role, false);
-    if (refusal) return rejected(refusal);
 
     return this.deps.runAction({
       actor,
@@ -107,9 +102,10 @@ export class RoleService {
       target: role.name,
       params: { roleId: role.id },
       confirm,
-      preview: t.deletePreview(role.name, role.members.size),
+      preview: t.deletePreview(role.name, role.memberCount),
+      check: () => this.refusal(role, false),
       execute: async () => {
-        await role.delete();
+        await this.deps.guild.deleteRole(role.id);
         return t.deleted(role.name);
       },
     });
@@ -121,27 +117,39 @@ export class RoleService {
     roleInput: string,
     assign: boolean,
   ): Promise<ServiceOutcome<string>> {
-    const member = findMember(this.deps.guild, memberInput);
-    if (!member.ok) return rejected(member.reason);
-    const role = findRole(this.deps.guild, roleInput);
-    if (!role.ok) return rejected(role.reason);
-    const refusal = this.refuse(role.value, true);
-    if (refusal) return rejected(refusal);
+    const refuse = (reason: string) =>
+      this.deps.runAction(
+        refusedRequest(
+          {
+            actor,
+            action: 'role.assign',
+            target: `${roleInput} → ${memberInput}`,
+            params: { assign },
+          },
+          reason,
+        ),
+      );
+    const member = pickMember(this.deps.guild.members(), memberInput);
+    if (!member.ok) return refuse(member.reason);
+    const role = pickRole(this.deps.guild.roles(), roleInput);
+    if (!role.ok) return refuse(role.reason);
 
     const name = member.value.displayName;
+    const { id: roleId, name: roleName } = role.value;
     return this.deps.runAction({
       actor,
       action: 'role.assign',
-      target: `${role.value.name} → ${name}`,
-      params: { roleId: role.value.id, userId: member.value.id, assign },
-      preview: role.value.name,
+      target: `${roleName} → ${name}`,
+      params: { roleId, userId: member.value.id, assign },
+      preview: roleName,
+      check: () => this.refusal(role.value, true),
       execute: async () => {
         if (assign) {
-          await member.value.roles.add(role.value);
-          return t.assigned(role.value.name, name);
+          await this.deps.guild.addRole(member.value.id, roleId);
+          return t.assigned(roleName, name);
         }
-        await member.value.roles.remove(role.value);
-        return t.removed(role.value.name, name);
+        await this.deps.guild.removeRole(member.value.id, roleId);
+        return t.removed(roleName, name);
       },
     });
   }

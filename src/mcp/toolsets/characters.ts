@@ -1,11 +1,7 @@
 import { z } from 'zod';
-import { findMember } from '../../discord/resolvers.js';
-import { ptBR } from '../../i18n/pt-BR.js';
-import { classRoles } from '../../config/schema.js';
-import { itemLabel, sameLegion } from '../../core/game-character.js';
-import { byCombatPower } from '../../core/legion-check.js';
+import { itemLabel } from '../../core/game-character.js';
 import type { CharacterSheet } from '../../services/game-character.service.js';
-import { text, fromOutcome, member, gameFailure, type ToolKit } from './kit.js';
+import { text, fail, json, fromOutcome, member, type ToolKit } from './kit.js';
 
 export function registerCharacterTools({ tool, read, memberId, s, actor }: ToolKit): void {
   const sheetJson = ({ profile, equipment }: CharacterSheet) => ({
@@ -19,51 +15,23 @@ export function registerCharacterTools({ tool, read, memberId, s, actor }: ToolK
       name: z.string().optional().describe('Nome exato do personagem no jogo'),
       member: z.string().optional().describe('Membro do Discord com personagem registrado'),
     },
-    async (args) =>
-      read('character.read', async (): Promise<string | ReturnType<typeof sheetJson>> => {
-        if (args.name) {
-          const ref = await s.characters.find(args.name);
-          return ref ? sheetJson(await s.characters.sheet(ref)) : ptBR.profile.notFound(args.name);
-        }
-        if (!args.member) return 'Passe name ou member.';
-        const found = findMember(s.guild, args.member);
-        if (!found.ok) return found.reason;
-        const registered = s.registrations.get(found.value.id);
-        if (!registered) return ptBR.profile.memberNotRegistered(found.value.id);
-        return sheetJson(
-          await s.characters.sheet({
-            id: registered.characterId,
-            serverId: registered.serverId,
-          }),
-        );
-      }).catch(gameFailure),
+    async (args) => {
+      const target = args.name
+        ? { name: args.name }
+        : args.member
+          ? { userId: memberId(args.member) }
+          : undefined;
+      if (!target) return fail('Passe name ou member.');
+      return fromOutcome(await s.characters.sheetFor(actor, target), (sheet) =>
+        json(sheetJson(sheet)),
+      );
+    },
   );
   tool(
     'list_registered_characters',
     'Membros do Discord com personagem registrado, com classe, poder, legião vista na última conferência e se ainda estão no servidor.',
     {},
-    async () =>
-      read('character.read', async () => {
-        const { legion } = s.config.get().settings.characters;
-        const classes = new Map(classRoles(s.config.get()).map((r) => [r.key, r.name]));
-        return s.registrations
-          .all()
-          .sort(byCombatPower)
-          .map((row) => {
-            const member = s.guild.members.cache.get(row.userId);
-            return {
-              character: row.name,
-              class: classes.get(row.classKey) ?? row.classKey,
-              combatPower: row.combatPower,
-              itemLevel: row.itemLevel,
-              legion: row.legion || null,
-              inLegion: sameLegion(row.legion, legion),
-              member: member?.displayName ?? null,
-              userId: row.userId,
-              checkedAt: row.checkedAt?.toISOString() ?? null,
-            };
-          });
-      }),
+    async () => s.characters.registered(actor),
   );
   tool(
     'register_character',
@@ -83,29 +51,7 @@ export function registerCharacterTools({ tool, read, memberId, s, actor }: ToolK
     'list_applications',
     'Fichas de recrutamento (as mais novas primeiro), com o id usado em decide_application.',
     { status: z.enum(['pending', 'approved', 'rejected', 'all']).default('pending') },
-    async ({ status }) =>
-      read('recruit.read', async () =>
-        s.applications.list(status === 'all' ? undefined : status).map((a) => ({
-          id: a.id,
-          status: a.status,
-          kind: a.kind,
-          picked: a.requestedKind,
-          origin: a.origin,
-          allianceLegion: a.allianceLegion,
-          characterTakenBy: a.characterTakenBy
-            ? (s.guild.members.cache.get(a.characterTakenBy)?.displayName ?? a.characterTakenBy)
-            : null,
-          character: a.character?.name ?? null,
-          class: a.character?.className ?? null,
-          level: a.character?.level ?? null,
-          combatPower: a.character?.combatPower ?? null,
-          itemLevel: a.character?.itemLevel ?? null,
-          legion: a.character?.legion || null,
-          member: s.guild.members.cache.get(a.userId)?.displayName ?? a.userId,
-          createdAt: a.createdAt.toISOString(),
-          decidedBy: a.decidedBy,
-        })),
-      ),
+    async ({ status }) => s.recruitment.list(actor, status === 'all' ? undefined : status),
   );
   tool(
     'decide_application',
@@ -117,12 +63,12 @@ export function registerCharacterTools({ tool, read, memberId, s, actor }: ToolK
     },
     async (args) => {
       if (args.kind) {
-        const changed = await s.recruitmentDesk.changeKind(actor, args.id, args.kind);
+        const changed = await s.recruitment.changeKind(actor, args.id, args.kind);
         if (changed.status !== 'ok') return fromOutcome(changed, () => text(''));
       }
-      return fromOutcome(await s.recruitmentDesk.decide(actor, args.id, args.approve), (a) =>
+      return fromOutcome(await s.recruitment.decide(actor, args.id, args.approve), (a) =>
         text(
-          `Ficha #${a.id} (${a.character?.name ?? a.userId}, ${s.recruitmentDesk.kindName(a)}): ${a.status === 'approved' ? 'aprovada' : 'recusada'}.`,
+          `Ficha #${a.id} (${a.character?.name ?? a.userId}, ${s.recruitment.kindName(a)}): ${a.status === 'approved' ? 'aprovada' : 'recusada'}.`,
         ),
       );
     },
@@ -132,10 +78,9 @@ export function registerCharacterTools({ tool, read, memberId, s, actor }: ToolK
     'Roda agora a conferência diária: relê cada personagem no site oficial, atualiza classe e apelido, avisa no canal dos oficiais quem saiu ou entrou na legião e refaz o #ranking. Leva alguns segundos por membro.',
     {},
     async () =>
-      read('legion.check', async () => {
-        const report = await s.legion.check();
-        return report.length > 0 ? report.join('\n') : 'Conferência feita: nada mudou.';
-      }),
+      fromOutcome(await s.legion.runNow(actor), ({ report }) =>
+        text(report.length > 0 ? report.join('\n') : 'Conferência feita: nada mudou.'),
+      ),
   );
   tool(
     'refresh_ranking',

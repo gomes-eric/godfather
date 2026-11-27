@@ -1,23 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { isMusicCommand, keepInMusicChannel, NoticeThrottle } from './music-guard.service.js';
-
-describe('keepInMusicChannel', () => {
-  const person = { authorIsBot: false, system: false };
-
-  it('keeps bot messages and system messages, removes chatter', () => {
-    expect(keepInMusicChannel({ authorIsBot: true, system: false, content: 'oi' }, [])).toBe(true);
-    expect(keepInMusicChannel({ authorIsBot: false, system: true, content: '' }, [])).toBe(true);
-    expect(keepInMusicChannel({ ...person, content: 'que música boa' }, ['m!'])).toBe(false);
-  });
-
-  it('keeps text commands for the configured prefixes, in any case', () => {
-    for (const content of ['m!p never gonna', 'm!s', '  M!Queue']) {
-      expect(keepInMusicChannel({ ...person, content }, ['m!']), content).toBe(true);
-    }
-    expect(keepInMusicChannel({ ...person, content: 'm!p x' }, [])).toBe(false);
-    expect(keepInMusicChannel({ ...person, content: 'olha m!p' }, ['m!'])).toBe(false);
-  });
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConfigStore } from '../config/store.js';
+import type { GuildDirectory } from '../discord/directory.js';
+import type { Logger } from '../logger.js';
+import { MusicGuardService, NoticeThrottle, type GuardTarget } from './music-guard.service.js';
 
 describe('NoticeThrottle', () => {
   it('tells each person at most once per window', () => {
@@ -33,19 +18,57 @@ describe('NoticeThrottle', () => {
   });
 });
 
-describe('isMusicCommand', () => {
-  const jockie = new Set(['411916947773587456']);
+describe('MusicGuardService.remove', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
 
-  it('takes the prefixes and a music bot mention at the start as commands', () => {
-    for (const content of ['m!p never gonna', '  M!skip', '<@411916947773587456> play x']) {
-      expect(isMusicCommand(content, ['m!'], jockie), content).toBe(true);
-    }
-    expect(isMusicCommand('<@!411916947773587456> p x', ['m!'], jockie)).toBe(true);
+  const guard = () =>
+    new MusicGuardService({
+      directory: {} as GuildDirectory,
+      config: {} as ConfigStore,
+      logger: {} as Logger,
+    });
+
+  function message(authorId: string, events: string[], sendable = true): GuardTarget {
+    return {
+      authorId,
+      delete: async () => void events.push(`delete ${authorId}`),
+      notify: async (content) => {
+        if (!sendable) return null;
+        events.push(`notice ${content}`);
+        return { delete: async () => events.push(`notice gone ${content}`) };
+      },
+    };
+  }
+
+  it('removes the message and leaves a notice that deletes itself after 10s', async () => {
+    const events: string[] = [];
+    await guard().remove(message('ana', events), 'só comandos');
+    expect(events).toEqual(['delete ana', 'notice só comandos']);
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(events).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(events.at(-1)).toBe('notice gone só comandos');
   });
 
-  it('leaves ordinary chat alone, including mentions of people', () => {
-    for (const content of ['bora tocar m!p depois?', 'oi <@411916947773587456>', '<@1> olha']) {
-      expect(isMusicCommand(content, ['m!'], jockie), content).toBe(false);
-    }
+  it('tells each person once per 10 minutes, but always removes the message', async () => {
+    const events: string[] = [];
+    const service = guard();
+    await service.remove(message('ana', events), 'um');
+    await service.remove(message('ana', events), 'dois');
+    await service.remove(message('bia', events), 'três');
+    expect(events.filter((e) => e.startsWith('delete'))).toHaveLength(3);
+    expect(events.filter((e) => e.startsWith('notice '))).toEqual(['notice um', 'notice três']);
+
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    await service.remove(message('ana', events), 'quatro');
+    expect(events.at(-1)).toBe('notice quatro');
+  });
+
+  it('only removes the message where it cannot post a notice', async () => {
+    const events: string[] = [];
+    await guard().remove(message('ana', events, false), 'só comandos');
+    expect(events).toEqual(['delete ana']);
   });
 });

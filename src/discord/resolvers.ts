@@ -7,6 +7,8 @@ import {
 } from 'discord.js';
 import { resolveCandidate, type Candidate } from '../core/resolve.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { ChannelView, MemberView, RoleView } from '../services/guild-admin-port.js';
+import type { SnapshotChannelKind } from '../setup/model.js';
 
 export type Found<T> = { ok: true; value: T } | { ok: false; reason: string };
 
@@ -70,4 +72,45 @@ export function findRole(guild: Guild, input: string): Found<Role> {
     .filter((r) => r.id !== guild.id)
     .map((r) => ({ id: r.id, names: [r.name], label: r.name }));
   return found('role', input, candidates, (id) => guild.roles.cache.get(id));
+}
+
+const byId = <T extends { id: string }>(items: T[]) => {
+  const map = new Map(items.map((item) => [item.id, item]));
+  return (id: string) => map.get(id);
+};
+
+export function pickMember(members: MemberView[], input: string): Found<MemberView> {
+  const candidates = members.map((m) => ({
+    id: m.id,
+    names: [m.username, m.displayName, m.globalName ?? '', m.nickname ?? ''].filter(Boolean),
+    label: `${m.displayName} (@${m.username})`,
+  }));
+  return found('member', input, candidates, byId(members));
+}
+
+const VIEW_KIND_LABEL: Partial<Record<SnapshotChannelKind, string>> = {
+  voice: '🔊 ',
+  stage: '🎙️ ',
+  category: '📁 ',
+  forum: '📋 ',
+};
+
+export function pickChannel(
+  channels: ChannelView[],
+  input: string,
+  filter: (channel: ChannelView) => boolean = () => true,
+  what: 'channel' | 'category' = 'channel',
+): Found<ChannelView> {
+  const eligible = channels.filter(filter);
+  const candidates = eligible.map((c) => ({
+    id: c.id,
+    names: [c.name],
+    label: `${VIEW_KIND_LABEL[c.kind] ?? '#'}${c.name}`,
+  }));
+  return found(what, input, candidates, byId(eligible));
+}
+
+export function pickRole(roles: RoleView[], input: string): Found<RoleView> {
+  const candidates = roles.map((r) => ({ id: r.id, names: [r.name], label: r.name }));
+  return found('role', input, candidates, byId(roles));
 }

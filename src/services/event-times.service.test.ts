@@ -2,13 +2,19 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { ActionRequest } from '../core/action.js';
+import { rejected, type ActionRequest } from '../core/action.js';
 import { ConfigStore } from '../config/store.js';
+import { openDatabase } from '../db/client.js';
+import { EventStore } from '../db/events.js';
+import { ManagedObjectStore } from '../db/managed-objects.js';
 import type { Logger } from '../logger.js';
+import { EventCalendar } from './event-calendar.js';
 import { EventTimesService } from './event-times.service.js';
 
 const SERVER_YAML = readFileSync(new URL('../../server.yaml', import.meta.url), 'utf8');
 const logger = { info: () => undefined, warn: () => undefined } as unknown as Logger;
+const MONDAY_MORNING = new Date('2026-10-26T13:00:00Z');
+const officer = { userId: 'padrinho', tier: 'officer', source: 'slash' } as const;
 
 const timers = (siegeDays: string[], siegeTimes: string[]) => ({
   regions: [{ id: 'global-sa', timeZone: 'America/Sao_Paulo' }],
@@ -42,27 +48,43 @@ const timers = (siegeDays: string[], siegeTimes: string[]) => ({
   ],
 });
 
-function setup(feed: { current: unknown }) {
+function setup(
+  feed: { current: unknown },
+  calendarFor?: (real: EventCalendar) => Pick<EventCalendar, 'updateTemplate'>,
+) {
   const path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
   writeFileSync(path, SERVER_YAML);
   const config = new ConfigStore(path);
+  const db = openDatabase(':memory:').db;
   const actions: string[] = [];
   const warnings: string[] = [];
-  let refreshed = 0;
-  const service = new EventTimesService({
+  const calendar = new EventCalendar({
+    store: new EventStore(db),
+    managed: new ManagedObjectStore(db),
     config,
-    botUserId: '1',
-    logger,
     runAction: async <T>(request: ActionRequest<T>) => {
       actions.push(`${request.action} ${request.target}`);
       return { status: 'ok', value: await request.execute() };
     },
+    port: {
+      postReminder: async () => 'reminder',
+      refreshReminder: async () => undefined,
+      upsertAgenda: async () => 'agenda',
+    },
+    classesOf: () => [],
+    logger,
+    now: () => MONDAY_MORNING,
+  });
+  const service = new EventTimesService({
+    config,
+    calendar: calendarFor?.(calendar) ?? calendar,
+    botUserId: '1',
+    logger,
     warn: async (text) => void warnings.push(text),
-    onChange: () => void refreshed++,
     fetchJson: async () => feed.current,
   });
   const template = (key: string) => config.get().eventTemplates.find((tpl) => tpl.key === key)!;
-  return { service, config, path, actions, warnings, template, refreshed: () => refreshed };
+  return { service, calendar, config, path, actions, warnings, template };
 }
 
 describe('EventTimesService', () => {
@@ -73,13 +95,35 @@ describe('EventTimesService', () => {
     expect(readFileSync(s.path, 'utf8')).toBe(SERVER_YAML);
   });
 
-  it('rewrites a template that moved, audited, and refreshes reminders', async () => {
+  it('rewrites a template that moved through the calendar, which follows it', async () => {
     const s = setup({ current: timers(['tue', 'fri'], ['20:30', '20:35', '20:40']) });
     expect(await s.service.check()).toEqual(['abyss-war']);
     expect(s.actions).toEqual(['event.template.edit abyss-war']);
     expect(s.template('abyss-war')).toMatchObject({ days: ['tue', 'fri'], time: '20:30' });
     expect(new ConfigStore(s.path).get().eventTemplates[0]).toMatchObject({ time: '20:30' });
-    expect(s.refreshed()).toBe(1);
+
+    await s.calendar.tick();
+    const listed = await s.calendar.list(officer);
+    const wars =
+      listed.status === 'ok' ? listed.value.filter((v) => v.templateKey === 'abyss-war') : [];
+    expect(wars.map((v) => v.startsAt.toISOString())).toEqual([
+      '2026-10-27T23:30:00.000Z',
+      '2026-10-30T23:30:00.000Z',
+    ]);
+  });
+
+  it('warns once when the calendar refuses the new time, keeping the yaml one', async () => {
+    const s = setup({ current: timers(['tue', 'fri'], ['20:30', '20:35', '20:40']) }, () => ({
+      updateTemplate: async () => rejected('server.yaml está somente leitura'),
+    }));
+    expect(await s.service.check()).toEqual([]);
+    expect(await s.service.check()).toEqual([]);
+    expect(s.warnings).toEqual([
+      expect.stringContaining(
+        'não consegui gravar no server.yaml: server.yaml está somente leitura',
+      ),
+    ]);
+    expect(s.template('abyss-war')).toMatchObject({ days: ['thu', 'sat'], time: '21:00' });
   });
 
   it('warns once when an event can no longer be read, keeping the yaml time', async () => {

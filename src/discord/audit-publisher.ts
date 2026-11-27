@@ -12,6 +12,7 @@ const t = ptBR.audit;
 const RESULT_COLORS: Record<AuditResult, number> = {
   ok: COLORS.green,
   denied: COLORS.crimson,
+  rejected: COLORS.slate,
   error: COLORS.crimson,
   confirmation_required: COLORS.amber,
 };

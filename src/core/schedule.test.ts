@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   localParts,
   normalizeClock,
+  parseDays,
   parseWhen,
   reminderDecision,
   templateOccurrences,
@@ -118,5 +119,15 @@ describe('normalizeClock', () => {
       '09:30',
     ]);
     expect(normalizeClock('meio-dia')).toBe('meio-dia');
+  });
+});
+
+describe('parseDays', () => {
+  it('accepts English and Portuguese day names', () => {
+    expect(parseDays('mon,thu,sat')).toEqual(['mon', 'thu', 'sat']);
+    expect(parseDays('seg qui sáb')).toEqual(['mon', 'thu', 'sat']);
+    expect(parseDays('sexta, domingo')).toEqual(['fri', 'sun']);
+    expect(parseDays('todo dia')).toEqual(['daily']);
+    expect(parseDays('someday')).toBeNull();
   });
 });

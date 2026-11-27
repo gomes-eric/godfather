@@ -9,23 +9,22 @@ import {
 } from '../core/news-digest.js';
 import type { NewsPost } from '../core/news.js';
 
+export interface DigestOptions {
+  model: string;
+  classes: readonly DigestClass[];
+}
+
 export interface NewsSummarizer {
-  digest(note: NewsPost): Promise<NewsDigest>;
+  digest(note: NewsPost, options: DigestOptions): Promise<NewsDigest>;
 }
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 const hasServerFallback = (model: string) => !model.startsWith('claude-haiku');
 
-export function createNewsSummarizer(deps: {
-  client: Anthropic;
-  model: () => string;
-  classes: () => DigestClass[];
-}): NewsSummarizer {
+export function createNewsSummarizer(client: Anthropic): NewsSummarizer {
   return {
-    async digest(note) {
-      const classes = deps.classes();
-      const model = deps.model();
-      const response = await deps.client.beta.messages.parse({
+    async digest(note, { model, classes }) {
+      const response = await client.beta.messages.parse({
         model,
         max_tokens: 8000,
         output_config: { effort: 'low', format: betaZodOutputFormat(digestSchema(classes)) },

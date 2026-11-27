@@ -90,6 +90,92 @@ export function legionTransition(input: {
   return null;
 }
 
+/** What the check saw for one character, before anything is said or changed. */
+export type CheckEvent =
+  | { kind: 'renamed'; from: string; to: string }
+  | { kind: 'classChanged'; from: string; to: string }
+  | { kind: 'left'; now: string }
+  | { kind: 'joined' };
+
+export interface MemberVerdict {
+  events: CheckEvent[];
+  /** The character's new name or class, to apply to the member. */
+  sync: { name: string; classKey: string } | null;
+  transition: Transition | null;
+  /** What to store as seen now. */
+  now: CharacterState;
+  /** The legion stored at the last check, kept when a move is held back. */
+  legionBefore: string;
+}
+
+/**
+ * Everything the check decides for one member: what changed, what to apply, and how their
+ * standing moves. The first check of an old registration (no checkedAt) only sets the baseline.
+ */
+export function memberVerdict(input: {
+  before: CharacterState & { checkedAt: Date | null };
+  now: CharacterState;
+  legion: string;
+  alliances: readonly Alliance[];
+  standing: Standing;
+  restrictedBy: 'check' | 'officer' | 'transfer' | undefined;
+}): MemberVerdict {
+  const { before, now, legion } = input;
+  const changes = characterChanges(before, now, legion);
+  const baseline = before.checkedAt === null;
+  const transition = baseline
+    ? null
+    : legionTransition({
+        standing: input.standing,
+        before: before.legion,
+        now: now.legion,
+        legion,
+        alliances: input.alliances,
+        restrictedBy: input.restrictedBy,
+      });
+  const events: CheckEvent[] = [];
+  if (changes.renamed) events.push({ kind: 'renamed', ...changes.renamed });
+  if (changes.classChanged) events.push({ kind: 'classChanged', ...changes.classChanged });
+  if (!baseline && !transition) {
+    if (changes.leftLegion) events.push({ kind: 'left', now: now.legion });
+    if (changes.joinedLegion) events.push({ kind: 'joined' });
+  }
+  return {
+    events,
+    sync:
+      changes.renamed || changes.classChanged ? { name: now.name, classKey: now.classKey } : null,
+    transition,
+    now,
+    legionBefore: before.legion,
+  };
+}
+
+/** The whole check's departures, and whether they look like a site problem (move nobody). */
+export function batchVerdict(verdicts: readonly Pick<MemberVerdict, 'transition'>[]): {
+  departures: number;
+  holdBack: boolean;
+} {
+  const departures = verdicts.filter((v) => v.transition?.departure).length;
+  return { departures, holdBack: !departuresLookTrustworthy(departures) };
+}
+
+/** A held-back move keeps the old legion stored, so tomorrow's check sees the change again. */
+export function legionToStore(verdict: MemberVerdict, holdBack: boolean): string {
+  return verdict.transition && holdBack ? verdict.legionBefore : verdict.now.legion;
+}
+
+/** The review the officers get for a move, or null when it needs none. */
+export function reviewFor(
+  transition: Transition,
+  from: Standing,
+): { kind: 'ally' | 'restricted'; allianceKey: string | null; previous: Standing } | null {
+  if (!transition.review) return null;
+  const to = transition.kind === 'move' ? transition.to : null;
+  return to?.kind === 'ally'
+    ? { kind: 'ally', allianceKey: to.allianceKey, previous: from }
+    : { kind: 'restricted', allianceKey: null, previous: from };
+}
+
 export const CHECK_EVERY_MS = 23 * 60 * 60_000;
 
 export function checkDue(checkedAt: readonly (Date | null)[], now: Date): boolean {

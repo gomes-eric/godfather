@@ -10,6 +10,7 @@ import { COLORS } from '../discord/colors.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
+import { ownLegion } from '../config/views.js';
 
 export const RECRUIT_APPLY_ID = 'recruit:apply';
 export const PANEL_PREFIX = 'panel-';
@@ -176,8 +177,8 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
             key: PANEL_KEYS.recruitment,
             channelKey: config.settings.recruitment.channel,
             channelName: channelNameByKey(config, config.settings.recruitment.channel) ?? '',
-            title: ptBR.panels.recruitmentTitle(config.settings.characters.legion),
-            description: ptBR.panels.recruitmentIntro(config.settings.characters.legion),
+            title: ptBR.panels.recruitmentTitle(ownLegion(config)),
+            description: ptBR.panels.recruitmentIntro(ownLegion(config)),
             color: COLORS.green,
             buttons: [
               {

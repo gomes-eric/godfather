@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { ptBR } from '../../i18n/pt-BR.js';
+import { partyCard } from '../party-card.js';
 import { failureText, replyPrivately } from '../replies.js';
 import type { SlashCommand } from './types.js';
 
@@ -61,7 +62,7 @@ export const partyCommand: SlashCommand = {
     }
 
     await interaction.reply({
-      ...ctx.parties.card(outcome.value),
+      ...partyCard(outcome.value),
       allowedMentions: { parse: [] },
     });
   },

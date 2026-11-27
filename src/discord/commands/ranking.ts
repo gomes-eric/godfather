@@ -18,22 +18,10 @@ export const rankingCommand: SlashCommand = {
     const actor = await ctx.resolveActor(interaction.user.id);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    if (ctx.legion.isChecking) {
-      await interaction.editReply(t.commandBusy);
-      return;
-    }
-    const outcome = await ctx.runAction({
-      actor,
-      action: 'legion.check',
-      preview: 'legion.check',
-      execute: async () => ({
-        changes: (await ctx.legion.check()).length,
-        members: ctx.registrations.all().length,
-      }),
-    });
+    const outcome = await ctx.legion.runNow(actor);
     await interaction.editReply(
       outcome.status === 'ok'
-        ? t.commandDone(outcome.value.members, outcome.value.changes)
+        ? t.commandDone(outcome.value.members, outcome.value.report.length)
         : failureText(outcome),
     );
   },

@@ -7,9 +7,17 @@ import {
   sign,
   type KeyObject,
 } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
 export const CLAUDE_AUDIENCE = 'https://api.anthropic.com';
 const LIFETIME_SECONDS = 300;
+
+/** The `sub` of Padrinho's identity tokens; the federation rule matches it exactly. */
+export const WIF_SUBJECT = 'padrinho:news';
+
+export function wifKeyPath(databasePath: string): string {
+  return join(dirname(databasePath), 'wif', 'issuer-es256.pem');
+}
 
 export interface PublicJwk {
   kty: 'EC';

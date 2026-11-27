@@ -4,13 +4,13 @@ import {
   itemLabel,
   matchClass,
   type EquipmentGroup,
-  type EquipmentItem,
   type ItemDetail,
 } from '../core/game-character.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { CharacterKey, GearPiece } from '../services/character-lookup.service.js';
 import type { CharacterSheet } from '../services/game-character.service.js';
 import { COLORS } from './colors.js';
-import { customId } from './custom-id.js';
+import { customId, numericPart, parseCustomId } from './custom-id.js';
 
 const t = ptBR.profile;
 const GROUPS: { group: EquipmentGroup[]; name: string }[] = [
@@ -63,6 +63,10 @@ export function characterCard(sheet: CharacterSheet, config: ServerConfig): Embe
   });
 }
 
+export function characterMessage(sheet: CharacterSheet, config: ServerConfig) {
+  return { embeds: [characterCard(sheet, config)], components: gearMenu(sheet) };
+}
+
 export const GEAR_PREFIX = 'gear:';
 /** Discord's limit of options in a select menu. */
 const MAX_OPTIONS = 25;
@@ -86,13 +90,20 @@ export function gearMenu({
   return [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)];
 }
 
-export function gearValue(item: Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantLevel'>): string {
+export function parseGearMenuId(id: string): CharacterKey | undefined {
+  const parts = parseCustomId(id, GEAR_PREFIX);
+  if (!parts) return undefined;
+  const [rawServerId, ...idParts] = parts;
+  const serverId = numericPart(rawServerId);
+  const characterId = idParts.join(':');
+  return serverId !== undefined && characterId ? { id: characterId, serverId } : undefined;
+}
+
+export function gearValue(item: GearPiece): string {
   return `${item.slotPos}:${item.id}:${item.enchantLevel}`;
 }
 
-export function parseGearValue(
-  value: string,
-): Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantLevel'> | undefined {
+export function parseGearValue(value: string): GearPiece | undefined {
   const [slotPos, id, enchantLevel] = value.split(':').map(Number);
   return [slotPos, id, enchantLevel].every((n) => Number.isInteger(n))
     ? { slotPos: slotPos!, id: id!, enchantLevel: enchantLevel! }

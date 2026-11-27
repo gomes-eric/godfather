@@ -4,7 +4,7 @@ import { auditLog } from '../db/schema.js';
 import type { Logger } from '../logger.js';
 import type { Actor } from './actor.js';
 
-export type AuditResult = 'ok' | 'denied' | 'error' | 'confirmation_required';
+export type AuditResult = 'ok' | 'denied' | 'rejected' | 'error' | 'confirmation_required';
 
 export interface AuditEntry {
   actor: Actor;

@@ -1,5 +1,6 @@
 import type { AuditResult } from '../core/audit.js';
-import type { Standing } from '../core/standing.js';
+import type { MemberRefusal, ModerationRefusal } from '../core/member-rules.js';
+import type { Standing, StandingRefusal } from '../core/standing.js';
 import type { Tier } from '../core/tiers.js';
 
 const tierNames: Record<Tier, string> = {
@@ -12,6 +13,7 @@ const tierNames: Record<Tier, string> = {
 const auditResults: Record<AuditResult, string> = {
   ok: '✅ Executado',
   denied: '⛔ Negado',
+  rejected: '🚧 Recusado',
   error: '❌ Erro',
   confirmation_required: '⏳ Aguardando confirmação',
 };
@@ -94,9 +96,13 @@ export const ptBR = {
       'mcp.token.create': '🔑 Token MCP criado',
       'mcp.token.revoke.own': '🗑️ Token MCP revogado',
       'mcp.token.revoke.any': '🗑️ Token MCP revogado',
+      'server.read': '🗺️ Leitura do servidor',
+      'member.read': '👥 Leitura de membros',
+      'message.read': '💬 Leitura de mensagens',
     } as Record<string, string>,
     params: {
       reason: 'Motivo',
+      refusal: 'Recusa',
       minutes: 'Minutos',
       from: 'De',
       to: 'Para',
@@ -232,6 +238,7 @@ export const ptBR = {
     newAllianceNeedsCommander: (legion: string) =>
       `A **${legion}** ainda não é uma aliança. Só um Comandante aprova um pedido de aliança nova (e aprovar cria a aliança).`,
     gone: 'Essa ficha não existe mais.',
+    beingDecided: 'Outra pessoa está decidindo essa ficha agora. Espere um instante.',
     alreadyDecided: 'Essa ficha já foi decidida.',
     leftServer: 'Essa pessoa saiu do servidor.',
     approvedReason: 'Ficha de recrutamento aprovada',
@@ -307,7 +314,6 @@ export const ptBR = {
     full: 'O grupo já está completo.',
     notIn: 'Você não está nesse grupo.',
     ownerCantLeave: 'Você é o líder: use **Fechar** para encerrar o grupo.',
-    onlyOwnerCloses: 'Só o líder do grupo (ou um Oficial) pode fechar.',
   },
 
   legionCheck: {
@@ -343,7 +349,6 @@ export const ptBR = {
       '👇 **Quer ver o perfil completo?** Escolha um membro no menu abaixo: classe, equipamentos e mais. Só você vê a resposta.',
     menuOption: (combatPower: string, itemLevel: string) =>
       `Ver perfil · ⚔️ ${combatPower} · 🎚️ ${itemLevel}`,
-    menuGone: 'Esse membro não está mais registrado. O ranking é atualizado todo dia.',
     commandBusy:
       '⏳ Uma conferência já está em andamento. O #ranking é atualizado assim que ela terminar.',
     commandDone: (members: number, changes: number) =>
@@ -455,7 +460,20 @@ export const ptBR = {
       notPartner: 'Essa pessoa não é Parceiro.',
       alreadyAlly: 'Essa pessoa já é Aliado dessa legião.',
       alreadyRestricted: 'Essa pessoa já é Restrito.',
-    } as Record<string, string>,
+    } satisfies Record<
+      | MemberRefusal
+      | ModerationRefusal
+      | Exclude<StandingRefusal, 'alreadyThere'>
+      | 'alreadyPartner'
+      | 'notPartner'
+      | 'alreadyAlly'
+      | 'alreadyRestricted',
+      string
+    >,
+    /** Reason in Discord's audit log for a change made with /member or MCP. */
+    officerReason: 'Mudança de cargo feita por um oficial',
+    changePreview: (name: string, from: string, to: string) => `**${name}**: ${from} → **${to}**`,
+    changed: (name: string, to: string) => `**${name}** agora é **${to}**.`,
     missingStandingRole: (standing: string) =>
       `O cargo de **${standing}** ainda não existe. Rode /setup.`,
     partnerPreview: (name: string, from: string) =>
@@ -507,8 +525,8 @@ export const ptBR = {
       `Criar a aliança com a **${legion}**: um cargo com o nome da legião, acima de Aliado.`,
     added: (legion: string) =>
       `🤝 A **${legion}** agora é uma aliança. Use /member ally para pôr alguém nela, ou aprove as fichas de Aliança.`,
-    addedWithoutRole: (legion: string) =>
-      `🤝 A **${legion}** entrou no server.yaml, mas não consegui criar o cargo. Rode /setup.`,
+    roleNotCreated: (legion: string) =>
+      `Não consegui criar o cargo da **${legion}**, então a aliança não foi criada. Confira se o cargo do bot está acima de Aliado e tente de novo.`,
     removePreview: (legion: string, allies: number) =>
       `Desfazer a aliança com a **${legion}**: ${allies === 1 ? '1 aliado vira' : `${allies} aliados viram`} Restrito e o cargo da legião é apagado.`,
     removedReason: (legion: string) => `a aliança com a ${legion} acabou`,
@@ -603,6 +621,9 @@ export const ptBR = {
       soon: (minutes: number, unix: number) =>
         `⏳ Começa **em ${minutes} minutos** · <t:${unix}:R>`,
       now: '🔔 **Começou agora!** Bora pra call.',
+      rescheduled: (unix: number) =>
+        `🕘 **Evento remarcado** para <t:${unix}:F> (<t:${unix}:R>). Um novo aviso sai antes do novo horário.`,
+      cancelled: '🚫 **Evento cancelado.**',
       time: '🕘 Horário',
       timeValue: (clock: string) => `**${clock}** · Brasília`,
       room: '📍 Sala',
@@ -665,6 +686,13 @@ export const ptBR = {
     templateUnknown: (key: string) => `Não existe template \`${key}\`. Veja /event template list.`,
     templateInvalid: (details: string) =>
       `❌ A mudança deixaria o server.yaml inválido:\n${details}`,
+    badTime: (input: string) =>
+      `Horário inválido: "${input}". Use \`21:00\`, \`21h\` ou \`9h30\` (horário de Brasília).`,
+    badDays: (input: string) =>
+      `Dias inválidos: "${input}". Exemplos: \`seg qui sáb\`, \`mon,thu,sat\`, \`todo dia\`.`,
+    templateNoChange: 'Nada para mudar: informe o horário, os dias, o título ou se fica ligado.',
+    shugoRejected: (title: string, reason: string) =>
+      `⚠️ O shugo.gg mudou o horário de **${title}**, mas não consegui gravar no server.yaml: ${reason}`,
     weekdays: {
       sun: 'dom',
       mon: 'seg',

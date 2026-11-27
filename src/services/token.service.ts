@@ -1,6 +1,6 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
+import { refusedRequest, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import type { Db } from '../db/client.js';
 import { mcpTokens } from '../db/schema.js';
@@ -50,11 +50,19 @@ export class TokenService {
 
   async revoke(actor: Actor, id: number): Promise<ServiceOutcome<string>> {
     const row = this.db.select().from(mcpTokens).where(eq(mcpTokens.id, id)).get();
-    if (!row || row.revokedAt) return rejected(ptBR.mcp.tokenNotFound(id));
-    const own = row.userId === actor.userId;
+    // An unknown id takes the stricter policy, so it reads like someone else's token.
+    const action = row?.userId === actor.userId ? 'mcp.token.revoke.own' : 'mcp.token.revoke.any';
+    if (!row || row.revokedAt) {
+      return this.runAction(
+        refusedRequest(
+          { actor, action, target: `#${id}`, params: { id } },
+          ptBR.mcp.tokenNotFound(id),
+        ),
+      );
+    }
     return this.runAction({
       actor,
-      action: own ? 'mcp.token.revoke.own' : 'mcp.token.revoke.any',
+      action,
       target: `${row.name} (#${row.id})`,
       params: { id, owner: row.userId },
       preview: row.name,
@@ -70,7 +78,6 @@ export class TokenService {
     const digest = hash(token);
     const row = this.db.select().from(mcpTokens).where(eq(mcpTokens.tokenHash, digest)).get();
     if (!row || row.revokedAt) return null;
-    if (!timingSafeEqual(Buffer.from(row.tokenHash), Buffer.from(digest))) return null;
     this.db.update(mcpTokens).set({ lastUsedAt: this.now() }).where(eq(mcpTokens.id, row.id)).run();
     return { userId: row.userId, tokenId: row.id };
   }

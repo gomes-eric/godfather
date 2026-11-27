@@ -9,9 +9,10 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { FORM_KINDS, type ApplicationKind } from '../core/application-rules.js';
+import { FORM_KINDS, kindsFor, type ApplicationKind } from '../core/application-rules.js';
 import { formatStat } from '../core/legion-check.js';
 import type { Application } from '../db/applications.js';
+import type { CardLook } from '../services/recruitment-board.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import { COLORS } from './colors.js';
 import { customId } from './custom-id.js';
@@ -60,15 +61,6 @@ export function kindText(kind: ApplicationKind, allianceLegion: string | null): 
   return kind === 'ally' && allianceLegion
     ? `${emoji} ${label} · ${allianceLegion}`
     : `${emoji} ${label}`;
-}
-
-export interface CardLook {
-  classEmoji: string;
-  avatarUrl: string | null;
-  legionName: string;
-  applicantName: string;
-  newAlliance: boolean;
-  previousStanding: string | null;
 }
 
 export function applicationCard(
@@ -155,10 +147,7 @@ export function applicationCard(
 }
 
 export function kindMenu(application: Application): ActionRowBuilder<StringSelectMenuBuilder> {
-  const kinds: ApplicationKind[] =
-    application.origin === 'check'
-      ? ['member', 'ally', 'partner', 'restricted']
-      : ['member', 'ally', 'partner'];
+  const kinds = kindsFor(application.origin);
   const menu = new StringSelectMenuBuilder()
     .setCustomId(customId(RECRUIT_CARD_PREFIX, 'kind', application.id))
     .setPlaceholder(t.changePlaceholder)

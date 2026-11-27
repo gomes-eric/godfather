@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parsePanelCustomId, ROOM_PREFIX, roomPanel, type RoomPanelView } from './room-panel.js';
+import type { RoomPanelView } from '../services/voice-port.js';
+import { parsePanelCustomId, ROOM_PREFIX, roomPanel } from './room-panel.js';
 
 const view: RoomPanelView = {
   roomId: '123',

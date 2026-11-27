@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ActionRunner } from '../core/action.js';
+import { createActionRunner } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
 import { openDatabase } from '../db/client.js';
 import { PartyStore } from '../db/parties.js';
-import type { GuildDirectory } from '../discord/directory.js';
 import { PartyService } from './party.service.js';
 
 const actor = (userId: string, tier: Actor['tier'] = 'soldier'): Actor => ({
@@ -14,16 +13,11 @@ const actor = (userId: string, tier: Actor['tier'] = 'soldier'): Actor => ({
 
 function setup() {
   const db = openDatabase(':memory:');
-  const service = new PartyService({
-    guild: { members: { cache: new Map() } } as never,
-    directory: { classesOf: () => [] } as unknown as GuildDirectory,
+  return new PartyService({
     store: new PartyStore(db.db),
-    runAction: (async (r: { execute: () => Promise<unknown> }) => ({
-      status: 'ok',
-      value: await r.execute(),
-    })) as unknown as ActionRunner,
+    runAction: createActionRunner({ record: async () => Promise.reject(new Error('audited')) }),
+    classEmoji: (userId) => (userId === 'leader' ? '✨' : undefined),
   });
-  return service;
 }
 
 async function created(service: PartyService, slots = 3) {
@@ -38,15 +32,23 @@ async function created(service: PartyService, slots = 3) {
 }
 
 describe('PartyService', () => {
-  it('starts with the leader, fills up and says when the last slot is taken', async () => {
+  it('starts with the leader, fills up and calls everyone when the last slot is taken', async () => {
     const service = setup();
     const party = await created(service);
 
-    expect(service.view(party).members.map((m) => m.id)).toEqual(['leader']);
+    expect(party.members).toEqual([{ id: 'leader', emoji: '✨' }]);
     const second = await service.act(actor('a'), party.id, 'join');
-    expect(second.status === 'ok' && second.value.justFilled).toBe(false);
+    expect(second).toMatchObject({ status: 'ok', value: { view: { id: party.id } } });
+    expect(second.status === 'ok' && second.value.filled).toBeUndefined();
     const third = await service.act(actor('b'), party.id, 'join');
-    expect(third.status === 'ok' && third.value.justFilled).toBe(true);
+    expect(third.status === 'ok' && third.value.view.members.at(-1)).toEqual({
+      id: 'b',
+      emoji: '🎮',
+    });
+    expect(third.status === 'ok' && third.value.filled).toEqual({
+      text: '✅ **Caverna de Krao**: grupo completo! <@leader> <@a> <@b>',
+      mentionIds: ['leader', 'a', 'b'],
+    });
 
     const fourth = await service.act(actor('c'), party.id, 'join');
     expect(fourth).toMatchObject({ status: 'rejected', reason: 'O grupo já está completo.' });
@@ -59,16 +61,26 @@ describe('PartyService', () => {
 
     expect((await service.act(actor('a'), party.id, 'join')).status).toBe('rejected');
     expect((await service.act(actor('leader'), party.id, 'leave')).status).toBe('rejected');
-    expect((await service.act(actor('a'), party.id, 'close')).status).toBe('rejected');
-    expect((await service.act(actor('x', 'officer'), party.id, 'close')).status).toBe('ok');
+    expect(await service.act(actor('a'), party.id, 'close')).toEqual({
+      status: 'denied',
+      requiredTier: 'officer',
+    });
+    const closed = await service.act(actor('x', 'officer'), party.id, 'close');
+    expect(closed.status === 'ok' && closed.value.view.closed).toBe(true);
     expect((await service.act(actor('b'), party.id, 'join')).status).toBe('rejected');
+  });
+
+  it('lets the leader close their own party', async () => {
+    const service = setup();
+    const party = await created(service);
+    expect((await service.act(actor('leader'), party.id, 'close')).status).toBe('ok');
   });
 
   it('lets a member leave and frees the slot', async () => {
     const service = setup();
     const party = await created(service, 2);
     await service.act(actor('a'), party.id, 'join');
-    await service.act(actor('a'), party.id, 'leave');
-    expect(service.view(party).members.map((m) => m.id)).toEqual(['leader']);
+    const left = await service.act(actor('a'), party.id, 'leave');
+    expect(left.status === 'ok' && left.value.view.members.map((m) => m.id)).toEqual(['leader']);
   });
 });

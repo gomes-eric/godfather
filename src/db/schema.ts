@@ -7,6 +7,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import { APPLICATION_KINDS } from '../core/application-rules.js';
 
 export const managedObjects = sqliteTable(
   'managed_objects',
@@ -123,8 +124,6 @@ export const postedNews = sqliteTable('posted_news', {
     .default(sql`(unixepoch('subsec') * 1000)`),
 });
 
-export const APPLICATION_KINDS = ['member', 'ally', 'partner', 'restricted'] as const;
-
 export const applications = sqliteTable('applications', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: text('user_id').notNull(),
@@ -224,7 +223,9 @@ export const auditLog = sqliteTable(
     action: text('action').notNull(),
     target: text('target'),
     paramsJson: text('params_json'),
-    result: text('result', { enum: ['ok', 'denied', 'error', 'confirmation_required'] }).notNull(),
+    result: text('result', {
+      enum: ['ok', 'denied', 'rejected', 'error', 'confirmation_required'],
+    }).notNull(),
   },
   (table) => [index('audit_log_at_idx').on(table.at)],
 );

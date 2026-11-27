@@ -62,7 +62,7 @@ export function sameStanding(a: Standing, b: Standing): boolean {
   return true;
 }
 
-function standingRoleIds(roles: StandingRoles): Set<string> {
+export function standingRoleIds(roles: StandingRoles): Set<string> {
   return new Set(
     [
       ...Object.values(roles.tiers),
@@ -138,3 +138,32 @@ export function decideStandingChange(input: {
   );
   return allowed ? null : 'cannotManageTier';
 }
+
+/** Why someone's standing changes; it decides the audit reason and how a restriction is lifted. */
+export type StandingCause =
+  | { kind: 'officer'; reason: string | null }
+  | { kind: 'recruitment' }
+  | { kind: 'legionCheck' }
+  | { kind: 'transfer'; character: string }
+  | { kind: 'allianceEnded'; legion: string };
+
+/** Only the daily check lifts a restriction by itself, and only one it (or a lost alliance) made. */
+export function restrictionOrigin(cause: StandingCause): 'check' | 'officer' | 'transfer' {
+  switch (cause.kind) {
+    case 'officer':
+      return 'officer';
+    case 'transfer':
+      return 'transfer';
+    default:
+      return 'check';
+  }
+}
+
+/** The audited action for moving someone to each standing. */
+export const STANDING_ACTION = {
+  tier: 'member.promote',
+  ally: 'member.ally',
+  partner: 'member.partner',
+  restricted: 'member.restrict',
+  visitor: 'member.partner',
+} as const satisfies Record<Standing['kind'], string>;

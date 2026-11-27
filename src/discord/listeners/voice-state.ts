@@ -11,7 +11,7 @@ export function attachVoiceStateListener(
   client.on(Events.VoiceStateUpdate, (oldState, newState) => {
     if (newState.guild.id !== guildId) return;
     voice
-      .onVoiceStateUpdate(oldState, newState)
+      .memberMoved(newState.id, oldState.channelId, newState.channelId)
       .catch((error: unknown) =>
         logger.error({ err: error, member: newState.id }, 'voice room handling failed'),
       );

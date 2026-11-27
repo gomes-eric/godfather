@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { CLOCK_PATTERN } from '../../config/schema.js';
-import { parseDays } from '../../services/event.service.js';
-import { fail, json, fromOutcome, confirm, type ToolKit } from './kit.js';
+import { json, fromOutcome, confirm, type ToolKit } from './kit.js';
 
 export function registerEventTools({ tool, channelId, s, actor }: ToolKit): void {
   tool('list_events', 'Eventos dos próximos 7 dias, com o número (id) de cada um.', {}, async () =>
@@ -62,25 +60,18 @@ export function registerEventTools({ tool, channelId, s, actor }: ToolKit): void
     ),
   );
   tool('list_event_templates', 'Eventos recorrentes do server.yaml.', {}, async () =>
-    json(s.config.get().eventTemplates),
+    s.events.templates(actor),
   );
   tool(
     'update_event_template',
     'Muda horário, dias, título ou liga/desliga um evento recorrente (grava no server.yaml).',
     {
       key: z.string(),
-      time: z.string().regex(CLOCK_PATTERN).optional().describe('HH:MM, horário de Brasília'),
+      time: z.string().optional().describe('"21:00", "21h" ou "9h30", horário de Brasília'),
       days: z.string().optional().describe('"seg qui sáb", "mon,thu,sat" ou "todo dia"'),
       title: z.string().min(1).max(100).optional(),
       enabled: z.boolean().optional(),
     },
-    async ({ key, days, ...rest }) => {
-      const parsedDays = days ? parseDays(days) : undefined;
-      if (days && !parsedDays) return fail(`Dias inválidos: "${days}"`);
-      return s.events.updateTemplate(actor, key, {
-        ...Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)),
-        ...(parsedDays && { days: parsedDays }),
-      });
-    },
+    async ({ key, ...edit }) => s.events.updateTemplate(actor, key, edit),
   );
 }

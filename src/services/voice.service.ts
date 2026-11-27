@@ -1,15 +1,8 @@
-import {
-  ChannelType,
-  type Guild,
-  type GuildMember,
-  type VoiceChannel,
-  type VoiceState,
-} from 'discord.js';
 import type { ConfigStore } from '../config/store.js';
 import { rejected, type ActionRunner, type ServiceOutcome } from '../core/action.js';
 import type { Actor } from '../core/actor.js';
+import { authorize, type ActionName } from '../core/permissions.js';
 import { RateLimiter } from '../core/rate-limit.js';
-import { tierAtLeast } from '../core/tiers.js';
 import {
   accessOverwrites,
   banFromRoom,
@@ -23,36 +16,60 @@ import {
   type RoomAccess,
 } from '../core/voice-rooms.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
-import type { TempRoom, TempVoiceStore } from '../db/temp-voice.js';
-import { readOverwrites, toDiscordOverwrites } from '../discord/overwrites.js';
-import { roomPanel, type RoomPanelView } from '../discord/room-panel.js';
+import type { TempVoiceStore } from '../db/temp-voice.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
+import type { RoomMember, RoomPanelView, VoiceRoomPort } from './voice-port.js';
 
 const t = ptBR.voice;
 const CREATION_WINDOW_MS = 60_000;
 const GUILD_KEY = 'guild';
-const RENAME_REPLY_AFTER_MS = 5_000;
+const MAX_NAME_LENGTH = 100;
+const MAX_USER_LIMIT = 99;
 
-type Generator = { key: string; nameTemplate: string; userLimit: number };
+interface Generator {
+  key: string;
+  channelId: string;
+  nameTemplate: string;
+  userLimit: number;
+}
+
+export const SIMPLE_ROOM_COMMANDS = ['lock', 'unlock', 'hide', 'unhide', 'claim'] as const;
+export type SimpleRoomCommand = (typeof SIMPLE_ROOM_COMMANDS)[number];
+
+export function isSimpleRoomCommand(type: string): type is SimpleRoomCommand {
+  return (SIMPLE_ROOM_COMMANDS as readonly string[]).includes(type);
+}
 
 export type RoomCommand =
   | { type: 'rename'; name: string }
   | { type: 'limit'; limit: number }
-  | { type: 'lock' }
-  | { type: 'unlock' }
-  | { type: 'hide' }
-  | { type: 'unhide' }
   | { type: 'kick'; userId: string }
-  | { type: 'claim' };
+  | { type: SimpleRoomCommand };
+
+export interface RoomDescription extends RoomAccess {
+  id: string;
+  name: string;
+  userLimit: number;
+  ownerId: string;
+  /** Everyone connected, bots included. */
+  occupants: RoomMember[];
+}
+
+export type RoomCheck =
+  { allowed: true; room: RoomDescription } | { allowed: false; reason: string };
+
+type Gate =
+  { allowed: true; room: RoomDescription; action: ActionName } | { allowed: false; reason: string };
 
 interface Deps {
-  guild: Guild;
-  config: ConfigStore;
-  managed: ManagedObjectStore;
+  port: VoiceRoomPort;
+  config: Pick<ConfigStore, 'get'>;
+  managed: Pick<ManagedObjectStore, 'get'>;
   rooms: TempVoiceStore;
   runAction: ActionRunner;
   logger: Logger;
+  now?: () => number;
 }
 
 function nextAccess(current: RoomAccess, type: 'lock' | 'unlock' | 'hide' | 'unhide'): RoomAccess {
@@ -70,327 +87,338 @@ function nextAccess(current: RoomAccess, type: 'lock' | 'unlock' | 'hide' | 'unh
 
 export class VoiceService {
   private readonly allocator = new RoomAllocator();
+  private readonly now: () => number;
   private creationLimit: { limit: number; limiter: RateLimiter } | undefined;
   /** When the bot renamed each room recently, to stay inside Discord's 2-per-10-minutes limit. */
   private readonly renames = new Map<string, number[]>();
+  private readonly deleting = new Set<string>();
 
-  constructor(private readonly deps: Deps) {}
-
-  private allowCreation(): boolean {
-    const limit = this.deps.config.get().settings.voiceRooms.maxCreationsPerMinute;
-    if (limit <= 0) return true;
-    if (this.creationLimit?.limit !== limit) {
-      this.creationLimit = { limit, limiter: new RateLimiter(limit, CREATION_WINDOW_MS) };
-    }
-    return this.creationLimit.limiter.take(GUILD_KEY);
+  constructor(private readonly deps: Deps) {
+    this.now = deps.now ?? Date.now;
   }
 
-  private generators(): Map<string, Generator> {
-    const map = new Map<string, Generator>();
-    for (const generator of this.deps.config.get().voiceGenerators) {
-      const id = this.deps.managed.get('channel', generator.key)?.discordId;
-      if (id) map.set(id, generator);
-    }
-    return map;
-  }
-
-  private voiceChannel(id: string): VoiceChannel | undefined {
-    const channel = this.deps.guild.channels.cache.get(id);
-    return channel?.type === ChannelType.GuildVoice ? channel : undefined;
-  }
-
-  async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
-    if (oldState.channelId && oldState.channelId !== newState.channelId) {
-      await this.deleteIfEmpty(oldState.channelId);
-    }
-    if (newState.channelId && newState.channelId !== oldState.channelId && newState.member) {
-      const generator = this.generators().get(newState.channelId);
-      if (generator && !newState.member.user.bot) {
-        await this.createRoom(newState.member, generator, newState.channelId);
-      }
-    }
-  }
-
-  private async createRoom(
-    member: GuildMember,
-    generator: Generator,
-    generatorChannelId: string,
+  async memberMoved(
+    userId: string,
+    fromChannelId: string | null,
+    toChannelId: string | null,
   ): Promise<void> {
-    const { guild, rooms, logger } = this.deps;
-    if (!this.allowCreation()) {
-      logger.warn({ member: member.user.tag }, 'voice room creation throttled for the guild');
-      return;
-    }
+    if (fromChannelId === toChannelId) return;
+    if (fromChannelId) await this.deleteIfEmpty(fromChannelId);
 
-    const generatorChannel = this.voiceChannel(generatorChannelId);
-    if (!generatorChannel) return;
-
-    const room = await this.allocator.run(generator.key, async () => {
-      const used = rooms.numbersFor(generator.key);
-      const n = lowestFreeNumber(used);
-      const previous = rooms
-        .all()
-        .filter((r) => r.generatorKey === generator.key && r.number < n)
-        .sort((a, b) => b.number - a.number)
-        .map((r) => this.voiceChannel(r.channelId))
-        .find((c) => c !== undefined);
-
-      const channel = await guild.channels.create({
-        name: roomName(generator.nameTemplate, n),
-        type: ChannelType.GuildVoice,
-        parent: generatorChannel.parentId,
-        userLimit: generator.userLimit,
-        permissionOverwrites: toDiscordOverwrites(
-          roomOverwrites(readOverwrites(generatorChannel), member.id),
-        ),
-        position: (previous ?? generatorChannel).rawPosition + 1,
-        reason: `Temp room for ${member.user.tag}`,
-      });
-      rooms.insert({
-        channelId: channel.id,
-        generatorKey: generator.key,
-        number: n,
-        ownerId: member.id,
-      });
-      return channel;
-    });
-
-    try {
-      await member.voice.setChannel(room, 'Moved to their new room');
-      logger.info({ room: room.name, owner: member.user.tag }, 'temp voice room created');
-    } catch {
-      await this.deleteIfEmpty(room.id);
-      return;
-    }
-    await this.postPanel(room.id);
-  }
-
-  private panelView(room: TempRoom, channel: VoiceChannel): RoomPanelView {
-    return {
-      roomId: room.channelId,
-      ownerId: room.ownerId,
-      locked: room.locked,
-      hidden: room.hidden,
-      userLimit: channel.userLimit,
-    };
-  }
-
-  private async postPanel(channelId: string): Promise<void> {
-    const room = this.deps.rooms.get(channelId);
-    const channel = this.voiceChannel(channelId);
-    if (!room || !channel) return;
-    try {
-      const message = await channel.send(roomPanel(this.panelView(room, channel)));
-      this.deps.rooms.setPanelMessage(channelId, message.id);
-    } catch (error) {
-      this.deps.logger.warn({ err: error, channelId }, 'could not post the room panel');
-    }
-  }
-
-  private async refreshPanel(channelId: string): Promise<void> {
-    const room = this.deps.rooms.get(channelId);
-    const channel = this.voiceChannel(channelId);
-    if (!room || !channel) return;
-    if (!room.panelMessageId) return this.postPanel(channelId);
-    try {
-      const message = await channel.messages.fetch(room.panelMessageId);
-      await message.edit(roomPanel(this.panelView(room, channel)));
-    } catch {
-      await this.postPanel(channelId);
-    }
-  }
-
-  async deleteIfEmpty(channelId: string): Promise<void> {
-    const { rooms, logger } = this.deps;
-    const room = rooms.get(channelId);
-    if (!room) return;
-
-    const channel = this.voiceChannel(channelId);
-    if (channel && channel.members.size > 0) return;
-
-    rooms.delete(channelId);
-    this.renames.delete(channelId);
-    if (!channel) return;
-    await channel
-      .delete('Temp room is empty')
-      .catch((error: unknown) =>
-        logger.warn({ err: error, channelId }, 'failed to delete empty temp room'),
-      );
+    const generator = this.generators().find((g) => g.channelId === toChannelId);
+    const member =
+      generator && this.deps.port.members(generator.channelId).find((m) => m.id === userId);
+    if (generator && member && !member.bot) await this.createRoom(generator, member);
   }
 
   async sweep(): Promise<{ removed: number; created: number }> {
+    const { port, rooms } = this.deps;
     let removed = 0;
-    for (const room of this.deps.rooms.all()) {
-      await this.deleteIfEmpty(room.channelId);
-      const after = this.deps.rooms.get(room.channelId);
-      if (!after) removed++;
-      else if (!after.panelMessageId) await this.postPanel(room.channelId);
+    for (const room of rooms.all()) {
+      if (await this.deleteIfEmpty(room.channelId)) removed++;
+      else if (!rooms.get(room.channelId)?.panelMessageId) await this.postPanel(room.channelId);
     }
 
     let created = 0;
-    for (const [channelId, generator] of this.generators()) {
-      const channel = this.voiceChannel(channelId);
-      for (const member of channel?.members.values() ?? []) {
-        if (member.user.bot) continue;
-        await this.createRoom(member, generator, channelId);
-        created++;
+    for (const generator of this.generators()) {
+      for (const member of port.members(generator.channelId)) {
+        if (!member.bot && (await this.createRoom(generator, member))) created++;
       }
     }
     return { removed, created };
   }
 
-  refusal(actor: Actor, channelId: string | null, type: RoomCommand['type']): string | undefined {
-    const found = this.roomAndChannel(channelId);
-    if (!found) return t.notInRoom;
-    const { room, channel } = found;
-
-    const isOwner = room.ownerId === actor.userId;
-    const isOfficer = tierAtLeast(actor.tier, 'officer');
-    if (type === 'claim') {
-      if (isOwner) return t.alreadyOwner;
-      if (channel.members.has(room.ownerId) && !isOfficer) return t.ownerPresent;
-      return undefined;
-    }
-    if (!isOwner && !isOfficer) return t.notOwner;
-    if (type === 'rename') {
-      const now = Date.now();
-      const at = nextRenameAt(this.renames.get(room.channelId) ?? [], now);
-      if (at > now) return t.renameLimited(new Date(at));
-    }
-    return undefined;
+  roomOf(userId: string): string | null {
+    const channelId = this.deps.port.voiceChannelOf(userId);
+    return channelId && this.deps.rooms.get(channelId) ? channelId : null;
   }
 
-  private roomAndChannel(channelId: string | null) {
-    const room = channelId ? this.deps.rooms.get(channelId) : undefined;
-    const channel = room && this.voiceChannel(room.channelId);
-    return room && channel ? { room, channel } : undefined;
+  describe(roomId: string | null): RoomDescription | undefined {
+    const room = roomId ? this.deps.rooms.get(roomId) : undefined;
+    const channel = room && this.deps.port.voiceChannel(room.channelId);
+    if (!room || !channel) return undefined;
+    return {
+      id: room.channelId,
+      name: channel.name,
+      userLimit: channel.userLimit,
+      ownerId: room.ownerId,
+      locked: room.locked,
+      hidden: room.hidden,
+      occupants: this.deps.port.members(room.channelId),
+    };
   }
 
-  occupants(channelId: string, exceptUserId: string): GuildMember[] {
-    const channel = this.roomAndChannel(channelId)?.channel;
-    return [...(channel?.members.values() ?? [])].filter(
-      (member) => member.id !== exceptUserId && !member.user.bot,
-    );
+  /** The same check manage() runs first, for prompts shown before the command. */
+  check(actor: Actor, roomId: string | null, type: RoomCommand['type']): RoomCheck {
+    return this.gate(actor, roomId, type);
   }
 
   async manage(
     actor: Actor,
-    channelId: string | null,
+    roomId: string | null,
     command: RoomCommand,
   ): Promise<ServiceOutcome<string>> {
-    const refusal = this.refusal(actor, channelId, command.type);
-    if (refusal) return rejected(refusal);
-    const { room, channel } = this.roomAndChannel(channelId)!;
+    const gate = this.gate(actor, roomId, command.type);
+    if (!gate.allowed) return rejected(gate.reason);
+    const { room, action } = gate;
 
-    if (command.type === 'rename') {
-      const name = command.name.trim();
-      if (name.length === 0 || name.length > 100) return rejected(t.nameInvalid);
-      command = { type: 'rename', name };
-    }
-    if (
-      command.type === 'limit' &&
-      !(Number.isInteger(command.limit) && command.limit >= 0 && command.limit <= 99)
-    ) {
-      return rejected(t.limitInvalid);
-    }
-    if (command.type === 'kick') {
-      if (command.userId === actor.userId) return rejected(t.cannotKickSelf);
-      if (!channel.members.has(command.userId)) return rejected(t.notInThisRoom);
-    }
+    const invalid = this.invalid(actor, room, command);
+    if (invalid) return rejected(invalid);
+    const final = command.type === 'rename' ? { ...command, name: command.name.trim() } : command;
 
-    const isOwner = room.ownerId === actor.userId;
-    const ownAction = isOwner || (command.type === 'claim' && !channel.members.has(room.ownerId));
-    const finalCommand = command;
     return this.deps.runAction({
       actor,
-      action: ownAction ? 'voice.own.manage' : 'voice.temp.manage',
-      target: channel.name,
-      params: { channelId: channel.id, ...finalCommand },
-      preview: `${finalCommand.type} ${channel.name}`,
-      execute: () => this.apply(room, channel, actor, finalCommand),
+      action,
+      target: room.name,
+      params: { channelId: room.id, ...final },
+      preview: `${final.type} ${room.name}`,
+      execute: () => this.apply(actor, room, final),
     });
   }
 
-  private async apply(
-    room: TempRoom,
-    channel: VoiceChannel,
-    actor: Actor,
-    command: RoomCommand,
-  ): Promise<string> {
+  private gate(actor: Actor, roomId: string | null, type: RoomCommand['type']): Gate {
+    const room = this.describe(roomId);
+    if (!room) return { allowed: false, reason: t.notInRoom };
+
+    const isOwner = room.ownerId === actor.userId;
+    if (type === 'claim' && isOwner) return { allowed: false, reason: t.alreadyOwner };
+    const ownerLeft = !room.occupants.some((o) => o.id === room.ownerId);
+    const action: ActionName =
+      isOwner || (type === 'claim' && ownerLeft) ? 'voice.own.manage' : 'voice.temp.manage';
+    if (!authorize(actor.tier, action).allowed) {
+      return { allowed: false, reason: type === 'claim' ? t.ownerPresent : t.notOwner };
+    }
+
+    if (type === 'rename') {
+      const now = this.now();
+      const at = nextRenameAt(this.renames.get(room.id) ?? [], now);
+      if (at > now) return { allowed: false, reason: t.renameLimited(new Date(at)) };
+    }
+    return { allowed: true, room, action };
+  }
+
+  private invalid(actor: Actor, room: RoomDescription, command: RoomCommand): string | undefined {
+    switch (command.type) {
+      case 'rename': {
+        const length = command.name.trim().length;
+        return length === 0 || length > MAX_NAME_LENGTH ? t.nameInvalid : undefined;
+      }
+      case 'limit':
+        return Number.isInteger(command.limit) &&
+          command.limit >= 0 &&
+          command.limit <= MAX_USER_LIMIT
+          ? undefined
+          : t.limitInvalid;
+      case 'kick':
+        if (command.userId === actor.userId) return t.cannotKickSelf;
+        return room.occupants.some((o) => o.id === command.userId) ? undefined : t.notInThisRoom;
+      default:
+        return undefined;
+    }
+  }
+
+  private async apply(actor: Actor, room: RoomDescription, command: RoomCommand): Promise<string> {
+    const { port } = this.deps;
     switch (command.type) {
       case 'rename':
-        return this.rename(channel, command.name);
+        return this.rename(room.id, command.name);
       case 'limit':
-        await channel.setUserLimit(command.limit);
-        await this.refreshPanel(room.channelId);
+        await port.setUserLimit(room.id, command.limit);
+        await this.refreshPanel(room.id);
         return t.limited(command.limit);
       case 'lock':
       case 'unlock':
       case 'hide':
       case 'unhide':
-        await this.setAccess(room, channel, nextAccess(room, command.type));
-        await this.refreshPanel(room.channelId);
+        await this.setAccess(room, nextAccess(room, command.type));
+        await this.refreshPanel(room.id);
         return { lock: t.locked, unlock: t.unlocked, hide: t.hidden, unhide: t.unhidden }[
           command.type
         ];
       case 'kick': {
-        const member = channel.members.get(command.userId);
-        await channel.permissionOverwrites.set(
-          toDiscordOverwrites(banFromRoom(readOverwrites(channel), command.userId)),
-        );
-        await member?.voice.disconnect('Kicked from temp room');
-        return t.kicked(member?.displayName ?? command.userId);
+        await port.setOverwrites(room.id, banFromRoom(this.overwrites(room.id), command.userId));
+        if (port.members(room.id).some((m) => m.id === command.userId)) {
+          await port.moveMember(command.userId, null, 'Kicked from temp room');
+        }
+        const kicked = room.occupants.find((o) => o.id === command.userId);
+        return t.kicked(kicked?.displayName ?? command.userId);
       }
       case 'claim':
-        await channel.permissionOverwrites.set(
-          toDiscordOverwrites(
-            transferOwnership(readOverwrites(channel), room.ownerId, actor.userId),
-          ),
+        await port.setOverwrites(
+          room.id,
+          transferOwnership(this.overwrites(room.id), room.ownerId, actor.userId),
         );
-        this.deps.rooms.setOwner(room.channelId, actor.userId);
-        await this.refreshPanel(room.channelId);
+        this.deps.rooms.setOwner(room.id, actor.userId);
+        await this.refreshPanel(room.id);
         return t.claimed;
     }
   }
 
-  private async setAccess(room: TempRoom, channel: VoiceChannel, access: RoomAccess) {
-    const generatorId = this.deps.managed.get('channel', room.generatorKey)?.discordId;
-    const generator = generatorId ? this.voiceChannel(generatorId) : undefined;
-    await channel.permissionOverwrites.set(
-      toDiscordOverwrites(
-        accessOverwrites(
-          readOverwrites(channel),
-          generator ? readOverwrites(generator) : [],
-          this.deps.guild.roles.everyone.id,
-          access,
-          channel.members.keys(),
-        ),
-      ),
-    );
-    this.deps.rooms.setAccess(room.channelId, access);
+  private async rename(roomId: string, name: string): Promise<string> {
+    const history = this.renames.get(roomId) ?? [];
+    this.renames.set(roomId, [...history, this.now()].slice(-RENAME_LIMIT));
+    const result = await this.deps.port.setName(roomId, name);
+    return result === 'done' ? t.renamed(name) : t.renameQueued(name);
   }
 
-  /**
-   * Discord allows 2 renames per channel per 10 minutes, and discord.js waits out the limit in
-   * silence. refusal() keeps the bot's own renames inside it; if Discord still holds one (renames
-   * made in Discord itself count too), the reply says it is queued instead of hanging.
-   */
-  private async rename(channel: VoiceChannel, name: string): Promise<string> {
-    const history = this.renames.get(channel.id) ?? [];
-    this.renames.set(channel.id, [...history, Date.now()].slice(-RENAME_LIMIT));
-
-    const done = channel.setName(name).then(() => 'done' as const);
-    done.catch((error: unknown) =>
-      this.deps.logger.warn({ err: error, channelId: channel.id }, 'temp room rename failed'),
+  private async setAccess(room: RoomDescription, access: RoomAccess): Promise<void> {
+    const { port, rooms, managed } = this.deps;
+    const generatorKey = rooms.get(room.id)?.generatorKey;
+    const generatorId = generatorKey && managed.get('channel', generatorKey)?.discordId;
+    const template = generatorId ? this.overwrites(generatorId) : [];
+    await port.setOverwrites(
+      room.id,
+      accessOverwrites(
+        this.overwrites(room.id),
+        template,
+        port.everyoneRoleId,
+        access,
+        room.occupants.map((o) => o.id),
+      ),
     );
-    let timer: NodeJS.Timeout | undefined;
-    const slow = new Promise<'slow'>((resolve) => {
-      timer = setTimeout(() => resolve('slow'), RENAME_REPLY_AFTER_MS);
+    rooms.setAccess(room.id, access);
+  }
+
+  private overwrites(channelId: string) {
+    return this.deps.port.voiceChannel(channelId)?.overwrites ?? [];
+  }
+
+  private generators(): Generator[] {
+    return this.deps.config.get().voiceGenerators.flatMap((generator) => {
+      const channelId = this.deps.managed.get('channel', generator.key)?.discordId;
+      return channelId ? [{ ...generator, channelId }] : [];
+    });
+  }
+
+  private allowCreation(): boolean {
+    const limit = this.deps.config.get().settings.voiceRooms.maxCreationsPerMinute;
+    if (limit <= 0) return true;
+    if (this.creationLimit?.limit !== limit) {
+      this.creationLimit = {
+        limit,
+        limiter: new RateLimiter(limit, CREATION_WINDOW_MS, this.now),
+      };
+    }
+    return this.creationLimit.limiter.take(GUILD_KEY);
+  }
+
+  /** True when the member ended up in a new room of their own. */
+  private async createRoom(generator: Generator, member: RoomMember): Promise<boolean> {
+    const { port, logger } = this.deps;
+    if (!this.allowCreation()) {
+      logger.warn({ member: member.username }, 'voice room creation throttled for the guild');
+      return false;
+    }
+
+    let roomId: string | undefined;
+    try {
+      roomId = await this.allocator.run(generator.key, () => this.openRoom(generator, member));
+    } catch (error) {
+      logger.warn({ err: error, generator: generator.key }, 'could not create a temp voice room');
+      return false;
+    }
+    if (!roomId) return false;
+
+    try {
+      await port.moveMember(member.id, roomId, 'Moved to their new room');
+    } catch {
+      await this.deleteIfEmpty(roomId);
+      return false;
+    }
+    logger.info({ roomId, owner: member.username }, 'temp voice room created');
+    await this.postPanel(roomId);
+    return true;
+  }
+
+  private async openRoom(generator: Generator, member: RoomMember): Promise<string | undefined> {
+    const { port, rooms, logger } = this.deps;
+    const source = port.voiceChannel(generator.channelId);
+    if (!source) return undefined;
+
+    const n = lowestFreeNumber(rooms.numbersFor(generator.key));
+    const previous = rooms
+      .all()
+      .filter((r) => r.generatorKey === generator.key && r.number < n)
+      .sort((a, b) => b.number - a.number)
+      .map((r) => port.voiceChannel(r.channelId))
+      .find((c) => c !== undefined);
+
+    const channelId = await port.createChannel({
+      name: roomName(generator.nameTemplate, n),
+      parentId: source.parentId,
+      position: (previous ?? source).position + 1,
+      userLimit: generator.userLimit,
+      overwrites: roomOverwrites(source.overwrites, member.id),
+      reason: `Temp room for ${member.username}`,
     });
     try {
-      return (await Promise.race([done, slow])) === 'done' ? t.renamed(name) : t.renameQueued(name);
-    } finally {
-      clearTimeout(timer);
+      rooms.insert({ channelId, generatorKey: generator.key, number: n, ownerId: member.id });
+    } catch (error) {
+      await port
+        .deleteChannel(channelId, 'Temp room could not be saved')
+        .catch((cleanup: unknown) =>
+          logger.warn({ err: cleanup, channelId }, 'could not delete an unsaved temp room'),
+        );
+      throw error;
     }
+    return channelId;
+  }
+
+  /** True when the room is gone afterwards. A room whose channel could not be deleted stays. */
+  private async deleteIfEmpty(channelId: string): Promise<boolean> {
+    const { port, rooms, logger } = this.deps;
+    if (!rooms.get(channelId) || this.deleting.has(channelId)) return false;
+
+    if (port.voiceChannel(channelId)) {
+      if (port.members(channelId).length > 0) return false;
+      this.deleting.add(channelId);
+      try {
+        await port.deleteChannel(channelId, 'Temp room is empty');
+      } catch (error) {
+        logger.warn({ err: error, channelId }, 'failed to delete empty temp room');
+        return false;
+      } finally {
+        this.deleting.delete(channelId);
+      }
+    }
+    rooms.delete(channelId);
+    this.renames.delete(channelId);
+    return true;
+  }
+
+  private panelView(roomId: string): RoomPanelView | undefined {
+    const room = this.describe(roomId);
+    return (
+      room && {
+        roomId: room.id,
+        ownerId: room.ownerId,
+        locked: room.locked,
+        hidden: room.hidden,
+        userLimit: room.userLimit,
+      }
+    );
+  }
+
+  private async postPanel(roomId: string): Promise<void> {
+    const view = this.panelView(roomId);
+    if (!view) return;
+    try {
+      this.deps.rooms.setPanelMessage(roomId, await this.deps.port.postPanel(roomId, view));
+    } catch (error) {
+      this.deps.logger.warn({ err: error, channelId: roomId }, 'could not post the room panel');
+    }
+  }
+
+  private async refreshPanel(roomId: string): Promise<void> {
+    const view = this.panelView(roomId);
+    if (!view) return;
+    const messageId = this.deps.rooms.get(roomId)?.panelMessageId;
+    const edited =
+      messageId != null &&
+      (await this.deps.port.editPanel(roomId, messageId, view).then(
+        () => true,
+        () => false,
+      ));
+    if (!edited) await this.postPanel(roomId);
   }
 }

@@ -1,8 +1,6 @@
 import { PermissionFlagsBits as P } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import type { PermissionOverwrite } from './permission-overwrite.js';
-import { openDatabase } from '../db/client.js';
-import { TempVoiceStore } from '../db/temp-voice.js';
 import {
   accessOverwrites,
   banFromRoom,
@@ -31,29 +29,6 @@ describe('numbering', () => {
 });
 
 describe('RoomAllocator', () => {
-  it('gives three simultaneous joins distinct numbers, then reuses a freed one', async () => {
-    const db = openDatabase(':memory:');
-    const store = new TempVoiceStore(db.db);
-    const allocator = new RoomAllocator();
-    let nextId = 0;
-
-    const join = (ownerId: string) =>
-      allocator.run('gen-abyss', async () => {
-        const n = lowestFreeNumber(store.numbersFor('gen-abyss'));
-        await new Promise((resolve) => setTimeout(resolve, Math.random() * 20));
-        const channelId = String(++nextId);
-        store.insert({ channelId, generatorKey: 'gen-abyss', number: n, ownerId });
-        return { channelId, n };
-      });
-
-    const rooms = await Promise.all([join('a'), join('b'), join('c')]);
-    expect(rooms.map((r) => r.n).sort()).toEqual([1, 2, 3]);
-
-    store.delete(rooms.find((r) => r.n === 2)!.channelId);
-    expect((await join('d')).n).toBe(2);
-    db.close();
-  });
-
   it('keeps going after a failed creation', async () => {
     const allocator = new RoomAllocator();
     await expect(

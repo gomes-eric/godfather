@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createActionRunner } from './action.js';
+import { createActionRunner, refusedRequest } from './action.js';
 import type { Actor } from './actor.js';
 import type { AuditEntry } from './audit.js';
 
@@ -130,5 +130,117 @@ describe('action pipeline', () => {
 
     expect(outcome.status).toBe('ok');
     expect(entries).toEqual([]);
+  });
+
+  it('audits denied reads through MCP, so a demoted token owner shows up', async () => {
+    const { run, entries } = setup();
+    const read = (source: 'mcp' | 'slash') =>
+      run({
+        actor: { ...officer, tier: 'visitor', source },
+        action: 'member.read',
+        preview: 'Listar membros',
+        execute: vi.fn(),
+      });
+
+    expect(await read('mcp')).toEqual({ status: 'denied', requiredTier: 'officer' });
+    expect(await read('slash')).toEqual({ status: 'denied', requiredTier: 'officer' });
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: 'member.read',
+        result: 'denied',
+        actor: expect.objectContaining({ source: 'mcp' }),
+      }),
+    ]);
+  });
+});
+
+describe('domain checks', () => {
+  it('only run once the actor holds the rank', async () => {
+    const { run, entries } = setup();
+    const check = vi.fn(() => 'Você só pode moderar quem está abaixo do seu cargo.');
+
+    const outcome = await run({
+      actor: { ...officer, tier: 'soldier' },
+      action: 'member.kick',
+      target: 'Padrinho',
+      preview: 'Expulsar Padrinho',
+      check,
+      execute: vi.fn(),
+    });
+
+    expect(outcome).toEqual({ status: 'denied', requiredTier: 'officer' });
+    expect(check).not.toHaveBeenCalled();
+    expect(entries.map((e) => e.result)).toEqual(['denied']);
+  });
+
+  it('refuse before the confirmation prompt and audit the refusal with its reason', async () => {
+    const { run, entries } = setup();
+    const execute = vi.fn();
+
+    const outcome = await run({
+      actor: officer,
+      action: 'member.kick',
+      target: 'Padrinho',
+      params: { userId: '42' },
+      preview: 'Expulsar Padrinho',
+      check: () => 'Você só pode moderar quem está abaixo do seu cargo.',
+      execute,
+    });
+
+    expect(outcome).toEqual({
+      status: 'rejected',
+      reason: 'Você só pode moderar quem está abaixo do seu cargo.',
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(entries).toEqual([
+      expect.objectContaining({
+        action: 'member.kick',
+        result: 'rejected',
+        target: 'Padrinho',
+        params: { userId: '42', refusal: 'Você só pode moderar quem está abaixo do seu cargo.' },
+      }),
+    ]);
+  });
+
+  it('let the action go on when they pass', async () => {
+    const { run } = setup();
+    const outcome = await run({
+      actor: officer,
+      action: 'member.kick',
+      preview: 'Expulsar Padrinho',
+      check: () => null,
+      execute: vi.fn(),
+    });
+
+    expect(outcome).toEqual({ status: 'confirmation_required', preview: 'Expulsar Padrinho' });
+  });
+
+  it('keep refusals of read-only actions out of the audit', async () => {
+    const { run, entries } = setup();
+    const outcome = await run({
+      actor: officer,
+      action: 'message.read',
+      preview: 'Ler #geral',
+      check: () => 'Esse canal não aceita mensagens.',
+      execute: vi.fn(),
+    });
+
+    expect(outcome.status).toBe('rejected');
+    expect(entries).toEqual([]);
+  });
+
+  it('answer a missing target with a denial to those without the rank', async () => {
+    const { run, entries } = setup();
+    const request = refusedRequest(
+      { actor: officer, action: 'mcp.token.revoke.any', target: '#9' },
+      'Não achei o token #9.',
+    );
+
+    expect(await run(request)).toEqual({ status: 'denied', requiredTier: 'commander' });
+    expect(await run({ ...request, actor: commander })).toEqual({
+      status: 'rejected',
+      reason: 'Não achei o token #9.',
+    });
+    expect(entries.map((e) => e.result)).toEqual(['denied', 'rejected']);
   });
 });

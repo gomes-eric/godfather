@@ -43,9 +43,7 @@ export class EventStore {
             .set({ startsAt: patch.startsAt })
             .where(eq(eventOccurrences.id, occurrence.id))
             .run();
-          tx.delete(reminders)
-            .where(and(eq(reminders.occurrenceId, occurrence.id), isNull(reminders.sentAt)))
-            .run();
+          tx.delete(reminders).where(eq(reminders.occurrenceId, occurrence.id)).run();
         }
       }
     });

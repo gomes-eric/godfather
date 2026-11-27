@@ -1,17 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { oidcFederationProvider } from '@anthropic-ai/sdk/lib/credentials/oidc-federation';
-import { loadSigningKey, signIdentityToken } from '../core/wif-jwt.js';
+import { loadSigningKey, signIdentityToken, WIF_SUBJECT, wifKeyPath } from '../core/wif-jwt.js';
 import type { Env } from '../env.js';
 import type { Logger } from '../logger.js';
-
-/** The `sub` of Padrinho's identity tokens; the federation rule matches it exactly. */
-export const WIF_SUBJECT = 'padrinho:news';
-
-export function wifKeyPath(databasePath: string): string {
-  return join(dirname(databasePath), 'wif', 'issuer-es256.pem');
-}
 
 export function createClaudeClient(env: Env, logger: Logger): Anthropic | null {
   const ruleId = env.ANTHROPIC_FEDERATION_RULE_ID;

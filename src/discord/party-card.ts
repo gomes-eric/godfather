@@ -1,21 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ptBR } from '../i18n/pt-BR.js';
+import type { PartyView } from '../services/party.service.js';
 import { COLORS } from './colors.js';
 import { customId } from './custom-id.js';
 
 const t = ptBR.party;
 export const PARTY_PREFIX = 'party:';
 const STATE_COLORS = { open: COLORS.green, full: COLORS.gold, closed: COLORS.slate };
-
-export interface PartyView {
-  id: number;
-  activity: string;
-  startsAt: string | null;
-  ownerId: string;
-  slots: number;
-  closed: boolean;
-  members: { id: string; emoji: string }[];
-}
 
 export function partyCard(view: PartyView): {
   embeds: EmbedBuilder[];

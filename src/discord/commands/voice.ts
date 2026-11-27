@@ -1,7 +1,21 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
-import type { RoomCommand } from '../../services/voice.service.js';
+import { MessageFlags, SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
+import { isSimpleRoomCommand, type RoomCommand } from '../../services/voice.service.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
 import type { SlashCommand } from './types.js';
+
+function roomCommand(interaction: ChatInputCommandInteraction): RoomCommand | undefined {
+  const sub = interaction.options.getSubcommand();
+  switch (sub) {
+    case 'rename':
+      return { type: 'rename', name: interaction.options.getString('name', true) };
+    case 'limit':
+      return { type: 'limit', limit: interaction.options.getInteger('limit', true) };
+    case 'kick':
+      return { type: 'kick', userId: interaction.options.getUser('user', true).id };
+    default:
+      return isSimpleRoomCommand(sub) ? { type: sub } : undefined;
+  }
+}
 
 export const voiceCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -77,22 +91,13 @@ export const voiceCommand: SlashCommand = {
     .toJSON(),
 
   async execute(interaction, ctx) {
-    const sub = interaction.options.getSubcommand();
-    const command: RoomCommand =
-      sub === 'rename'
-        ? { type: 'rename', name: interaction.options.getString('name', true) }
-        : sub === 'limit'
-          ? { type: 'limit', limit: interaction.options.getInteger('limit', true) }
-          : sub === 'kick'
-            ? { type: 'kick', userId: interaction.options.getUser('user', true).id }
-            : { type: sub as 'lock' | 'unlock' | 'hide' | 'unhide' | 'claim' };
+    const command = roomCommand(interaction);
+    if (!command) return;
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const member = await ctx.guild.members.fetch(interaction.user.id);
     const actor = await ctx.resolveActor(interaction.user.id);
-
     await runWithConfirmation(interaction, ctx.confirmations, () =>
-      ctx.voice.manage(actor, member.voice.channelId, command),
+      ctx.voice.manage(actor, ctx.voice.roomOf(actor.userId), command),
     );
   },
 };

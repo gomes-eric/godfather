@@ -1,5 +1,4 @@
 import type { ButtonInteraction } from 'discord.js';
-import { ptBR } from '../../i18n/pt-BR.js';
 import type { PartyAction } from '../../services/party.service.js';
 import type { CommandContext } from '../commands/types.js';
 import { numericPart, parseCustomId } from '../custom-id.js';
@@ -23,14 +22,12 @@ export async function handlePartyButton(
     return true;
   }
 
-  const { party, justFilled } = outcome.value;
-  const view = ctx.parties.view(party);
+  const { view, filled } = outcome.value;
   await interaction.update({ ...partyCard(view), allowedMentions: { parse: [] } });
-  if (justFilled && interaction.channel?.isSendable()) {
-    const ids = view.members.map((m) => m.id);
+  if (filled && interaction.channel?.isSendable()) {
     await interaction.channel.send({
-      content: ptBR.party.filled(party.activity, ids),
-      allowedMentions: { users: ids },
+      content: filled.text,
+      allowedMentions: { users: filled.mentionIds },
     });
   }
   return true;

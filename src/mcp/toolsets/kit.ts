@@ -10,18 +10,16 @@ import type { AuditLog } from '../../core/audit.js';
 import type { GuildDirectory } from '../../discord/directory.js';
 import { findChannel, findMember } from '../../discord/resolvers.js';
 import { ptBR } from '../../i18n/pt-BR.js';
-import type { ApplicationStore } from '../../db/applications.js';
-import type { CharacterStore } from '../../db/characters.js';
 import type { AllianceService } from '../../services/alliance.service.js';
 import type { ChannelService } from '../../services/channel.service.js';
-import { GameApiError, type GameCharacterService } from '../../services/game-character.service.js';
+import type { CharacterLookup } from '../../services/character-lookup.service.js';
 import type { LegionCheckService } from '../../services/legion-check.service.js';
 import type { RankingBoard } from '../../services/ranking-board.service.js';
 import type { NewsService } from '../../services/news.service.js';
-import type { RecruitmentDesk } from '../../services/recruitment-desk.service.js';
+import type { Recruitment } from '../../services/recruitment.service.js';
 import type { RegistrationService } from '../../services/registration.service.js';
-import type { EventService } from '../../services/event.service.js';
-import type { MemberService } from '../../services/member.service.js';
+import type { EventCalendar } from '../../services/event-calendar.js';
+import type { Roster } from '../../services/roster.service.js';
 import type { MessageService } from '../../services/message.service.js';
 import type { ModerationService } from '../../services/moderation.service.js';
 import type { RoleService } from '../../services/role.service.js';
@@ -34,17 +32,15 @@ export interface McpServices {
   audit: AuditLog;
   runAction: ActionRunner;
   setup: SetupService;
-  members: MemberService;
+  roster: Roster;
   moderation: ModerationService;
   messages: MessageService;
-  events: EventService;
+  events: EventCalendar;
   channels: ChannelService;
   roles: RoleService;
-  characters: GameCharacterService;
-  registrations: CharacterStore;
+  characters: CharacterLookup;
   registration: RegistrationService;
-  applications: ApplicationStore;
-  recruitmentDesk: RecruitmentDesk;
+  recruitment: Recruitment;
   alliances: AllianceService;
   legion: LegionCheckService;
   ranking: RankingBoard;
@@ -131,11 +127,6 @@ export function createToolKit(server: McpServer, s: McpServices, actor: Actor) {
 }
 
 export class NotFound extends Error {}
-
-export function gameFailure(error: unknown): ServiceOutcome<never> {
-  if (error instanceof GameApiError) return rejected(ptBR.profile.apiDown);
-  throw error;
-}
 
 export function configFailure(error: unknown): ServiceOutcome<string> {
   if (error instanceof ConfigError) return rejected(error.message);

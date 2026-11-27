@@ -17,6 +17,8 @@ import { createDiscordAuditPublisher } from './discord/audit-publisher.js';
 import { connectDiscord, createDiscordClient } from './discord/client.js';
 import { commands } from './discord/commands/index.js';
 import { createDirectory } from './discord/directory.js';
+import { createDiscordNewsPort } from './discord/news.js';
+import { createDiscordGuildAdmin } from './discord/guild-admin-port.js';
 import { createDiscordGuildPort } from './discord/guild-port.js';
 import { createConfirmationStore } from './discord/interactions/confirmation.js';
 import { attachInteractionRouter } from './discord/interactions/router.js';
@@ -25,16 +27,20 @@ import { attachMessageListener } from './discord/listeners/message-create.js';
 import { attachVoiceStateListener } from './discord/listeners/voice-state.js';
 import { resolveActor } from './discord/members.js';
 import { registerGuildCommands } from './discord/register-commands.js';
+import { createDiscordVoicePort } from './discord/voice-port.js';
 import { EnvError, loadEnv } from './env.js';
 import { createHttpApp, type McpHandler } from './http/app.js';
 import { createLogger } from './logger.js';
 import { createMcpHandler } from './mcp/server.js';
 import { ChannelService } from './services/channel.service.js';
-import { EventService } from './services/event.service.js';
+import { CharacterLookup } from './services/character-lookup.service.js';
+import { EventCalendar } from './services/event-calendar.js';
 import { GameCharacterService } from './services/game-character.service.js';
 import { LegionCheckService } from './services/legion-check.service.js';
 import { RankingBoard } from './services/ranking-board.service.js';
-import { MemberService } from './services/member.service.js';
+import { Roster } from './services/roster.service.js';
+import { createDiscordMemberPort } from './discord/member-port.js';
+import { createDiscordRecruitmentBoard } from './discord/recruitment-board.js';
 import { MessageService } from './services/message.service.js';
 import { ModerationService } from './services/moderation.service.js';
 import { MusicGuardService } from './services/music-guard.service.js';
@@ -43,19 +49,16 @@ import { EventTimesService } from './services/event-times.service.js';
 import { NewsService } from './services/news.service.js';
 import { createNewsSummarizer } from './services/news-summarizer.js';
 import { createClaudeClient } from './services/claude.js';
-import { gameClassName } from './core/news-digest.js';
-import { classRoles } from './config/schema.js';
-import { RecruitmentDesk } from './services/recruitment-desk.service.js';
 import { AllianceService } from './services/alliance.service.js';
 import { RestrictionStore } from './db/restrictions.js';
-import { RecruitmentService } from './services/recruitment.service.js';
+import { Recruitment } from './services/recruitment.service.js';
 import { RegistrationService } from './services/registration.service.js';
-import { ReminderScheduler } from './services/reminder.scheduler.js';
 import { RoleService } from './services/role.service.js';
 import { SetupService } from './services/setup.service.js';
 import { TokenService } from './services/token.service.js';
 import { VoiceService } from './services/voice.service.js';
 import { WelcomeService } from './services/welcome.service.js';
+import { auditChannelKey } from './config/views.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -118,11 +121,11 @@ async function main(): Promise<void> {
     });
     const directory = createDirectory(guild, managed, () => config.get());
     audit.setPublisher(
-      createDiscordAuditPublisher(directory, () => config.get().settings.audit.channel, logger),
+      createDiscordAuditPublisher(directory, () => auditChannelKey(config.get()), logger),
     );
 
     const voice = new VoiceService({
-      guild,
+      port: createDiscordVoicePort(guild, logger),
       config,
       managed,
       rooms: new TempVoiceStore(database.db),
@@ -147,52 +150,50 @@ async function main(): Promise<void> {
       .then((synced) => logger.info(synced, 'automatic roles synced'))
       .catch((error: unknown) => logger.warn({ err: error }, 'automatic role sync failed'));
 
-    const eventStore = new EventStore(database.db);
-    const scheduler = new ReminderScheduler({
-      store: eventStore,
+    const calendar = new EventCalendar({
+      store: new EventStore(database.db),
       managed,
-      config: () => config.get(),
-      port: createDiscordAnnouncements(guild, directory, () => config.get()),
+      config,
+      runAction,
+      port: createDiscordAnnouncements(directory, () => config.get()),
+      classesOf: (userId) => {
+        const member = guild.members.cache.get(userId);
+        return member ? directory.classesOf(member).map((role) => role.name) : [];
+      },
       logger,
     });
     const eventTimes = new EventTimesService({
       config,
-      runAction,
+      calendar,
       botUserId: guild.client.user.id,
       logger,
       warn: async (text) => {
         await directory
-          .channelByKey(config.get().settings.audit.channel)
+          .channelByKey(auditChannelKey(config.get()))
           ?.send({ content: text, allowedMentions: { parse: [] } });
       },
-      onChange: () => scheduler.refreshSoon(),
     });
     const characters = new GameCharacterService({ config, logger });
     const registrations = new CharacterStore(database.db);
     const restrictions = new RestrictionStore(database.db);
-    const members = new MemberService({ guild, directory, config, restrictions, runAction });
+    const members = new Roster({
+      members: createDiscordMemberPort(guild),
+      directory,
+      config,
+      restrictions,
+      runAction,
+    });
     const ranking = new RankingBoard({ guild, config, directory, managed, registrations });
     const claude = createClaudeClient(env, logger);
     logger.info({ enabled: claude !== null }, 'Claude API (workload identity federation)');
     const news = new NewsService({
       config,
-      directory,
+      port: createDiscordNewsPort(directory),
       store: new NewsStore(database.db),
       logger,
-      ...(claude && {
-        summarizer: createNewsSummarizer({
-          client: claude,
-          model: () => config.get().settings.news?.summary?.model ?? 'claude-sonnet-5-5',
-          classes: () =>
-            classRoles(config.get()).map((role) => ({
-              key: role.key,
-              name: role.name,
-              gameName: gameClassName(role.key),
-            })),
-        }),
-      }),
+      ...(claude && { summarizer: createNewsSummarizer(claude) }),
     });
-    for (const job of [scheduler, eventTimes, news]) stopJobs.push(job.start());
+    for (const job of [calendar, eventTimes, news]) stopJobs.push(job.start());
 
     const setup = new SetupService(createDiscordGuildPort(guild), managed, config);
     const alliances = new AllianceService({
@@ -200,47 +201,49 @@ async function main(): Promise<void> {
       config,
       directory,
       setup,
-      members,
+      roster: members,
       runAction,
       logger,
     });
     const registration = new RegistrationService({
-      guild,
       config,
       directory,
       registrations,
       characters,
-      members,
+      roster: members,
       ranking,
       runAction,
       logger,
     });
     const applications = new ApplicationStore(database.db);
-    const recruitmentDesk = new RecruitmentDesk({
-      guild,
+    const botUserId = guild.client.user.id;
+    const recruitmentDesk = new Recruitment({
+      store: applications,
+      board: createDiscordRecruitmentBoard({ guild, config, directory, logger }),
+      roster: members,
+      registration,
+      alliances,
       config,
       directory,
-      recruitment: new RecruitmentService({ store: applications, runAction }),
-      applications,
-      registration,
-      members,
-      alliances,
+      runAction,
+      botUserId,
       logger,
     });
     const legion = new LegionCheckService({
-      guild,
       config,
       directory,
       ranking,
       registrations,
       characters,
-      runAction,
-      members,
+      roster: members,
       restrictions,
-      review: (input) => recruitmentDesk.openReview(input),
+      review: (request) => recruitmentDesk.openReview(request),
+      botUserId,
+      runAction,
       logger,
     });
     stopJobs.push(recruitmentDesk.start(), legion.start());
+    const admin = createDiscordGuildAdmin(guild);
     const services = {
       guild,
       config,
@@ -248,18 +251,22 @@ async function main(): Promise<void> {
       audit,
       runAction,
       setup,
-      members,
+      roster: members,
       alliances,
-      moderation: new ModerationService({ guild, directory, runAction }),
-      messages: new MessageService({ guild, runAction }),
-      events: new EventService({ store: eventStore, scheduler, config, runAction }),
-      channels: new ChannelService({ guild, managed, runAction }),
-      roles: new RoleService({ guild, directory, runAction }),
-      characters,
-      registrations,
+      moderation: new ModerationService({ guild: admin, directory, runAction }),
+      messages: new MessageService({ guild: admin, runAction }),
+      events: calendar,
+      channels: new ChannelService({ guild: admin, managed, runAction }),
+      roles: new RoleService({ guild: admin, directory, runAction }),
+      characters: new CharacterLookup({
+        characters,
+        registrations,
+        config,
+        memberName: (userId) => guild.members.cache.get(userId)?.displayName,
+        runAction,
+      }),
       registration,
-      applications,
-      recruitmentDesk,
+      recruitment: recruitmentDesk,
       legion,
       ranking,
       news,
@@ -270,10 +277,12 @@ async function main(): Promise<void> {
       logger,
       voice,
       parties: new PartyService({
-        guild,
-        directory,
         store: new PartyStore(database.db),
         runAction,
+        classEmoji: (userId) => {
+          const member = guild.members.cache.get(userId);
+          return member && directory.classesOf(member)[0]?.emoji;
+        },
       }),
       tokens,
       mcpUrl: new URL('/mcp', env.PUBLIC_BASE_URL).toString(),
