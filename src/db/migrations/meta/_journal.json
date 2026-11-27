@@ -141,6 +141,13 @@
       "when": 1795752709698,
       "tag": "0019_restriction_origin_officer",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1795757733364,
+      "tag": "0020_voice_boss_to_raid",
+      "breakpoints": true
     }
   ]
 }

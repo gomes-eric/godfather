@@ -53,24 +53,24 @@ describe('ConfigStore voice generators', () => {
 
   it('adds, updates and removes a generator in server.yaml', () => {
     const store = new ConfigStore(path);
-    const raid = {
-      key: 'gen-raid',
+    const pvp = {
+      key: 'gen-pvp',
       category: 'voice-rooms',
-      name: '➕ Raid',
-      nameTemplate: 'Raid {n}',
+      name: '➕ PvP',
+      nameTemplate: 'PvP {n}',
       userLimit: 8,
     };
 
-    store.upsertVoiceGenerator(raid);
-    expect(new ConfigStore(path).get().voiceGenerators.at(-1)).toEqual(raid);
+    store.upsertVoiceGenerator(pvp);
+    expect(new ConfigStore(path).get().voiceGenerators.at(-1)).toEqual(pvp);
 
-    store.upsertVoiceGenerator({ ...raid, userLimit: 12 });
-    expect(new ConfigStore(path).get().voiceGenerators.filter((g) => g.key === 'gen-raid')).toEqual(
-      [{ ...raid, userLimit: 12 }],
-    );
+    store.upsertVoiceGenerator({ ...pvp, userLimit: 12 });
+    expect(new ConfigStore(path).get().voiceGenerators.filter((g) => g.key === 'gen-pvp')).toEqual([
+      { ...pvp, userLimit: 12 },
+    ]);
 
-    store.deleteVoiceGenerator('gen-raid');
-    expect(new ConfigStore(path).get().voiceGenerators.some((g) => g.key === 'gen-raid')).toBe(
+    store.deleteVoiceGenerator('gen-pvp');
+    expect(new ConfigStore(path).get().voiceGenerators.some((g) => g.key === 'gen-pvp')).toBe(
       false,
     );
     expect(readFileSync(path, 'utf8')).toContain('# Join-to-create generators');

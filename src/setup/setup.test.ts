@@ -73,7 +73,7 @@ describe('/setup reconciliation', () => {
         .map((g) => g.category)
         .sort(byPosition)
         .map((c) => c.name),
-    ).toEqual(['🗝️ SALAS DUNGEON', '⚔️ SALAS ABISMO', '🐉 SALAS BOSS', '🍻 SALAS SOCIAL']);
+    ).toEqual(['🗝️ SALAS DUNGEON', '🐉 SALAS RAID', '⚔️ SALAS ABISMO', '🍻 SALAS SOCIAL']);
   });
 
   it('puts every managed role below the bot in the yaml order', async () => {

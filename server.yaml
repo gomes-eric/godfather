@@ -283,11 +283,11 @@ categories:
   - key: dungeon-rooms
     name: 🗝️ SALAS DUNGEON
     access: { view: soldier, write: soldier }
+  - key: raid-rooms
+    name: 🐉 SALAS RAID
+    access: { view: soldier, write: soldier }
   - key: abyss-rooms
     name: ⚔️ SALAS ABISMO
-    access: { view: soldier, write: soldier }
-  - key: boss-rooms
-    name: 🐉 SALAS BOSS
     access: { view: soldier, write: soldier }
   - key: social-rooms
     name: 🍻 SALAS SOCIAL
@@ -348,8 +348,8 @@ botTextChannels:
 # userLimit: 0 = unlimited (99 is Discord's maximum).
 voiceGenerators:
   - { key: gen-dungeon, category: dungeon-rooms, name: "➕ Criar", nameTemplate: "Dungeon {n}", userLimit: 5 }
+  - { key: gen-raid,    category: raid-rooms,    name: "➕ Criar", nameTemplate: "Raid {n}",    userLimit: 10 }
   - { key: gen-abyss,   category: abyss-rooms,   name: "➕ Criar", nameTemplate: "Abismo {n}",  userLimit: 20 }
-  - { key: gen-bosses,  category: boss-rooms,    name: "➕ Criar", nameTemplate: "Boss {n}",    userLimit: 20 }
   - { key: gen-social,  category: social-rooms,  name: "➕ Criar", nameTemplate: "Social {n}",  userLimit: 99 }
 
 # Recurring events. Times are America/Sao_Paulo (Brasília).
