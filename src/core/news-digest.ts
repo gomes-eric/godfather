@@ -1,15 +1,9 @@
-// What Claude is asked to do with each of the game's Steam announcements: decide whether the
-// legion cares, and boil it down to a short card in Brazilian Portuguese. Pure: the prompt and the
-// answer's schema; the call itself is in services/news-summarizer.ts.
-
 import { z } from 'zod';
 import type { NewsPost } from './news.js';
 
-/** A class the summary may flag: its role key, the guild's name for it, and the game's. */
 export interface DigestClass {
   key: string;
   name: string;
-  /** English name used in the announcements, e.g. "Sorcerer". */
   gameName: string;
 }
 
@@ -17,7 +11,6 @@ export function digestSchema(classes: readonly DigestClass[]) {
   const keys = classes.map((c) => c.key);
   return z.object({
     publish: z.boolean(),
-    /** Why it was left out, for the log; empty when published. */
     skipReason: z.string(),
     kind: z.enum(['patch', 'maintenance', 'event', 'restriction', 'notice']),
     title: z.string(),
@@ -33,7 +26,6 @@ export function digestSchema(classes: readonly DigestClass[]) {
 
 export type NewsDigest = z.infer<ReturnType<typeof digestSchema>>;
 
-/** "class-spiritmaster" → "Spiritmaster". */
 export function gameClassName(roleKey: string): string {
   const name = roleKey.replace(/^class-/, '');
   return name.charAt(0).toUpperCase() + name.slice(1);

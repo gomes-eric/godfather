@@ -53,7 +53,6 @@ function describeWarning(warning: SetupWarning): string {
     : t.warnings.channelKindMismatch(warning.name, warning.expected, warning.actual);
 }
 
-/** Joins lines until `maxLength`, then summarizes the rest as "…e mais N itens". */
 function joinWithinLimit(lines: string[], maxLength: number): string {
   const kept: string[] = [];
   let length = 0;

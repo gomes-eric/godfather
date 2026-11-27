@@ -114,7 +114,6 @@ function panelPayload(panel: PanelMessage) {
   return { embeds: [embed], components: rows, allowedMentions: { parse: [] } };
 }
 
-/** GuildPort backed by discord.js. */
 export function createDiscordGuildPort(guild: Guild): GuildPort {
   const textChannel = async (id: string) => {
     const channel = await guild.channels.fetch(id);

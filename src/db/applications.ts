@@ -20,7 +20,6 @@ export class ApplicationStore {
     return this.db.select().from(applications).where(eq(applications.id, id)).get();
   }
 
-  /** The member's application still waiting for a decision, if any. */
   pendingFor(userId: string): Application | undefined {
     return this.db
       .select()
@@ -30,7 +29,6 @@ export class ApplicationStore {
       .get();
   }
 
-  /** Newest first; every status when none is given. */
   list(status?: Application['status'], limit = 50): Application[] {
     return this.db
       .select()
@@ -45,7 +43,6 @@ export class ApplicationStore {
     this.db.update(applications).set({ messageId, threadId }).where(eq(applications.id, id)).run();
   }
 
-  /** Decided applications whose private thread still exists. */
   decidedWithThread(): Application[] {
     return this.db
       .select()
@@ -54,7 +51,6 @@ export class ApplicationStore {
       .all();
   }
 
-  /** The thread (and the card in it) is gone. */
   forgetThread(id: number): void {
     this.db
       .update(applications)
@@ -63,7 +59,6 @@ export class ApplicationStore {
       .run();
   }
 
-  /** An officer's Mudar: what approving the application will do. */
   setKind(id: number, kind: ApplicationKind, allianceLegion: string | null): void {
     this.db.update(applications).set({ kind, allianceLegion }).where(eq(applications.id, id)).run();
   }

@@ -5,11 +5,6 @@ import type { ChannelPosition, ChannelSpec, GuildPort, PanelMessage, RoleSpec } 
 let nextId = 1_000_000_000_000_000n;
 const newId = () => String(nextId++);
 
-/**
- * In-memory guild that behaves like Discord for everything /setup does: role positions with a
- * bot role that can't manage roles above it, channel positions, overwrites, forum tags,
- * the Community feature and panel messages.
- */
 export class FakeGuild implements GuildPort {
   readonly everyoneRoleId = newId();
   readonly botRoleId = newId();
@@ -43,7 +38,6 @@ export class FakeGuild implements GuildPort {
     };
   }
 
-  /** Adds a role at the top of the list (above the bot), like one created by a human. */
   addRoleAboveBot(name: string): string {
     const id = newId();
     this.roles.push(this.role({ id, name, position: this.roles.length }));

@@ -2,7 +2,6 @@ import { Client, Events, GatewayIntentBits, Options, type Guild } from 'discord.
 import type { Logger } from '../logger.js';
 
 // GuildMembers is a privileged intent: enable "Server Members Intent" in the Developer Portal.
-// MessageContent is optional (DISCORD_MESSAGE_CONTENT): only the MCP `read_messages` tool needs it.
 const baseIntents = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMembers,
@@ -15,8 +14,6 @@ export function createDiscordClient(options: { messageContent?: boolean } = {}):
     intents: options.messageContent
       ? [...baseIntents, GatewayIntentBits.MessageContent]
       : baseIntents,
-    // Nothing reads old messages from the cache; the bot's own cards (panels, agenda, reminders)
-    // sit in quiet channels and stay within the last 20. Bans are always fetched fresh.
     makeCache: Options.cacheWithLimits({
       ...Options.DefaultMakeCacheSettings,
       MessageManager: 20,
@@ -25,7 +22,6 @@ export function createDiscordClient(options: { messageContent?: boolean } = {}):
   });
 }
 
-/** Logs in and resolves once the client is ready and the configured guild is reachable. */
 export async function connectDiscord(
   client: Client,
   options: { token: string; guildId: string; logger: Logger },

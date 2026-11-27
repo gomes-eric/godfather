@@ -7,11 +7,8 @@ export type OccurrenceRow = typeof eventOccurrences.$inferSelect;
 export type ReminderRow = typeof reminders.$inferSelect;
 export type RsvpStatus = (typeof rsvps.$inferSelect)['status'];
 
-/** Storage for one-off events, occurrences, reminders and RSVPs (PLAN.md §6.4, §6.5). */
 export class EventStore {
   constructor(private readonly db: Db) {}
-
-  // ---- One-off events --------------------------------------------------------------------------
 
   createEvent(event: Omit<typeof events.$inferInsert, 'id' | 'createdAt'>): {
     event: EventRow;
@@ -32,7 +29,6 @@ export class EventStore {
     return this.db.select().from(events).where(eq(events.id, id)).get();
   }
 
-  /** Edits an event; a new start time also moves its occurrence and re-plans its reminders. */
   updateEvent(id: number, patch: Partial<Omit<EventRow, 'id' | 'createdAt' | 'createdBy'>>): void {
     this.db.transaction((tx) => {
       tx.update(events).set(patch).where(eq(events.id, id)).run();
@@ -55,21 +51,14 @@ export class EventStore {
     });
   }
 
-  // ---- Occurrences -----------------------------------------------------------------------------
-
   getOccurrence(id: number): OccurrenceRow | undefined {
     return this.db.select().from(eventOccurrences).where(eq(eventOccurrences.id, id)).get();
   }
 
-  /** Inserts the template occurrence unless it already exists (idempotent). */
   ensureTemplateOccurrence(templateKey: string, startsAt: Date): void {
     this.db.insert(eventOccurrences).values({ templateKey, startsAt }).onConflictDoNothing().run();
   }
 
-  /**
-   * Future occurrences of templates that haven't sent any reminder yet. These are safe to drop
-   * and regenerate when a template changes or is disabled.
-   */
   untouchedTemplateOccurrences(after: Date): OccurrenceRow[] {
     return this.db
       .select()
@@ -88,7 +77,6 @@ export class EventStore {
     this.db.delete(eventOccurrences).where(eq(eventOccurrences.id, id)).run();
   }
 
-  /** Occurrences starting within [from, to], cancelled ones included, earliest first. */
   occurrencesBetween(from: Date, to: Date): OccurrenceRow[] {
     return this.db
       .select()
@@ -106,8 +94,6 @@ export class EventStore {
       .run();
   }
 
-  // ---- Reminders -------------------------------------------------------------------------------
-
   ensureReminder(occurrenceId: number, offsetMinutes: number, dueAt: Date): void {
     this.db
       .insert(reminders)
@@ -116,7 +102,6 @@ export class EventStore {
       .run();
   }
 
-  /** Reminders that are due and neither sent nor skipped. */
   dueReminders(now: Date): ReminderRow[] {
     return this.db
       .select()
@@ -126,10 +111,6 @@ export class EventStore {
       .all();
   }
 
-  /**
-   * Marks the reminder as sent before posting it, so a second tick (or a restart) can't post it
-   * twice. Returns false if someone already claimed it.
-   */
   claimReminder(id: number, at: Date): boolean {
     const result = this.db
       .update(reminders)
@@ -139,7 +120,6 @@ export class EventStore {
     return result.changes === 1;
   }
 
-  /** Undoes a claim when posting failed, so the next tick retries within the tolerance. */
   releaseReminder(id: number): void {
     this.db.update(reminders).set({ sentAt: null }).where(eq(reminders.id, id)).run();
   }
@@ -152,7 +132,6 @@ export class EventStore {
     this.db.update(reminders).set({ messageId }).where(eq(reminders.id, id)).run();
   }
 
-  /** Posted reminder messages of an occurrence (to refresh their RSVP counts). */
   postedReminders(occurrenceId: number): ReminderRow[] {
     return this.db
       .select()
@@ -160,8 +139,6 @@ export class EventStore {
       .where(and(eq(reminders.occurrenceId, occurrenceId), isNotNull(reminders.messageId)))
       .all();
   }
-
-  // ---- RSVPs -----------------------------------------------------------------------------------
 
   setRsvp(occurrenceId: number, userId: string, status: RsvpStatus, at: Date): void {
     this.db

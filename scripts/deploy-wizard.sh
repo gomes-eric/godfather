@@ -198,9 +198,6 @@ finish() {
 # the whole file before the first prompt, so an edit mid-run can't break it.
 # ──────────────────────────────────────────────────────────────────────────
 
-# Padrinho production deploy (PLAN.md §11, phase 8). Run on the Linux server from the cloned
-# repo: ./scripts/deploy-wizard.sh   Safe to re-run: values already in .env are kept on Enter.
-
 run_wizard() {
 
 cd "$(dirname "$0")/.."
@@ -209,7 +206,6 @@ TOTAL_STAGES=9
 
 banner "Padrinho · deploy no servidor"
 
-# ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Pré-requisitos"
 say "Vou conferir se o servidor tem o que o bot precisa."
 missing=0
@@ -236,7 +232,6 @@ if ! docker info >/dev/null 2>&1; then
 fi
 pause "Tudo certo. Enter para continuar."
 
-# ── 2 ─────────────────────────────────────────────────────────────────────
 stage "Código mais recente"
 say "Repositório: $REPO_DIR"
 git -C "$REPO_DIR" fetch --quiet origin
@@ -249,7 +244,6 @@ fi
 say "Agora em: $(git -C "$REPO_DIR" log -1 --format='%h %s')"
 pause
 
-# ── 3 ─────────────────────────────────────────────────────────────────────
 stage "Configuração de produção (.env)"
 say "Use os mesmos valores do .env do seu PC (pasta do projeto Godfather)."
 open_url "https://discord.com/developers/applications"
@@ -263,14 +257,13 @@ write_env DISCORD_TOKEN "$DISCORD_TOKEN"
 write_env DISCORD_CLIENT_ID "$DISCORD_CLIENT_ID"
 write_env DISCORD_GUILD_ID "$DISCORD_GUILD_ID"
 current_url=$(_existing PUBLIC_BASE_URL || true)
-write_env PUBLIC_BASE_URL "${current_url:-https://padrinho.example.ts.net}"   # real URL in stage 7
+write_env PUBLIC_BASE_URL "${current_url:-https://padrinho.example.ts.net}"
 write_env NODE_ENV production
 write_env LOG_LEVEL info
 write_env HTTP_PORT 8080
 write_env DISCORD_MESSAGE_CONTENT "$(_existing DISCORD_MESSAGE_CONTENT || echo false)"
 pause
 
-# ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Parar outra cópia do bot"
 warn "Dois bots com o mesmo token respondem em dobro e duplicam os avisos."
 migrating=0
@@ -285,7 +278,6 @@ else
   note "Instalação nova: o banco é criado vazio na primeira subida."
 fi
 
-# ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Trazer o banco existente"
 say "O banco guarda os IDs criados pelo /setup, eventos, RSVPs, salas e tokens MCP."
 mkdir -p "$REPO_DIR/data"
@@ -309,7 +301,6 @@ sudo chown -R 1000:1000 "$REPO_DIR/data"
 note "✓ data/ pertence ao uid 1000"
 pause
 
-# ── 6 ─────────────────────────────────────────────────────────────────────
 stage "Subir o container"
 say "O bot reescreve o server.yaml (horários do shugo.gg, /event template edit)."
 say "O container entra no grupo do seu usuário (gid $(id -g)) e o arquivo fica gravável por ele:"
@@ -333,7 +324,6 @@ else
 fi
 pause
 
-# ── 7 ─────────────────────────────────────────────────────────────────────
 stage "URL pública (Tailscale Funnel)"
 say "O Funnel publica a porta 8080 com HTTPS para o Claude Code/Codex/OpenCode alcançarem o MCP."
 if ! tailscale status >/dev/null 2>&1; then
@@ -348,7 +338,7 @@ if [[ -z "$funnel_url" ]]; then
   ask funnel_url "Cole a URL https://...ts.net mostrada por 'tailscale funnel status':"
 fi
 write_env PUBLIC_BASE_URL "$funnel_url"
-docker compose up -d   # recreate the container with the new PUBLIC_BASE_URL
+docker compose up -d
 sleep 5
 if curl -fsS "$funnel_url/healthz" >/dev/null 2>&1; then
   note "✓ $funnel_url/healthz responde de fora"
@@ -357,7 +347,6 @@ else
 fi
 pause
 
-# ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Backup diário"
 say "Backup do banco todo dia às 04:15, guardando 14 dias em data/backups."
 cron_line="15 4 * * * $REPO_DIR/scripts/backup.sh >> \$HOME/padrinho-backup.log 2>&1"
@@ -373,7 +362,6 @@ say "Rodando um backup agora para testar:"
 "$REPO_DIR/scripts/backup.sh"
 pause
 
-# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Conferir e reconectar as IAs"
 say "MCP sem token deve responder 401:"
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$PUBLIC_BASE_URL/mcp" || true)

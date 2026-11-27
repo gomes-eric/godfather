@@ -6,11 +6,6 @@ import type { CharacterStore } from '../db/characters.js';
 import type { GuildDirectory } from './directory.js';
 import { canRename, memberRoleIds } from './members.js';
 
-/**
- * Makes the member look like their character: the class role (replacing any other class) and the
- * "⚔️ Nome" nickname. Returns the nickname, or null when Discord won't let the bot rename them
- * (the server owner, or anyone ranked above the bot).
- */
 export async function applyCharacter(
   member: GuildMember,
   directory: GuildDirectory,
@@ -31,10 +26,6 @@ export async function applyCharacter(
   return nickname;
 }
 
-/**
- * Registers a member's in-game character when their recruitment application is approved: applies
- * the class role and nickname, and stores the character for /perfil and the daily check.
- */
 export async function registerCharacter(
   deps: { directory: GuildDirectory; registrations: CharacterStore },
   member: GuildMember,

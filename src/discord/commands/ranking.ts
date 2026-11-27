@@ -5,10 +5,6 @@ import type { SlashCommand } from './types.js';
 
 const t = ptBR.legionCheck;
 
-/**
- * Runs the daily legion check now: every registered character is read again on the official site
- * and #ranking is rebuilt with the new numbers. Changes go to the officers' report as usual.
- */
 export const rankingCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName('ranking')
@@ -20,7 +16,6 @@ export const rankingCommand: SlashCommand = {
 
   async execute(interaction, ctx) {
     const actor = await ctx.resolveActor(interaction.user.id);
-    // Reading every character takes a few seconds each, past Discord's 3-second reply window.
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (ctx.legion.isChecking) {

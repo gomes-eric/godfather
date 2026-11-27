@@ -38,7 +38,6 @@ describe('MCP endpoint', () => {
         return { ...entry, id: audit.length, at: new Date() };
       },
     });
-    // Only the pieces these tools touch; the rest needs a live Discord guild.
     const applications = {
       list: () => [
         {
@@ -242,7 +241,6 @@ describe('MCP endpoint', () => {
   });
 
   it('lets many clients connect at once without touching the tool-call limit', async () => {
-    // 15 connects ≈ 60+ handshake requests: over the old shared limit.
     for (let i = 0; i < 15; i++) await connect();
     for (let i = 0; i < 30; i++) expect((await rpc(i, 'ping')).status).toBe(200);
 

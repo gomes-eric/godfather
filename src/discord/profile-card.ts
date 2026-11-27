@@ -23,7 +23,6 @@ const GROUPS: { group: EquipmentGroup[]; name: string }[] = [
 const format = (value: number | null) =>
   value === null ? '—' : `**${value.toLocaleString('pt-BR')}**`;
 
-/** The /perfil card: class, level, combat power, item level, legion, title and gear. */
 export function profileCard(
   { profile, equipment }: CharacterSheet,
   look: { classEmoji?: string; color?: number; serverName: string },
@@ -55,7 +54,6 @@ export function profileCard(
   return embed;
 }
 
-/** The profile card with the class emoji and color from server.yaml. */
 export function characterCard(sheet: CharacterSheet, config: ServerConfig): EmbedBuilder {
   const classRole = matchClass(sheet.profile.className, classRoles(config));
   return profileCard(sheet, {
@@ -65,12 +63,10 @@ export function characterCard(sheet: CharacterSheet, config: ServerConfig): Embe
   });
 }
 
-/** Prefix of the gear menu: `gear:<serverId>:<characterId>`; each option is `<slotPos>:<itemId>:<enchant>`. */
 export const GEAR_PREFIX = 'gear:';
 /** Discord's limit of options in a select menu. */
 const MAX_OPTIONS = 25;
 
-/** The "see a piece's details" menu under a profile card; none when nothing is equipped. */
 export function gearMenu({
   profile,
   equipment,
@@ -94,7 +90,6 @@ export function gearValue(item: Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantL
   return `${item.slotPos}:${item.id}:${item.enchantLevel}`;
 }
 
-/** `<slotPos>:<itemId>:<enchant>` back to the piece, or undefined when it doesn't parse. */
 export function parseGearValue(
   value: string,
 ): Pick<EquipmentItem, 'slotPos' | 'id' | 'enchantLevel'> | undefined {
@@ -104,7 +99,6 @@ export function parseGearValue(
     : undefined;
 }
 
-/** One piece in full: level, enchantment, stats, stones and where it comes from. */
 export function itemCard(item: ItemDetail, characterName: string): EmbedBuilder {
   const enchant = item.enchantLevel > 0 ? `+${item.enchantLevel} ` : '';
   const header = [

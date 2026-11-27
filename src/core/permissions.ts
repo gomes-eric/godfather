@@ -2,9 +2,7 @@ import { TIER_RANK, tierAtLeast, type Tier } from './tiers.js';
 
 export interface ActionPolicy {
   minTier: Tier;
-  /** Requires `confirm: true`; without it the action only returns a preview (PLAN.md §5.3). */
   destructive: boolean;
-  /** Whether the action is written to the audit log. Reads and self-service clicks are not. */
   audited: boolean;
 }
 
@@ -19,7 +17,6 @@ function policy(
   };
 }
 
-// Action matrix (PLAN.md §5.2). Shared by slash commands and MCP tools.
 export const ACTION_POLICIES = {
   'member.ban': policy('commander', { destructive: true }),
   'member.unban': policy('commander'),
@@ -28,17 +25,13 @@ export const ACTION_POLICIES = {
   'member.promote': policy('officer'),
   'member.demote': policy('officer', { destructive: true }),
   'member.partner': policy('officer'),
-  // Aliado of an existing alliance, and Restrito (only #geral), in place of the previous standing.
   'member.ally': policy('officer'),
   'member.restrict': policy('officer'),
-  // Allied legions: creating or dropping one is the Comandantes' call; anyone in sees the list.
   'alliance.add': policy('commander'),
   'alliance.remove': policy('commander', { destructive: true }),
   'alliance.read': policy('soldier', { audited: false }),
-  // The daily legion check updating a member's class role and nickname (the bot itself).
   'member.sync': policy('commander'),
   'member.read': policy('officer', { audited: false }),
-  // An officer registering someone's character by hand: class role, nickname and Soldado.
   'member.register': policy('officer'),
 
   'channel.create': policy('commander'),
@@ -49,17 +42,13 @@ export const ACTION_POLICIES = {
   'role.delete': policy('commander', { destructive: true }),
   'role.assign': policy('commander'),
   'character.read': policy('visitor', { audited: false }),
-  // Recruitment: a Visitante applies; an officer approves (registers them, makes them Soldado).
   'recruit.apply': policy('visitor', { audited: false }),
   'recruit.decide': policy('officer'),
-  // Mudar: what approving an application does (Membro, Aliança, Parceiro).
-  'recruit.edit': policy('officer'),
+  'recruit.kind': policy('officer'),
   'recruit.read': policy('officer', { audited: false }),
-  // Running the daily legion check (or rebuilding #ranking) now instead of waiting for it.
   'legion.check': policy('officer'),
   'news.preview': policy('officer'),
 
-  // Party finder: anyone in the legion opens and joins groups; the leader or an officer closes.
   'party.create': policy('soldier', { audited: false }),
   'party.join': policy('soldier', { audited: false }),
   'party.close': policy('soldier', { audited: false }),
@@ -72,14 +61,10 @@ export const ACTION_POLICIES = {
   'event.edit': policy('officer'),
   'event.cancel': policy('officer', { destructive: true }),
   'event.template.edit': policy('officer'),
-  // RSVP clicks are self-service and too noisy for #audit-log.
   'event.rsvp': policy('soldier', { audited: false }),
   'event.rsvps.read': policy('officer', { audited: false }),
   'event.read': policy('soldier', { audited: false }),
 
-  // Self-service on your own room: owning it is the real check (VoiceService), so Parceiros
-  // can run their Social rooms. Not audited, like other self-service clicks; an officer acting
-  // on someone else's room (voice.temp.manage) still is.
   'voice.own.manage': policy('visitor', { audited: false }),
   'voice.temp.manage': policy('officer'),
   'voice.generator.upsert': policy('commander'),
@@ -105,11 +90,6 @@ export function authorize(tier: Tier, action: ActionName): Authorization {
   return tierAtLeast(tier, minTier) ? { allowed: true } : { allowed: false, requiredTier: minTier };
 }
 
-/**
- * Promotion/demotion rule: an actor may only move members whose current and new tiers are both
- * strictly below their own. Officers manage soldiers and visitors; the commander manages officers.
- * The server owner (Fundador) sits above every tier, so only the owner makes or unmakes Comandantes.
- */
 export function canChangeTier(
   actorTier: Tier,
   currentTier: Tier,

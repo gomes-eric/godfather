@@ -6,10 +6,6 @@ import type { GuildDirectory } from '../discord/directory.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 
-/**
- * Fills the welcome template: `{member}` → mention, `{channel:<key>}` → channel link.
- * Unknown channel keys are left as `#key` so a typo is visible instead of silent.
- */
 export function renderWelcome(
   template: string,
   memberId: string,
@@ -28,7 +24,6 @@ export interface Newcomer {
   id: string;
   displayName: string;
   avatarUrl: string;
-  /** Members in the server, the newcomer included. */
   memberCount: number;
 }
 
@@ -70,7 +65,6 @@ interface Deps {
   logger: Logger;
 }
 
-/** New members get Visitante and a welcome; bots get the Bot role (PLAN.md §6.8). */
 export class WelcomeService {
   constructor(private readonly deps: Deps) {}
 
@@ -112,13 +106,8 @@ export class WelcomeService {
     logger.info({ member: member.user.tag }, 'member joined');
   }
 
-  /**
-   * Gives the automatic roles to members who joined before the bot (or before /setup):
-   * bots without the Bot role, and humans without any legion role (Parceiro counts as one).
-   */
   async syncAutoRoles(): Promise<{ bots: number; visitors: number }> {
     const { visitor, bot } = this.autoRoleIds();
-    // Anyone with a standing role (a rank, Aliado, Parceiro, Restrito...) already has one.
     const standing = this.deps.directory.standingRoles();
     const legionRoles = new Set(
       [

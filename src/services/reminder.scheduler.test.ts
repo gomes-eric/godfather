@@ -17,17 +17,14 @@ import {
 const repoConfig = loadServerConfig(fileURLToPath(new URL('../../server.yaml', import.meta.url)));
 const logger = pino({ level: 'silent' });
 
-/** Only the Abyss war template, so expectations stay readable. */
 function warOnly(): ServerConfig {
   const config = structuredClone(repoConfig);
-  // The tests run on a Monday; pin the war's days so they don't follow server.yaml's schedule.
   config.eventTemplates = config.eventTemplates
     .filter((t) => t.key === 'abyss-war')
     .map((t) => ({ ...t, days: ['mon', 'thu', 'sat'] }));
   return config;
 }
 
-// Monday 2026-10-26 in São Paulo (UTC-3). The war starts at 21:00 BRT = 00:00Z on the 27th.
 const brt = (hhmm: string, day = 26) => {
   const [h, m] = hhmm.split(':').map(Number);
   return new Date(Date.UTC(2026, 9, day, h! + 3, m!));
@@ -96,7 +93,6 @@ describe('ReminderScheduler', () => {
     clock = brt('20:30');
     await scheduler().tick();
 
-    // "Restart": a brand-new scheduler on the same database.
     clock = brt('21:02');
     await scheduler().tick();
     clock = brt('21:03');
@@ -106,7 +102,7 @@ describe('ReminderScheduler', () => {
   });
 
   it('skips a reminder that is too late because the bot was off', async () => {
-    clock = brt('20:40'); // 10 minutes after the 30-minute warning was due
+    clock = brt('20:40');
     await scheduler().tick();
     clock = brt('21:00');
     await scheduler().tick();
@@ -198,7 +194,7 @@ describe('ReminderScheduler', () => {
 
     await s.vote(occurrenceId, 'u1', 'yes');
     const summary = await s.vote(occurrenceId, 'u2', 'maybe');
-    await s.vote(occurrenceId, 'u1', 'no'); // changing a vote replaces it
+    await s.vote(occurrenceId, 'u1', 'no');
 
     expect(summary).toEqual({ yes: ['u1'], maybe: ['u2'], no: [] });
     expect(s.rsvpSummary(occurrenceId)).toEqual({ yes: [], maybe: ['u2'], no: ['u1'] });
@@ -212,7 +208,7 @@ describe('ReminderScheduler', () => {
     clock = brt('10:01');
     await s.tick();
     expect(port.agendas).toHaveLength(1);
-    expect(port.agendas[0]!.map((i) => i.title)).toHaveLength(3); // mon, thu, sat
+    expect(port.agendas[0]!.map((i) => i.title)).toHaveLength(3);
 
     config.eventTemplates[0]!.title = 'Guerra!';
     clock = brt('10:02');
@@ -221,7 +217,7 @@ describe('ReminderScheduler', () => {
     expect(managed.get('message', AGENDA_MESSAGE_KEY)?.discordId).toMatch(/^agenda-/);
 
     clock = brt('10:03');
-    await scheduler().tick(); // restart rewrites once more
+    await scheduler().tick();
     expect(port.agendas).toHaveLength(3);
   });
 

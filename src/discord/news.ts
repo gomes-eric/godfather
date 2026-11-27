@@ -26,10 +26,8 @@ const KIND_STYLE: Record<NewsKind, { emoji: string; color: number }> = {
   notice: { emoji: '📰', color: COLORS.slate },
 };
 
-/** Room for the start of a post that has no sections to list. */
 const EXCERPT_LENGTH = 700;
 
-/** An emoji for a section, from words in its title. */
 function sectionEmoji(title: string): string {
   const lower = title.toLowerCase();
   if (/evento/.test(lower)) return '🎉';
@@ -40,11 +38,6 @@ function sectionEmoji(title: string): string {
   return '📌';
 }
 
-/**
- * One card per Steam post: name, banner and a button to the full post. Posts split into
- * "[Section]" headings (the patch notes) list each section's highlighted topics; the others show
- * their opening paragraphs.
- */
 export function newsMessage(note: NewsPost): {
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];
@@ -90,7 +83,6 @@ function linkRow(url: string) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(link);
 }
 
-/** Who a summary pings: everyone when it concerns Triniel, and the roles of changed classes. */
 export interface DigestPing {
   everyone: boolean;
   roleIds: string[];
@@ -100,10 +92,6 @@ const MAX_SECTIONS = 4;
 const MAX_POINTS = 4;
 const DESCRIPTION_MAX = 4096;
 
-/**
- * The summary's text: date, lead, then each section as a "###" heading over a Markdown list, so a
- * wrapped point stays indented under its bullet. Sections that don't fit are left out whole.
- */
 export function digestDescription(
   digest: Pick<NewsDigest, 'when' | 'summary' | 'sections'>,
 ): string {
@@ -119,7 +107,6 @@ export function digestDescription(
   return text;
 }
 
-/** The card for a Claude summary: same look as the plain card, with only what matters. */
 export function digestMessage(
   note: Pick<NewsPost, 'url' | 'imageUrl' | 'postedAt'>,
   digest: NewsDigest,

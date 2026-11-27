@@ -29,7 +29,6 @@ export interface PlanInput {
   desired: DesiredState;
   snapshot: GuildSnapshot;
   managed: ManagedState;
-  /** Delete managed objects that are no longer in server.yaml. */
   prune: boolean;
 }
 
@@ -44,11 +43,6 @@ function sameOrder(actual: string[], expected: string[]): boolean {
   return actual.length === expected.length && actual.every((key, i) => key === expected[i]);
 }
 
-/**
- * Compares the desired reconciliation target with the live guild and lists what must change.
- * Pure: the same inputs always give the same plan, and applying a plan then planning again
- * gives an empty plan.
- */
 export function planSetup({ desired, snapshot, managed, prune }: PlanInput): SetupPlan {
   const warnings: SetupWarning[] = [];
   const adoptOps: SetupOp[] = [];
@@ -64,14 +58,12 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
   const rolesById = new Map(snapshot.roles.map((r) => [r.id, r]));
   const channelsById = new Map(snapshot.channels.map((c) => [c.id, c]));
 
-  // Objects already tied to a key can't be adopted by another key.
   const claimed = new Set<string>(
     [...managed.role.values(), ...managed.category.values(), ...managed.channel.values()].map(
       (e) => e.discordId,
     ),
   );
 
-  /** The first unclaimed object `matches` accepts, adopted under `key`. */
   const adopt = <T extends { id: string }>(
     kind: 'role' | 'category' | 'channel',
     key: string,
@@ -87,7 +79,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     return found;
   };
 
-  // ---- Roles ---------------------------------------------------------------------------------
   const roleIds = new Map<string, string | undefined>();
   const rolesAboveBot = new Set<string>();
 
@@ -115,8 +106,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     if (existing.mentionable !== role.mentionable) changes.push('mentionable');
     if (!samePermissions(existing.permissions, role.permissions)) changes.push('permissions');
 
-    // The bot can't edit roles above its own (e.g. Comandante, kept at the top on purpose).
-    // It still tracks the role; it only warns when the role differs from server.yaml.
     if (existing.position >= snapshot.botRolePosition) {
       rolesAboveBot.add(role.key);
       if (changes.length > 0) {
@@ -143,9 +132,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     roleOps.push({ type: 'reorderRoles', keys: orderedRoleKeys });
   }
 
-  // ---- Overwrites ------------------------------------------------------------------------------
-  // Overwrites for @everyone and for managed roles are owned by /setup; any other overwrite
-  // (a member, another bot's role) is left alone.
   const managedRoleIds = new Set<string>([
     snapshot.everyoneRoleId,
     ...[...managed.role.values()].map((e) => e.discordId),
@@ -156,7 +142,7 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     const resolved = new Map<string, { allow: bigint; deny: bigint }>();
     for (const o of wanted) {
       const id = o.target === EVERYONE ? snapshot.everyoneRoleId : roleIds.get(o.target);
-      if (id === undefined) return false; // role not created yet
+      if (id === undefined) return false;
       resolved.set(id, { allow: o.allow, deny: o.deny });
     }
     const owned = current.filter((o) => o.type === 'role' && managedRoleIds.has(o.id));
@@ -169,7 +155,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     );
   };
 
-  // ---- Categories ------------------------------------------------------------------------------
   const categoryIds = new Map<string, string | undefined>();
 
   for (const category of desired.categories) {
@@ -198,7 +183,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     }
   }
 
-  // ---- Channels --------------------------------------------------------------------------------
   const channelIds = new Map<string, string | undefined>();
   const existingChannels = new Map<string, ChannelSnapshot>();
   const mismatchedChannels = new Set<string>();
@@ -241,7 +225,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     }
   }
 
-  // ---- Community -------------------------------------------------------------------------------
   const { community } = desired;
   if (community.enable) {
     const rulesId = channelIds.get(community.rulesChannelKey);
@@ -266,7 +249,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     }
   }
 
-  // ---- Layout (order of categories and channels) -----------------------------------------------
   const categoryKeys = desired.categories.map((c) => c.key);
   const channelKeysByCategory: Record<string, string[]> = {};
   for (const channel of desired.channels) {
@@ -325,7 +307,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     });
   }
 
-  // ---- Panels ----------------------------------------------------------------------------------
   for (const panel of desired.panels) {
     const entry = managed.message.get(panel.key);
     const exists = entry !== undefined && snapshot.existingMessageIds.has(entry.discordId);
@@ -334,7 +315,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
     }
   }
 
-  // ---- Prune -----------------------------------------------------------------------------------
   if (prune) {
     const wanted = {
       role: new Set(desired.roles.map((r) => r.key)),
@@ -364,7 +344,6 @@ export function planSetup({ desired, snapshot, managed, prune }: PlanInput): Set
         deleteOps.push({ type: 'deleteRole', key, id: role.id, name: role.name });
       }
     }
-    // Only /setup's own panels; other managed messages (e.g. the #agenda post) belong elsewhere.
     const panelKeys = new Set(desired.panels.map((p) => p.key));
     for (const [key, entry] of managed.message) {
       if (key.startsWith(PANEL_PREFIX) && !panelKeys.has(key)) {

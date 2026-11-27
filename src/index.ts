@@ -120,7 +120,6 @@ async function main(): Promise<void> {
       createDiscordAuditPublisher(directory, () => config.get().settings.audit.channel, logger),
     );
 
-    // Gateway events: temp voice rooms, #musica, newcomers.
     const voice = new VoiceService({
       guild,
       config,
@@ -147,7 +146,6 @@ async function main(): Promise<void> {
       .then((synced) => logger.info(synced, 'automatic roles synced'))
       .catch((error: unknown) => logger.warn({ err: error }, 'automatic role sync failed'));
 
-    // Background jobs: reminders, shugo.gg event times, game news, the daily legion check.
     const eventStore = new EventStore(database.db);
     const scheduler = new ReminderScheduler({
       store: eventStore,
@@ -172,7 +170,6 @@ async function main(): Promise<void> {
     const registrations = new CharacterStore(database.db);
     const restrictions = new RestrictionStore(database.db);
     const members = new MemberService({ guild, directory, config, restrictions, runAction });
-    // The check opens its reviews through the recruitment desk, created further down.
     const late: { desk?: RecruitmentDesk } = {};
     const legion = new LegionCheckService({
       guild,
@@ -209,7 +206,6 @@ async function main(): Promise<void> {
     });
     for (const job of [scheduler, eventTimes, news]) stopJobs.push(job.start());
 
-    // Shared by slash commands and MCP tools: both adapters call the same services.
     const setup = new SetupService(createDiscordGuildPort(guild), managed, config);
     const alliances = new AllianceService({
       guild,

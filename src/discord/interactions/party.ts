@@ -8,7 +8,6 @@ import { failureText, replyPrivately } from '../replies.js';
 
 const ACTIONS = new Set<string>(['join', 'leave', 'close'] satisfies PartyAction[]);
 
-/** Entrar / Sair / Fechar on a party card. Returns false for any other button. */
 export async function handlePartyButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,

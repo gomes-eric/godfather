@@ -7,10 +7,6 @@ export interface HealthProbes {
 
 export type McpHandler = (request: Request) => Promise<Response>;
 
-/**
- * HTTP surface of the bot: `/healthz` and the MCP endpoint `/mcp`. The MCP handler needs the
- * Discord guild, so it's read lazily and the endpoint answers 503 until the bot is connected.
- */
 export function createHttpApp(
   probes: HealthProbes,
   mcp: () => McpHandler | undefined = () => undefined,

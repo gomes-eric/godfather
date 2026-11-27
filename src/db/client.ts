@@ -16,7 +16,6 @@ export interface DatabaseHandle {
 
 const migrationsFolder = fileURLToPath(new URL('./migrations', import.meta.url));
 
-/** Opens the SQLite database (":memory:" is allowed) and applies pending migrations. */
 export function openDatabase(path: string): DatabaseHandle {
   if (path !== ':memory:') {
     mkdirSync(dirname(path), { recursive: true });

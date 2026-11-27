@@ -18,13 +18,11 @@ import { customId } from './custom-id.js';
 
 const t = ptBR.recruitment;
 export const RECRUIT_MODAL_ID = 'recruit:submit';
-/** Officer controls on an application card: `recruit:<approve|reject|change|kind>:<applicationId>`. */
-export const RECRUIT_DECIDE_PREFIX = 'recruit:';
+export const RECRUIT_CARD_PREFIX = 'recruit:';
 export const RECRUIT_FIELDS = { kind: 'kind', name: 'name' } as const;
 
 const STATUS_COLORS = { pending: COLORS.brand, approved: COLORS.green, rejected: COLORS.slate };
 
-/** The application form, with the character name pre-filled when they registered one. */
 export function applicationModal(characterName: string | undefined): ModalBuilder {
   const kind = new StringSelectMenuBuilder()
     .setCustomId(RECRUIT_FIELDS.kind)
@@ -57,7 +55,6 @@ export function applicationModal(characterName: string | undefined): ModalBuilde
     );
 }
 
-/** "⚔️ Membro", "🤝 Aliança · Noxus"… */
 export function kindText(kind: ApplicationKind, allianceLegion: string | null): string {
   const { emoji, label } = t.kinds[kind];
   return kind === 'ally' && allianceLegion
@@ -69,15 +66,11 @@ export interface CardLook {
   classEmoji: string;
   avatarUrl: string | null;
   legionName: string;
-  /** The applicant's name in Discord, for a Parceiro without a character. */
   applicantName: string;
-  /** An Aliança whose legion is not an alliance yet. */
   newAlliance: boolean;
-  /** The standing they had before the daily check changed it. */
   previousStanding: string | null;
 }
 
-/** The card officers review: who, the character from the game, the type, and the buttons. */
 export function applicationCard(
   application: Application,
   look: CardLook,
@@ -93,13 +86,12 @@ export function applicationCard(
       : a.status === 'approved'
         ? t.approvedBy(a.decidedBy ?? '')
         : t.rejectedBy(a.decidedBy ?? '');
-  // What needs attention goes first, each as its own highlighted block.
   const notices = [
     ...(fromCheck ? [t.fromCheck(look.previousStanding ?? '')] : []),
     ...(a.kind === 'ally' && look.newAlliance && a.status === 'pending'
       ? [t.newAllianceWarning(a.allianceLegion ?? '')]
       : []),
-    ...(a.duplicateOf ? [t.duplicateWarning(a.duplicateOf)] : []),
+    ...(a.characterTakenBy ? [t.duplicateWarning(a.characterTakenBy)] : []),
   ];
   const kind = [
     kindText(a.kind, a.allianceLegion),
@@ -143,17 +135,17 @@ export function applicationCard(
   if (a.status !== 'pending') return { embeds: [embed], components: [] };
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'approve', a.id))
+      .setCustomId(customId(RECRUIT_CARD_PREFIX, 'approve', a.id))
       .setLabel(t.approve)
       .setEmoji('✅')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'reject', a.id))
+      .setCustomId(customId(RECRUIT_CARD_PREFIX, 'reject', a.id))
       .setLabel(t.reject)
       .setEmoji('✖️')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'change', a.id))
+      .setCustomId(customId(RECRUIT_CARD_PREFIX, 'change', a.id))
       .setLabel(t.change)
       .setEmoji('🔀')
       .setStyle(ButtonStyle.Secondary),
@@ -161,17 +153,13 @@ export function applicationCard(
   return { embeds: [embed], components: [row] };
 }
 
-/**
- * Mudar's menu, shown only to the officer: the types approving can give. Aliança uses the
- * character's legion; Restrito is offered on the daily check's reviews only.
- */
 export function kindMenu(application: Application): ActionRowBuilder<StringSelectMenuBuilder> {
   const kinds: ApplicationKind[] =
     application.origin === 'check'
       ? ['member', 'ally', 'partner', 'restricted']
       : ['member', 'ally', 'partner'];
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(customId(RECRUIT_DECIDE_PREFIX, 'kind', application.id))
+    .setCustomId(customId(RECRUIT_CARD_PREFIX, 'kind', application.id))
     .setPlaceholder(t.changePlaceholder)
     .addOptions(
       kinds.map((kind) => ({

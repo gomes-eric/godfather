@@ -1,6 +1,5 @@
 import { classRoles, type ServerConfig } from '../config/schema.js';
 
-/** Context sent to the AI assistant when it connects (PLAN.md §8.2). */
 export function buildInstructions(config: ServerConfig): string {
   const { legion, serverName } = config.settings.characters;
   const tiers = config.roles.filter((r) => r.tier).map((r) => r.name);

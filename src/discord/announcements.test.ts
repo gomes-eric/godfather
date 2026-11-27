@@ -8,7 +8,7 @@ const war: OccurrenceView = {
   title: 'Guerra do Abismo',
   emoji: '⚔️',
   description: null,
-  startsAt: new Date('2026-10-27T00:00:00Z'), // Mon 26/10 21:00 BRT
+  startsAt: new Date('2026-10-27T00:00:00Z'),
   voiceChannelId: '555',
   ping: true,
   cancelled: false,
@@ -53,7 +53,6 @@ describe('reminderCard', () => {
 });
 
 describe('agendaDescription', () => {
-  // Sunday 25/10 03:30 in São Paulo.
   const now = new Date('2026-10-25T06:30:00Z');
 
   it('groups by day with Hoje/Amanhã labels and Brasília times', () => {
@@ -63,7 +62,7 @@ describe('agendaDescription', () => {
       title: 'Nahma',
       emoji: '🐉',
       voiceChannelId: null,
-      startsAt: new Date('2026-10-26T00:00:00Z'), // Sun 25/10 21:00 BRT
+      startsAt: new Date('2026-10-26T00:00:00Z'),
     };
     const bosses = { ...war, occurrenceId: 13, title: 'Chefes', emoji: '👹', voiceChannelId: null };
     const text = agendaDescription([nahma, war, bosses], SP, now);

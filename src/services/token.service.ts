@@ -13,7 +13,6 @@ function hash(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-/** Personal MCP tokens (PLAN.md §8.1). */
 export class TokenService {
   constructor(
     private readonly db: Db,
@@ -21,7 +20,6 @@ export class TokenService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  /** Creates a token; the plain value is returned once and never stored. */
   async create(actor: Actor, name: string): Promise<ServiceOutcome<{ token: string; id: number }>> {
     return this.runAction({
       actor,
@@ -50,7 +48,6 @@ export class TokenService {
       .all();
   }
 
-  /** Officers revoke their own tokens; the commander can revoke anyone's. */
   async revoke(actor: Actor, id: number): Promise<ServiceOutcome<string>> {
     const row = this.db.select().from(mcpTokens).where(eq(mcpTokens.id, id)).get();
     if (!row || row.revokedAt) return rejected(ptBR.mcp.tokenNotFound(id));
@@ -68,13 +65,11 @@ export class TokenService {
     });
   }
 
-  /** Returns the token's owner, or null for an unknown or revoked token. */
   verify(token: string): { userId: string; tokenId: number } | null {
     if (!token.startsWith(PREFIX)) return null;
     const digest = hash(token);
     const row = this.db.select().from(mcpTokens).where(eq(mcpTokens.tokenHash, digest)).get();
     if (!row || row.revokedAt) return null;
-    // The lookup is by hash already; the constant-time compare is defence in depth.
     if (!timingSafeEqual(Buffer.from(row.tokenHash), Buffer.from(digest))) return null;
     this.db.update(mcpTokens).set({ lastUsedAt: this.now() }).where(eq(mcpTokens.id, row.id)).run();
     return { userId: row.userId, tokenId: row.id };

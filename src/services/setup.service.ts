@@ -11,7 +11,6 @@ export interface PlannedSetup {
   snapshot: GuildSnapshot;
 }
 
-/** server.yaml → Discord reconciliation (PLAN.md §6.1). */
 export class SetupService {
   constructor(
     private readonly port: GuildPort,
@@ -26,11 +25,6 @@ export class SetupService {
     return { plan, snapshot };
   }
 
-  /**
-   * Applies only what server.yaml says about these roles (create, update, delete when gone) and
-   * the role order, leaving every other pending change for /setup. Used when the bot adds or
-   * removes an alliance itself.
-   */
   async syncRoles(keys: string[]): Promise<ApplyResult> {
     const wanted = new Set(keys);
     const planned = await this.plan(true);

@@ -13,10 +13,6 @@ import { outcomeText, replyPrivately } from '../replies.js';
 
 const t = ptBR.confirmation;
 
-/**
- * A slash-command action that can run with or without confirmation. The value of a successful
- * outcome is the message shown to the user.
- */
 export type ConfirmableOperation = (confirm: boolean) => Promise<ServiceOutcome<string>>;
 
 export type ConfirmationStore = PendingConfirmations<ConfirmableOperation>;
@@ -28,11 +24,6 @@ export function createConfirmationStore(): ConfirmationStore {
 const CONFIRM_PREFIX = 'confirm:';
 const CANCEL_PREFIX = 'cancel:';
 
-/**
- * Runs an operation for a slash command. Destructive actions first get an ephemeral preview
- * with Confirmar/Cancelar buttons; the button handler below finishes the job. Works whether or
- * not the command already deferred its (ephemeral) reply.
- */
 export async function runWithConfirmation(
   interaction: ChatInputCommandInteraction,
   store: ConfirmationStore,
@@ -58,7 +49,6 @@ export async function runWithConfirmation(
   await replyPrivately(interaction, { content: t.prompt(outcome.preview), components: [buttons] });
 }
 
-/** Handles Confirmar/Cancelar clicks. Returns false if the button is not a confirmation button. */
 export async function handleConfirmationButton(
   interaction: ButtonInteraction,
   store: ConfirmationStore,
@@ -81,7 +71,6 @@ export async function handleConfirmationButton(
   }
 
   await interaction.deferUpdate();
-  // Re-runs the whole pipeline with confirm=true, so permissions are checked again at click time.
   const outcome = await operation(true);
   const content = outcome.status === 'confirmation_required' ? t.expired : outcomeText(outcome);
   await interaction.editReply({ content, components: [] });

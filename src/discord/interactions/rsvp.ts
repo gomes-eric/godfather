@@ -7,7 +7,6 @@ import { outcomeText } from '../replies.js';
 
 const STATUSES = new Set<string>(['yes', 'maybe', 'no'] satisfies RsvpStatus[]);
 
-/** ✅ / ❔ / ❌ buttons under event reminders (PLAN.md §6.5). */
 export async function handleRsvpButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,

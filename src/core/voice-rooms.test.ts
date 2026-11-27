@@ -40,7 +40,6 @@ describe('RoomAllocator', () => {
     const join = (ownerId: string) =>
       allocator.run('gen-abyss', async () => {
         const n = lowestFreeNumber(store.numbersFor('gen-abyss'));
-        // Simulate Discord taking a while to create the channel.
         await new Promise((resolve) => setTimeout(resolve, Math.random() * 20));
         const channelId = String(++nextId);
         store.insert({ channelId, generatorKey: 'gen-abyss', number: n, ownerId });

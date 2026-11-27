@@ -4,7 +4,6 @@ import { COLORS } from './colors.js';
 import { customId } from './custom-id.js';
 
 const t = ptBR.party;
-/** Buttons are `party:<join|leave|close>:<partyId>`. */
 export const PARTY_PREFIX = 'party:';
 const STATE_COLORS = { open: COLORS.green, full: COLORS.gold, closed: COLORS.slate };
 
@@ -15,11 +14,9 @@ export interface PartyView {
   ownerId: string;
   slots: number;
   closed: boolean;
-  /** In join order, each with the emoji of their class (or a neutral one). */
   members: { id: string; emoji: string }[];
 }
 
-/** The party card: who is in, free slots, and Entrar/Sair/Fechar while it is open. */
 export function partyCard(view: PartyView): {
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];

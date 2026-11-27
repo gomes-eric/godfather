@@ -2,11 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 const DEFAULT_TTL_MS = 60_000;
 
-/**
- * Short-lived, one-shot store for actions awaiting a "Confirmar" click. Only the user who
- * triggered the action can take it, and it expires after the TTL. In-memory on purpose: a
- * pending confirmation is not worth surviving a restart.
- */
 export class PendingConfirmations<T> {
   private readonly entries = new Map<string, { userId: string; payload: T; expiresAt: number }>();
 
@@ -22,7 +17,6 @@ export class PendingConfirmations<T> {
     return id;
   }
 
-  /** Returns the payload once; undefined if unknown, expired, or owned by someone else. */
   take(id: string, userId: string): T | undefined {
     const entry = this.entries.get(id);
     if (!entry || entry.userId !== userId) return undefined;
@@ -31,7 +25,6 @@ export class PendingConfirmations<T> {
     return entry.expiresAt > this.now() ? entry.payload : undefined;
   }
 
-  /** Drops the entry without running it (the "Cancelar" button). */
   cancel(id: string, userId: string): boolean {
     const entry = this.entries.get(id);
     if (!entry || entry.userId !== userId) return false;

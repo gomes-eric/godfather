@@ -2,8 +2,6 @@ import { PermissionFlagsBits } from 'discord.js';
 import { z } from 'zod';
 import { TIERS, type RankedTier } from '../core/tiers.js';
 
-// Schema of server.yaml (PLAN.md §6.1, docs/SERVER_LAYOUT.md).
-
 /** Minimum tier allowed to see or write, plus `bot` (only Padrinho) and `none` (nobody). */
 export const ACCESS_LEVELS = [
   'everyone',
@@ -306,7 +304,6 @@ export const serverConfigSchema = z
       channels.filter((c) => c.type === 'text' || c.type === 'announcement').map((c) => c.key),
     );
     const s = config.settings;
-    // [path under settings, channel key or undefined when the feature is off]
     const textSettings: [string[], string | undefined][] = [
       [['community', 'rulesChannel'], s.community.rulesChannel],
       [['community', 'updatesChannel'], s.community.updatesChannel],
@@ -431,14 +428,12 @@ export type CategoryConfig = ServerConfig['categories'][number];
 export type ChannelConfig = CategoryConfig['channels'][number];
 export type EventTemplateConfig = ServerConfig['eventTemplates'][number];
 
-/** The class roles (Gladiador, Clérigo...), in server.yaml order. */
 export function classRoles(config: ServerConfig): RoleConfig[] {
   return config.roles.filter((role) => role.class);
 }
 
 export type AllianceConfig = ServerConfig['alliances'][number];
 
-/** Roles that stand in for Soldado somewhere (asSoldier, or Aliado everywhere), e.g. Parceiro. */
 export function soldierLikeRoleKeys(config: ServerConfig): string[] {
   const keys = new Set<string>();
   if (config.settings.allyRole) keys.add(config.settings.allyRole);
@@ -451,7 +446,6 @@ export function soldierLikeRoleKeys(config: ServerConfig): string[] {
   return [...keys];
 }
 
-/** Role keys for each ranked tier, e.g. { officer: "officer" }. */
 export function tierRoleKeys(config: ServerConfig): Partial<Record<RankedTier, string>> {
   const keys: Partial<Record<RankedTier, string>> = {};
   for (const role of config.roles) {

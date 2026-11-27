@@ -87,7 +87,6 @@ export const voiceCommand: SlashCommand = {
             ? { type: 'kick', userId: interaction.options.getUser('user', true).id }
             : { type: sub as 'lock' | 'unlock' | 'hide' | 'unhide' | 'claim' };
 
-    // Channel edits can be slow (Discord rate-limits renames), so answer within 3s first.
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const member = await ctx.guild.members.fetch(interaction.user.id);
     const actor = await ctx.resolveActor(interaction.user.id);

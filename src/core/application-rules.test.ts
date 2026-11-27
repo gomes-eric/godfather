@@ -32,7 +32,6 @@ describe('planApplication', () => {
     });
     expect(plan('ally', 'Lagta')).toMatchObject({ allianceLegion: 'Lagta', newAlliance: true });
     expect(plan('ally', '')).toEqual({ refusal: 'noLegionForAlly' });
-    // Picked Aliança with a character of our own legion: a Membro, approved on its own.
     expect(plan('ally', 'M4F1A')).toMatchObject({ kind: 'member', autoApprove: true });
   });
 });
@@ -42,7 +41,7 @@ describe('approvedStanding', () => {
     expect(approvedStanding('member', null, alliances)).toEqual({ kind: 'tier', tier: 'soldier' });
     expect(approvedStanding('ally', 'NOXUS', alliances)).toEqual({
       kind: 'ally',
-      alliance: 'ally-noxus',
+      allianceKey: 'ally-noxus',
     });
     expect(approvedStanding('ally', 'Lagta', alliances)).toBeUndefined();
     expect(approvedStanding('partner', null, alliances)).toEqual({ kind: 'partner' });

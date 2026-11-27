@@ -14,7 +14,6 @@ import { setupCommand } from './setup.js';
 import { voiceCommand } from './voice.js';
 import type { SlashCommand } from './types.js';
 
-// Every slash command the bot registers.
 export const commands: SlashCommand[] = [
   helpCommand,
   setupCommand,

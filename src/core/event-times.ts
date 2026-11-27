@@ -1,6 +1,3 @@
-// Pure reading of shugo.gg's timers.json (https://shugo.gg/timers.json): the official start times
-// of the game's recurring events per region, turned into server.yaml template days and time.
-
 import { z } from 'zod';
 import { CLOCK_PATTERN, WEEKDAYS, type Weekday } from '../config/schema.js';
 
@@ -12,11 +9,8 @@ export interface TemplateSchedule {
 }
 
 export interface ScheduleTarget {
-  /** timers.json region id; South America (Triniel) is "global-sa". */
   region: string;
-  /** Siege matching group: picks the time when an event lists one per group. */
   group: number;
-  /** The server's clock; times on any other clock are refused, not converted. */
   timeZone: string;
 }
 
@@ -39,7 +33,6 @@ const timersSchema = z.object({
   ),
 });
 
-/** Days and time of one timers.json event for the server, or why it can't be a template. */
 export function scheduleFor(
   json: unknown,
   eventId: string,

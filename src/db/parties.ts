@@ -4,7 +4,6 @@ import { parties, partyMembers } from './schema.js';
 
 export type Party = typeof parties.$inferSelect;
 
-/** Party finder groups and their members, oldest member first. */
 export class PartyStore {
   constructor(private readonly db: Db) {}
 

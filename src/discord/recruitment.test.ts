@@ -18,7 +18,7 @@ const application: Application = {
   requestedKind: 'member',
   origin: 'form',
   allianceLegion: null,
-  duplicateOf: null,
+  characterTakenBy: null,
   previousStanding: null,
   status: 'pending',
   messageId: null,
@@ -44,7 +44,6 @@ describe('applicationCard', () => {
     const { embeds, components } = applicationCard(application, look);
     const embed = embeds[0]!.toJSON();
     expect(embed.title).toBe('📝 Ficha · Padrinho');
-    // Nothing to warn about: no description, only the grid of fields.
     expect(embed.description).toBeUndefined();
     expect(embed.fields?.map((f) => [f.name, f.value])).toEqual([
       ['👤 Candidato', '<@u1>'],
@@ -71,7 +70,7 @@ describe('applicationCard', () => {
 
   it('puts the warnings first, each as its own quote', () => {
     const embed = applicationCard(
-      { ...application, kind: 'ally', allianceLegion: 'Lagta', duplicateOf: 'u9' },
+      { ...application, kind: 'ally', allianceLegion: 'Lagta', characterTakenBy: 'u9' },
       { ...look, newAlliance: true },
     ).embeds[0]!.toJSON();
     expect(values(embed)['📌 Tipo']).toBe('🤝 Aliança · Lagta\n-# escolheu ⚔️ Membro');

@@ -3,10 +3,6 @@ import { dirname } from 'node:path';
 import { CLAUDE_AUDIENCE, generateSigningKey, loadSigningKey, publicJwk } from './core/wif-jwt.js';
 import { WIF_SUBJECT, wifKeyPath } from './services/claude.js';
 
-// Creates Padrinho's signing key for Workload Identity Federation (once; an existing key is kept)
-// and prints what to register in the Claude Console. Runs inside the container:
-//   docker compose exec padrinho node dist/wif-keygen.js
-
 const path = wifKeyPath(process.env.DATABASE_PATH ?? './data/padrinho.db');
 const issuer = process.env.PUBLIC_BASE_URL;
 

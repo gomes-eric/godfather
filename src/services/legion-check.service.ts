@@ -8,6 +8,7 @@ import {
   characterChanges,
   checkDue,
   legionTransition,
+  departuresLookTrustworthy,
   MAX_DEPARTURES,
   rankingLines,
   type Transition,
@@ -33,9 +34,7 @@ import type { ReviewInput } from './recruitment.service.js';
 
 const t = ptBR.legionCheck;
 const RANKING_MESSAGE_KEY = 'ranking-board';
-/** How often to look whether a check is due. */
 const TICK_MS = 60 * 60_000;
-/** Pause between characters, to be gentle with the official site. */
 const PAUSE_MS = 1_500;
 
 interface Deps {
@@ -48,18 +47,15 @@ interface Deps {
   runAction: ActionRunner;
   members: MemberService;
   restrictions: RestrictionStore;
-  /** Opens a review for the officers (RecruitmentDesk.openReview). */
   review: (input: ReviewInput) => Promise<void>;
   logger: Logger;
   pause?: (ms: number) => Promise<void>;
 }
 
-/** One member's result, applied once every character has been read. */
 interface Checked {
   userId: string;
   lines: string[];
   snapshot: CharacterSnapshot;
-  /** The legion at the last check: kept when a held-back move must be seen again tomorrow. */
   legionBefore: string;
   move?: {
     member: GuildMember;
@@ -77,13 +73,6 @@ const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
   visitor: 'member.demote',
 };
 
-/**
- * Once a day, re-reads every registered character on the official site: a class or name change
- * updates the member's class role and nickname; someone who left the legion (or their alliance's
- * legion) becomes Restrito or Aliado with a review for the officers, and someone the check
- * restricted who came back gets their place again (legionTransition). The officers get a report,
- * and the #ranking board is rebuilt from the fresh numbers.
- */
 export class LegionCheckService implements BackgroundJob {
   private running = false;
   private readonly pause: (ms: number) => Promise<void>;
@@ -96,13 +85,11 @@ export class LegionCheckService implements BackgroundJob {
     return classRoles(this.deps.config.get()).find((role) => role.key === key);
   }
 
-  /** Checks everyone if a check is due; returns the report lines it posted. */
   async runIfDue(now = new Date()): Promise<string[]> {
     const checkedAt = this.deps.registrations.all().map((row) => row.checkedAt);
     return checkDue(checkedAt, now) ? this.check() : [];
   }
 
-  /** Whether a check is under way; a second one meanwhile does nothing. */
   get isChecking(): boolean {
     return this.running;
   }
@@ -133,7 +120,7 @@ export class LegionCheckService implements BackgroundJob {
   private async checkOne(row: RegisteredCharacter): Promise<Checked | undefined> {
     const { guild, characters, config } = this.deps;
     const member = await fetchMember(guild, row.userId);
-    if (!member) return undefined; // Left the Discord; nothing to update.
+    if (!member) return undefined;
 
     const profile = await characters.profile({ id: row.characterId, serverId: row.serverId }, true);
     const classRole = matchClass(profile.className, classRoles(config.get()));
@@ -144,8 +131,8 @@ export class LegionCheckService implements BackgroundJob {
       legion: profile.legion,
     };
     const changes = characterChanges(row, now, legion);
-    // Registered before the legion was stored: this first check only sets the baseline.
-    if (!row.checkedAt) {
+    const firstCheckSetsBaseline = !row.checkedAt;
+    if (firstCheckSetsBaseline) {
       changes.leftLegion = false;
       changes.joinedLegion = false;
     }
@@ -166,8 +153,7 @@ export class LegionCheckService implements BackgroundJob {
 
     const snapshot = { ...now, combatPower: profile.combatPower, itemLevel: profile.itemLevel };
     const from = memberStanding(member, this.deps.directory);
-    // Registered before the legion was stored: this first check only sets the baseline.
-    const transition = row.checkedAt
+    const transition = !firstCheckSetsBaseline
       ? legionTransition({
           standing: from,
           before: row.legion,
@@ -190,15 +176,10 @@ export class LegionCheckService implements BackgroundJob {
     };
   }
 
-  /**
-   * Carries out the moves the check found and stores what it saw. With more than MAX_DEPARTURES
-   * departures nobody is moved (it looks like a problem on the site): the officers are asked to
-   * look, and those characters keep their old legion so tomorrow's check sees them again.
-   */
   private async applyMoves(checked: Checked[]): Promise<string[]> {
     const report = checked.flatMap((c) => c.lines);
     const departures = checked.filter((c) => c.move?.transition.departure).length;
-    const holdBack = departures > MAX_DEPARTURES;
+    const holdBack = !departuresLookTrustworthy(departures);
     if (holdBack) report.push(t.tooManyDepartures(departures, MAX_DEPARTURES));
 
     for (const c of checked) {
@@ -213,7 +194,6 @@ export class LegionCheckService implements BackgroundJob {
     return report;
   }
 
-  /** One move: the new standing (by Padrinho, audited) and the review or the report line. */
   private async carryOut(move: NonNullable<Checked['move']>): Promise<string[]> {
     const { member, from, transition, character } = move;
     const bot = systemActor(this.deps.guild.client.user.id);
@@ -222,8 +202,8 @@ export class LegionCheckService implements BackgroundJob {
     const legion = this.deps.config.get().settings.characters.legion;
     const lines: string[] = [];
 
-    if (transition.to) {
-      const to = transition.to;
+    const to = transition.kind === 'move' ? transition.to : undefined;
+    if (to) {
       const outcome = await members.move(bot, member.id, to, {
         action: MOVE_ACTION[to.kind],
         preview: (name, was) => `${was} → ${members.standingName(to)}: ${name}`,
@@ -251,7 +231,6 @@ export class LegionCheckService implements BackgroundJob {
     }
 
     if (transition.review) {
-      const to = transition.to;
       await this.deps
         .review({
           userId: member.id,
@@ -267,7 +246,6 @@ export class LegionCheckService implements BackgroundJob {
     return lines;
   }
 
-  /** New class role and "⚔️ Nome" nickname, done by the bot and audited as Padrinho. */
   private async syncMember(member: GuildMember, name: string, classKey: string): Promise<void> {
     const classRole = this.classRole(classKey);
     if (!classRole) return;
@@ -295,7 +273,6 @@ export class LegionCheckService implements BackgroundJob {
     await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
   }
 
-  /** Rebuilds the #ranking board from what is stored (no requests to the site). */
   async refreshRanking(): Promise<void> {
     const { config, directory, managed, registrations, guild } = this.deps;
     const settings = config.get().settings.characters;

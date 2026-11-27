@@ -28,7 +28,7 @@ const form = {
   kind: 'member',
   character,
   allianceLegion: null,
-  duplicateOf: null,
+  characterTakenBy: null,
 } as const;
 
 function setup() {

@@ -11,7 +11,6 @@ import { ptBR } from '../i18n/pt-BR.js';
 import type { DesiredChannel, DesiredPanel, DesiredState } from './model.js';
 import { computeOverwrites } from './overwrites.js';
 
-/** The #recrutamento panel's "Enviar minha ficha" button; it opens the application form. */
 export const RECRUIT_APPLY_ID = 'recruit:apply';
 export const PANEL_PREFIX = 'panel-';
 export const PANEL_KEYS = {
@@ -31,17 +30,14 @@ function panel(fields: Omit<DesiredPanel, 'fingerprint'>): DesiredPanel {
   return { ...fields, fingerprint };
 }
 
-/** Everything /setup should make true in Discord, derived from server.yaml. */
 export function buildDesiredState(config: ServerConfig): DesiredState {
-  // Roles with Administrator bypass channel overwrites, so they get none. This also keeps
-  // /setup from depending on the Comandante role, which sits above the bot's own role.
+  // Roles with Administrator bypass channel overwrites, so they get none.
   const administrators = new Set(
     config.roles.filter((r) => r.permissions.includes('Administrator')).map((r) => r.key),
   );
   const tiers = Object.fromEntries(
     Object.entries(tierRoleKeys(config)).filter(([, key]) => !administrators.has(key)),
   );
-  // Text channels outside botTextChannels hide themselves from that bots role.
   const botScope = config.botTextChannels;
   const botDenies = (channelKey: string) =>
     botScope && !botScope.channels.includes(channelKey)
@@ -52,16 +48,12 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
     allow: permissionBits(entry.allow),
   }));
 
-  // Aliado counts as Soldado everywhere: it joins every channel's asSoldier list, even where
-  // Parceiro is left out with `asSoldier: []`.
   const allyKey = config.settings.allyRole;
   const asSoldier = (keys: string[] | undefined) => [
     ...(keys ?? []),
     ...(allyKey && !keys?.includes(allyKey) ? [allyKey] : []),
   ];
 
-  // Each alliance's role (named after its legion, no permissions) sits right above Aliado,
-  // hoisted so the member list groups people by legion.
   const allianceRoles = config.alliances.map((alliance) => ({
     key: alliance.key,
     name: alliance.legion,
@@ -146,7 +138,6 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       });
     }
 
-    // Join-to-create generators sit after the category's own channels.
     for (const generator of config.voiceGenerators.filter((g) => g.category === category.key)) {
       channels.push({
         key: generator.key,

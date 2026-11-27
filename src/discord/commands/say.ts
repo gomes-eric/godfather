@@ -60,7 +60,6 @@ export const sayCommand: SlashCommand = {
     const actor = await ctx.resolveActor(interaction.user.id);
 
     if (rawText === null) {
-      // Check before opening the form, so nobody writes a long text only to be refused.
       const allowed = authorize(actor.tier, 'message.send');
       if (!allowed.allowed) {
         await replyPrivately(interaction, ptBR.errors.denied(allowed.requiredTier));

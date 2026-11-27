@@ -51,7 +51,6 @@ describe('/setup reconciliation', () => {
     );
     expect(guild.channels.find((c) => c.name === 'Evento')?.kind).toBe('stage');
     expect(guild.community).toBe(true);
-    // Panels: #regras and #recrutamento.
     expect(guild.messages.size).toBe(2);
   });
 
@@ -95,7 +94,6 @@ describe('/setup reconciliation', () => {
     const everyone = musica.overwrites.find((o) => o.id === guild.everyoneRoleId)!;
     const soldier = musica.overwrites.find((o) => o.id === soldierId)!;
     expect(everyone.deny & P.SendMessages).toBe(P.SendMessages);
-    // Soldiers type Jockie's m! commands; the music guard deletes anything else.
     expect(soldier.allow & P.SendMessages).toBe(P.SendMessages);
     expect(soldier.allow & P.UseApplicationCommands).toBe(P.UseApplicationCommands);
   });
@@ -163,7 +161,6 @@ describe('/setup reconciliation', () => {
     ]);
     expect(first.result.failures).toEqual([]);
     expect(store.get('role', 'owner')?.discordId).toBe(commanderId);
-    // Comandante is an ordinary role below the bot now, so /setup creates and manages it.
     expect(guild.roles.some((r) => r.name === 'Comandante')).toBe(true);
 
     const second = await plan(buildDesiredState(repoConfig));
@@ -178,7 +175,6 @@ describe('/setup reconciliation', () => {
       {
         color: 0xd9485f,
         hoist: false,
-        // Discord keeps other bits ticked next to Administrator; they change nothing.
         permissions: P.Administrator | P.ManageGuild | P.SendMessages,
       },
     );

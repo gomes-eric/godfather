@@ -19,7 +19,6 @@ export interface RecordedAuditEntry extends AuditEntry {
   at: Date;
 }
 
-/** Mirrors audit entries somewhere visible, e.g. the #audit-log channel. */
 export interface AuditPublisher {
   publish(entry: RecordedAuditEntry): Promise<void>;
 }
@@ -27,7 +26,6 @@ export interface AuditPublisher {
 const SECRET_KEY = /token|secret|password|authorization/i;
 const MAX_PARAMS_LENGTH = 2000;
 
-/** Drops secret-looking keys before parameters are stored or posted. */
 export function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(params).map(([key, value]) => [
@@ -37,7 +35,6 @@ export function sanitizeParams(params: Record<string, unknown>): Record<string, 
   );
 }
 
-/** Already sanitized parameters as stored JSON, capped in size. */
 function serializeParams(params: Record<string, unknown> | undefined): string | null {
   if (!params || Object.keys(params).length === 0) return null;
   const json = JSON.stringify(params);
@@ -51,12 +48,10 @@ export class AuditLog {
     private publisher?: AuditPublisher,
   ) {}
 
-  /** The publisher needs the Discord guild, which is only available after login. */
   setPublisher(publisher: AuditPublisher): void {
     this.publisher = publisher;
   }
 
-  /** Persists the entry, then mirrors it without letting a Discord failure break the action. */
   async record(entry: AuditEntry): Promise<RecordedAuditEntry> {
     const params = entry.params && sanitizeParams(entry.params);
     const paramsJson = serializeParams(params);

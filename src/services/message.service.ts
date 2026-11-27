@@ -5,15 +5,12 @@ import { COLORS } from '../discord/colors.js';
 import { ptBR } from '../i18n/pt-BR.js';
 
 export interface SendOptions {
-  /** With a title the message goes out as an embed. */
   title?: string;
-  /** Lets @everyone, roles and users in the text ping; off by default. */
   allowMentions?: boolean;
 }
 
 const PLAIN_MAX = 2000;
 
-/** Messages sent as the bot (PLAN.md §6.3). */
 export class MessageService {
   constructor(private readonly deps: { guild: Guild; runAction: ActionRunner }) {}
 

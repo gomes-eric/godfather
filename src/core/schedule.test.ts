@@ -9,7 +9,6 @@ import {
 } from './schedule.js';
 
 const SP = 'America/Sao_Paulo';
-// Sunday 2026-10-25 03:30 in São Paulo (UTC-3).
 const now = new Date('2026-10-25T06:30:00Z');
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
@@ -21,7 +20,6 @@ describe('zonedToUtc / localParts', () => {
   });
 
   it('handles a zone with DST', () => {
-    // New York switches to EST on 2026-11-01.
     const before = zonedToUtc(
       { year: 2026, month: 10, day: 31 },
       { hour: 12, minute: 0 },
@@ -50,9 +48,9 @@ describe('templateOccurrences', () => {
       SP,
     );
     expect(week.map(iso)).toEqual([
-      '2026-10-27T00:00:00.000Z', // Mon 26/10 21:00
-      '2026-10-30T00:00:00.000Z', // Thu 29/10 21:00
-      '2026-11-01T00:00:00.000Z', // Sat 31/10 21:00
+      '2026-10-27T00:00:00.000Z',
+      '2026-10-30T00:00:00.000Z',
+      '2026-11-01T00:00:00.000Z',
     ]);
   });
 
@@ -98,9 +96,9 @@ describe('parseWhen', () => {
     ['Amanha 9', '2026-10-26T12:00:00.000Z'],
     ['sáb 21h', '2026-11-01T00:00:00.000Z'],
     ['sexta-feira 20:00', '2026-10-30T23:00:00.000Z'],
-    ['dom 22:00', '2026-10-26T01:00:00.000Z'], // today, later
-    ['dom 02:00', '2026-11-01T05:00:00.000Z'], // today already passed → next Sunday
-    ['05/01 21:00', '2027-01-06T00:00:00.000Z'], // next year
+    ['dom 22:00', '2026-10-26T01:00:00.000Z'],
+    ['dom 02:00', '2026-11-01T05:00:00.000Z'],
+    ['05/01 21:00', '2027-01-06T00:00:00.000Z'],
   ])('%s → %s', (input, expected) => {
     expect(iso(parseWhen(input, now, SP))).toBe(expected);
   });

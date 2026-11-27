@@ -1,20 +1,16 @@
 import { WEEKDAYS, type Weekday } from '../config/schema.js';
 import { fold } from './text.js';
 
-// Time rules for events and reminders (PLAN.md §6.4). Times in server.yaml are wall-clock times
-// in the configured timezone (America/Sao_Paulo); everything stored is a UTC instant.
-
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** Seconds since the epoch, for Discord timestamps (`<t:…:R>`). */
 export function unixSeconds(date: Date): number {
   return Math.floor(date.getTime() / 1000);
 }
 
 export interface LocalParts {
   year: number;
-  month: number; // 1-12
+  month: number;
   day: number;
   hour: number;
   minute: number;
@@ -40,7 +36,6 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
   return f;
 }
 
-/** Wall-clock date and time of an instant in a timezone. */
 export function localParts(instant: Date, timeZone: string): LocalParts {
   const parts = Object.fromEntries(
     formatter(timeZone)
@@ -63,7 +58,6 @@ function offsetMs(instant: number, timeZone: string): number {
   return wall - Math.floor(instant / MINUTE) * MINUTE;
 }
 
-/** The instant when the wall clock in `timeZone` shows this date and time. */
 export function zonedToUtc(
   date: { year: number; month: number; day: number },
   time: { hour: number; minute: number },
@@ -80,7 +74,6 @@ function parseClock(time: string): { hour: number; minute: number } {
   return { hour: hour ?? 0, minute: minute ?? 0 };
 }
 
-/** Civil date `days` after the given one (no timezone involved). */
 function addDays(date: { year: number; month: number; day: number }, days: number) {
   const d = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
   return {
@@ -91,7 +84,6 @@ function addDays(date: { year: number; month: number; day: number }, days: numbe
   };
 }
 
-/** Start instants of a recurring template within [from, to]. */
 export function templateOccurrences(
   template: { days: (Weekday | 'daily')[]; time: string },
   from: Date,
@@ -113,10 +105,6 @@ export function templateOccurrences(
 
 export type ReminderDecision = 'wait' | 'send' | 'skip';
 
-/**
- * A reminder that is late by more than the tolerance (the bot was off) is skipped instead of
- * sent late: 5 minutes for advance warnings, 10 for the "starting now" one (PLAN.md §6.4).
- */
 export function reminderDecision(dueAt: Date, now: Date, offsetMinutes: number): ReminderDecision {
   const late = now.getTime() - dueAt.getTime();
   if (late < 0) return 'wait';
@@ -141,12 +129,6 @@ const WEEKDAY_WORDS: Record<string, Weekday> = {
   sabado: 'sat',
 };
 
-/**
- * Parses what officers type in /event create, in the server timezone:
- * "30/10 21:00", "30/10/2026 21h", "2026-10-30 21:00", "hoje 21h", "amanhã 20:30",
- * "sáb 21h" / "sexta 20:00" (the next such day; today if the time hasn't passed).
- * Returns null when the text isn't understood.
- */
 export function parseWhen(input: string, now: Date, timeZone: string): Date | null {
   const text = fold(input).replace(/-feira/, '');
   const today = localParts(now, timeZone);
@@ -186,7 +168,6 @@ export function parseWhen(input: string, now: Date, timeZone: string): Date | nu
     let year = explicitYear ?? today.year;
     if (!clock || !validDate(year, month, day)) return null;
     let instant = zonedToUtc({ year, month, day }, clock, timeZone);
-    // "05/01" typed in December means next January.
     if (explicitYear === null && instant.getTime() < now.getTime() - DAY) {
       year += 1;
       if (!validDate(year, month, day)) return null;
@@ -210,7 +191,6 @@ export function parseWhen(input: string, now: Date, timeZone: string): Date | nu
   return null;
 }
 
-/** "21", "21h", "9:30", "21:00" → "HH:MM". Anything else is passed through for the schema to reject. */
 export function normalizeClock(input: string): string {
   const match = input.trim().match(/^(\d{1,2})(?:[:h](\d{2})?)?h?$/);
   return match ? `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}` : input;

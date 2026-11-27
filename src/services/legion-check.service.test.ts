@@ -34,7 +34,7 @@ const config = {
 const logger = { info: () => undefined, warn: () => undefined } as unknown as Logger;
 
 const describeStanding = (s: Standing) =>
-  s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.alliance}` : s.kind;
+  s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.allianceKey}` : s.kind;
 
 function setup(
   profile: { name: string; className: string; legion: string },
@@ -87,7 +87,6 @@ function setup(
     ownerId: 'owner',
     client: { user: { id: 'bot' } },
     members: {
-      // A list fetch answers with who is in the server; the cache starts empty, as after a restart.
       fetch: async (arg?: unknown) =>
         typeof arg === 'object' && arg !== null && 'user' in arg
           ? new Map([['u1', member]])
@@ -232,7 +231,7 @@ describe('LegionCheckService', () => {
 
   it('is not due again right after a check', async () => {
     const { service } = setup({ name: 'Padrinho', className: 'Clérigo', legion: 'M4F1A' });
-    expect(await service.runIfDue()).toEqual([]); // saved just now, so not due
+    expect(await service.runIfDue()).toEqual([]);
   });
 
   it('takes the first check of an old registration as the baseline, without legion reports', async () => {
@@ -248,7 +247,6 @@ describe('LegionCheckService', () => {
       combatPower: null,
       itemLevel: null,
     });
-    // Rows saved before migration 0009 have no checkedAt.
     (registrations as unknown as { db: { run(q: unknown): void } }).db.run(
       (await import('drizzle-orm')).sql`update registered_characters set checked_at = null`,
     );

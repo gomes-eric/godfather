@@ -37,7 +37,6 @@ export const profileCommand: SlashCommand = {
     const user = interaction.options.getUser('membro');
     const actor = await ctx.resolveActor(interaction.user.id);
 
-    // The card is public so it can be shown to the group; problems are only for the caller.
     await interaction.deferReply();
     const fail = async (content: string) => {
       await interaction.deleteReply();

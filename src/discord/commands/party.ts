@@ -60,7 +60,6 @@ export const partyCommand: SlashCommand = {
       return;
     }
 
-    // The card is the command's public reply, so it shows who opened the group.
     await interaction.reply({
       ...ctx.parties.card(outcome.value),
       allowedMentions: { parse: [] },

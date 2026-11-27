@@ -8,7 +8,6 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
-# Then drop dev dependencies, and better-sqlite3's C sources and other platforms' binaries.
 RUN npm run build && npm prune --omit=dev \
   && rm -rf node_modules/better-sqlite3/deps node_modules/better-sqlite3/src \
   && find node_modules/better-sqlite3/prebuilds -type f \
@@ -26,7 +25,6 @@ COPY package.json server.yaml ./
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8080
-# Each check starts a node process, so it runs every 2 minutes (every 10s while starting).
 HEALTHCHECK --interval=2m --timeout=5s --start-period=60s --start-interval=10s --retries=3 \
   CMD node -e "fetch('http://localhost:'+(process.env.HTTP_PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["node", "dist/index.js"]

@@ -48,17 +48,14 @@ interface Deps {
   now?: () => Date;
 }
 
-/** What someone sent with "Enviar minha ficha" (the character already read from the site). */
 export interface SentForm {
   picked: FormKind;
   character: CharacterProfile | null;
 }
 
-/** How long a decided application's private thread stays before it is deleted. */
 export const THREAD_LIFETIME_MS = { approved: 60 * 60_000, rejected: 6 * 60 * 60_000 } as const;
 const SWEEP_MS = 5 * 60_000;
 
-/** The audited action for moving someone to each standing. */
 const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
   tier: 'member.promote',
   ally: 'member.ally',
@@ -67,7 +64,6 @@ const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
   visitor: 'member.demote',
 };
 
-/** The character as stored in the application, in the shape the registration uses. */
 function characterOf(application: Application): CharacterProfile | null {
   if (!application.characterId || !application.characterName) return null;
   return {
@@ -84,12 +80,6 @@ function characterOf(application: Application): CharacterProfile | null {
   };
 }
 
-/**
- * Recruitment in Discord, for the #recrutamento buttons and MCP alike: posts each application
- * card in a private thread that only the applicant, Oficiais and Comandantes see, and carries out
- * a decision (register the character, set the standing, update the card, welcome them; no DMs).
- * The daily check's reviews get the same card, in a thread in the officers' channel.
- */
 export class RecruitmentDesk implements BackgroundJob {
   constructor(private readonly deps: Deps) {}
 
@@ -119,10 +109,6 @@ export class RecruitmentDesk implements BackgroundJob {
     });
   }
 
-  /**
-   * Records the form and posts its card in a new private thread, pinging the configured role. A
-   * Membro whose character is already in the legion (and nobody else's) is approved right away.
-   */
   async submit(
     actor: Actor,
     form: SentForm,
@@ -136,7 +122,7 @@ export class RecruitmentDesk implements BackgroundJob {
       legion: this.settings().characters.legion,
       alliances: config.get().alliances,
       takenBySomeoneElse: owner !== undefined,
-      restrictedByOfficer: ['manual', 'transfer'].includes(
+      restrictionNeedsOfficer: ['manual', 'transfer'].includes(
         this.deps.members.restrictionOf(actor.userId) ?? '',
       ),
     });
@@ -147,13 +133,12 @@ export class RecruitmentDesk implements BackgroundJob {
       kind: plan.kind,
       character,
       allianceLegion: plan.allianceLegion,
-      duplicateOf: owner ?? null,
+      characterTakenBy: owner ?? null,
     });
     if (outcome.status !== 'ok') return outcome;
     const application = outcome.value;
 
     if (plan.autoApprove) {
-      // The card and the welcome go in their private thread; nobody needs pinging.
       await this.post(application, { ping: false });
       const bot = systemActor(this.deps.guild.client.user.id);
       const decided = await this.decide(bot, application.id, true);
@@ -164,7 +149,6 @@ export class RecruitmentDesk implements BackgroundJob {
         );
         return { status: 'ok', value: { application: decided.value, autoApproved: true } };
       }
-      // Could not approve on its own (a missing role…): leave it to the officers.
       this.deps.logger.warn({ application: application.id, decided }, 'auto-approval failed');
       await notifyOfficers(this.deps, t.autoApprovalFailed(actor.userId, character!.name));
       return { status: 'ok', value: { application, autoApproved: false } };
@@ -177,17 +161,12 @@ export class RecruitmentDesk implements BackgroundJob {
     return { status: 'ok', value: { application, autoApproved: false } };
   }
 
-  /**
-   * The daily check changed someone's standing (or saw an Oficial leave): a card in a private
-   * thread in the officers' channel, where Aprovar keeps it and Recusar puts the old one back.
-   */
   async openReview(input: ReviewInput): Promise<void> {
     const bot = systemActor(this.deps.guild.client.user.id);
     const outcome = await this.deps.recruitment.openReview(bot, input);
     if (outcome.status === 'ok') await this.post(outcome.value, { ping: true });
   }
 
-  /** Posts the card in the application's thread (created now), pinging the review role. */
   private async post(application: Application, options: { ping: boolean }): Promise<void> {
     const thread = await this.openThread(application);
     if (!thread) return;
@@ -205,11 +184,6 @@ export class RecruitmentDesk implements BackgroundJob {
     this.deps.recruitment.attachMessage(application.id, sent.id, thread.id);
   }
 
-  /**
-   * A private thread for the application with every Oficial and Comandante in it: in the review
-   * channel with the applicant too, or in the officers' channel for the daily check's reviews.
-   * Undefined without that channel.
-   */
   async openThread(application: Application): Promise<ThreadChannel | undefined> {
     const fromCheck = application.origin === 'check';
     const parent: TextChannel | undefined = fromCheck
@@ -240,7 +214,6 @@ export class RecruitmentDesk implements BackgroundJob {
     return thread;
   }
 
-  /** Members with the Oficial or Comandante role, who review the applications. */
   private async staffIds(): Promise<string[]> {
     const { officer, commander } = this.deps.directory.tierRoleIds();
     const roles = [officer, commander].filter((id): id is string => id !== undefined);
@@ -250,7 +223,6 @@ export class RecruitmentDesk implements BackgroundJob {
       .map((member) => member.id);
   }
 
-  /** The application's thread (unarchived, so it can be written in), or the review channel for older cards. */
   private async cardChannel(application: Application) {
     if (!application.threadId) {
       const recruitment = this.settings().recruitment;
@@ -262,7 +234,6 @@ export class RecruitmentDesk implements BackgroundJob {
     return thread;
   }
 
-  /** Mudar: the type approving will give. Aliança takes the character's legion. */
   async changeKind(
     actor: Actor,
     id: number,
@@ -292,22 +263,14 @@ export class RecruitmentDesk implements BackgroundJob {
     return outcome;
   }
 
-  /**
-   * Approves or refuses an application, then updates its card and welcomes whoever came in
-   * through the form. Approving gives the standing of its type; refusing a daily check review
-   * puts the previous standing back.
-   */
   async decide(actor: Actor, id: number, approve: boolean): Promise<ServiceOutcome<Application>> {
     const pending = this.deps.applications.get(id);
     if (!pending) return rejected(t.gone);
     const member = await fetchMember(this.deps.guild, pending.userId);
     if (!member && (approve || pending.origin === 'check')) return rejected(t.leftServer);
 
-    // What the decision will make of them, checked before anything changes.
     let target: Standing | undefined;
     if (approve && member && this.isNewAlliance(pending)) {
-      // Creating the alliance comes first, so make sure they can be moved at all (an ally
-      // stands where Soldado does) before anything is created.
       const refusal = this.deps.members.refusalFor(actor, member, SOLDIER);
       if (refusal) return rejected(refusal);
     }
@@ -353,10 +316,6 @@ export class RecruitmentDesk implements BackgroundJob {
     return outcome;
   }
 
-  /**
-   * The standing approving gives. An Aliança with a legion that is not an alliance yet needs a
-   * Comandante, and approving it creates the alliance first.
-   */
   private async prepareApproval(
     actor: Actor,
     application: Application,
@@ -377,7 +336,6 @@ export class RecruitmentDesk implements BackgroundJob {
       : rejected(t.newAllianceNeedsCommander(application.allianceLegion ?? ''));
   }
 
-  /** Sets the standing inside the decision's audited action; a refusal here is unexpected. */
   private async moveTo(actor: Actor, member: GuildMember, to: Standing): Promise<void> {
     const outcome = await this.deps.members.move(actor, member.id, to, {
       action: MOVE_ACTION[to.kind],
@@ -390,7 +348,6 @@ export class RecruitmentDesk implements BackgroundJob {
     }
   }
 
-  /** The welcome for whoever came in through the form, in their thread (or announceChannel). */
   private async welcome(application: Application, nickname: string | null): Promise<void> {
     const recruitment = this.settings().recruitment;
     if (!recruitment) return;
@@ -412,7 +369,6 @@ export class RecruitmentDesk implements BackgroundJob {
     await announce?.send({ content, allowedMentions: { users: [application.userId] } });
   }
 
-  /** Re-renders the application's card where it was posted (buttons go once it is decided). */
   private async refreshCard(application: Application): Promise<void> {
     if (!application.messageId) return;
     const channel = await this.cardChannel(application);
@@ -420,16 +376,10 @@ export class RecruitmentDesk implements BackgroundJob {
     await message?.edit({ ...(await this.card(application)), allowedMentions: { parse: [] } });
   }
 
-  /** "⚔️ Membro"… for replies. */
   kindName(application: Application): string {
     return kindText(application.kind, application.allianceLegion);
   }
 
-  /**
-   * Deletes the private thread of each decided application once its time is up: an hour after an
-   * approval (the welcome has been read), six hours after a refusal. Runs from the stored decision
-   * time, so a restart doesn't lose track. Returns how many threads went.
-   */
   async sweepThreads(): Promise<number> {
     const now = (this.deps.now ?? (() => new Date()))().getTime();
     let deleted = 0;

@@ -1,10 +1,6 @@
 import type { ChannelKind } from '../config/schema.js';
 import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 
-// Data model of the /setup reconciliation (PLAN.md §6.1). Everything here is plain data so the
-// planner can be tested without Discord.
-
-/** "@everyone" or a role key from server.yaml. */
 export type OverwriteTarget = string;
 export const EVERYONE: OverwriteTarget = '@everyone';
 
@@ -56,28 +52,22 @@ export interface PanelButton {
 export interface DesiredPanel {
   key: string;
   channelKey: string;
-  /** For display only. */
   channelName: string;
   title: string | null;
   description: string;
   color: number;
   buttons: PanelButton[];
-  /** Hash of everything above; a different value means the posted message needs an edit. */
   fingerprint: string;
 }
 
 export interface DesiredState {
-  /** Top to bottom, as they should appear in the role list. */
   roles: DesiredRole[];
   categories: DesiredCategory[];
-  /** In display order within each category. */
   channels: DesiredChannel[];
   community: { enable: boolean; rulesChannelKey: string; updatesChannelKey: string };
   afk: { channelKey: string; channelName: string; timeoutSeconds: number };
-  /** Whether @everyone lacks ChangeNickname, so only the bot (and admins) change nicknames. */
   lockNicknames: boolean;
   panels: DesiredPanel[];
-  /** Keys marked `managed: false`: never touched and never pruned. */
   unmanagedKeys: { role: Set<string>; category: Set<string>; channel: Set<string> };
 }
 
@@ -110,7 +100,6 @@ export interface ChannelSnapshot {
 
 export interface GuildSnapshot {
   everyoneRoleId: string;
-  /** Base permissions of @everyone. */
   everyonePermissions: bigint;
   /** Position of the bot's highest role; it can only manage roles strictly below it. */
   botRolePosition: number;
@@ -121,7 +110,6 @@ export interface GuildSnapshot {
   publicUpdatesChannelId: string | null;
   afkChannelId: string | null;
   afkTimeout: number;
-  /** Managed panel messages that still exist. */
   existingMessageIds: Set<string>;
 }
 

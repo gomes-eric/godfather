@@ -5,7 +5,6 @@ import { restrictions } from './schema.js';
 export type Restriction = typeof restrictions.$inferSelect;
 export type RestrictionOrigin = Restriction['origin'];
 
-/** Why each Restrito member holds the role (see the `restrictions` table). */
 export class RestrictionStore {
   constructor(private readonly db: Db) {}
 

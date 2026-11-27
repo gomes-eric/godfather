@@ -18,11 +18,9 @@ interface Deps {
   runAction: ActionRunner;
 }
 
-/** Kick, ban, unban, timeout and purge (PLAN.md §6.2). */
 export class ModerationService {
   constructor(private readonly deps: Deps) {}
 
-  /** Shared target checks; returns the reason to refuse, or null. */
   private refuse(actor: Actor, userId: string, member: GuildMember | null, isBot: boolean) {
     const refusal = checkModerationTarget({
       actorTier: actor.tier,
@@ -120,7 +118,6 @@ export class ModerationService {
     });
   }
 
-  /** `minutes` 0 removes the timeout. */
   async timeout(
     actor: Actor,
     userId: string,

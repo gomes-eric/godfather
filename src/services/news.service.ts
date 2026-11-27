@@ -19,7 +19,6 @@ interface Deps {
   directory: GuildDirectory;
   store: NewsStore;
   logger: Logger;
-  /** Claude summaries; used when `settings.news.summary` is set. */
   summarizer?: NewsSummarizer;
   fetchJson?: FetchJson;
   now?: () => Date;
@@ -28,23 +27,11 @@ interface Deps {
 type NewsMessage = Parameters<SendableChannel['send']>[0];
 type SendableChannel = NonNullable<ReturnType<GuildDirectory['channelByKey']>>;
 
-/** How long a summary keeps being retried before the plain card goes out instead. */
 const FALLBACK_AFTER_MS = 12 * 60 * 60_000;
 
-/**
- * Posts a card in #noticias for each of the game's Steam announcements (patch notes, maintenance,
- * events, account restrictions…) when it comes out, in Brazilian Portuguese. The first run posts
- * only the latest one, so the channel doesn't fill up with history.
- *
- * With summaries on, Claude reads the post in whatever language Steam gives (the Portuguese slot
- * sometimes holds English or French) and always writes the card in Brazilian Portuguese, with only
- * what matters to the legion, or leaves the post out; it pings everyone when the post concerns
- * Triniel, and the roles of changed classes. Without them, the plain card goes out as it came.
- */
 export class NewsService implements BackgroundJob {
   private readonly fetchJson: FetchJson;
   private readonly now: () => Date;
-  /** Posts whose failed summary was already logged. */
   private readonly waiting = new Set<string>();
 
   constructor(private readonly deps: Deps) {
@@ -68,12 +55,6 @@ export class NewsService implements BackgroundJob {
     return parseNews(await this.fetchJson(`${EVENTS_URL}?${query}`), settings.steamAppId);
   }
 
-  /**
-   * Who a summary pings, with guards against a wrong answer: everyone only when the post really
-   * names Triniel; class roles only when few classes changed (a change to half of them or more is
-   * a general one), and only for classes the card names, so whoever is pinged finds why. Only
-   * class roles that exist in Discord are pinged.
-   */
   private ping(digest: NewsDigest, note: Pick<NewsPost, 'title' | 'body'>): DigestPing {
     const classes = classRoles(this.deps.config.get());
     const general = digest.classes.length * 2 >= classes.length;
@@ -93,11 +74,6 @@ export class NewsService implements BackgroundJob {
     };
   }
 
-  /**
-   * Summarizes the latest `count` posts and posts the cards in `channelKey` without pinging
-   * anyone, saying who would be pinged; returns one line per post. For officers to judge the
-   * summaries before they go to #noticias.
-   */
   async preview(count: number, channelKey: string): Promise<string[]> {
     if (!this.deps.summarizer || !this.settings()?.summary) return [t.previewOff];
     const channel = this.deps.directory.channelByKey(channelKey);
@@ -121,7 +97,6 @@ export class NewsService implements BackgroundJob {
     return lines;
   }
 
-  /** What to post for a new announcement: 'skip' to mark it seen, null to retry on a later poll. */
   private async messageFor(note: NewsPost): Promise<NewsMessage | 'skip' | null> {
     if (this.deps.summarizer && this.settings()?.summary) {
       try {
@@ -141,7 +116,6 @@ export class NewsService implements BackgroundJob {
     return { ...newsMessage(note), allowedMentions: { parse: [] } };
   }
 
-  /** Posts every announcement not posted yet, oldest first; returns how many were posted. */
   async poll(): Promise<number> {
     const settings = this.settings();
     if (!settings) return 0;

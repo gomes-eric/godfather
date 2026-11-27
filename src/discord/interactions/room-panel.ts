@@ -28,7 +28,6 @@ const MAX_KICK_OPTIONS = 25;
 
 type Repliable = ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction;
 
-/** Runs a room command and answers the clicker privately (the deferred reply is edited). */
 async function run(
   interaction: Repliable,
   ctx: CommandContext,
@@ -36,7 +35,6 @@ async function run(
   command: RoomCommand,
 ): Promise<void> {
   const actor = await ctx.resolveActor(interaction.user.id);
-  // Room actions are never destructive, so there is no confirmation to wait for.
   const outcome = await ctx.voice.manage(actor, roomId, command);
   await interaction.editReply({ content: outcomeText(outcome), components: [] });
 }
@@ -70,7 +68,6 @@ function kickPicker(roomId: string, occupants: ReturnType<CommandContext['voice'
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(picker);
 }
 
-/** Buttons on a temp room's control panel. Returns false for any other button. */
 export async function handleRoomPanelButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,
@@ -86,7 +83,6 @@ export async function handleRoomPanelButton(
   }
   if (action !== 'rename' && action !== 'limit' && action !== 'kick') return false;
 
-  // Check before opening a form, so nobody fills one in only to be refused.
   const actor = await ctx.resolveActor(interaction.user.id);
   const refusal = ctx.voice.refusal(actor, roomId, action);
   if (refusal) {
@@ -114,7 +110,6 @@ export async function handleRoomPanelButton(
   return true;
 }
 
-/** The rename and limit forms. Returns false for any other modal. */
 export async function handleRoomPanelModal(
   interaction: ModalSubmitInteraction,
   ctx: CommandContext,
@@ -125,7 +120,6 @@ export async function handleRoomPanelModal(
   if (action !== 'rename' && action !== 'limit') return false;
   const value = interaction.fields.getTextInputValue('value').trim();
 
-  // A rename can wait a few seconds on Discord, so answer within 3s first.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const command: RoomCommand =
     action === 'rename'
@@ -135,7 +129,6 @@ export async function handleRoomPanelModal(
   return true;
 }
 
-/** The kick picker. Returns false for any other select menu. */
 export async function handleRoomKickSelect(
   interaction: StringSelectMenuInteraction,
   ctx: CommandContext,

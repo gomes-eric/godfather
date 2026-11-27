@@ -9,7 +9,6 @@ const t = ptBR.roles;
 
 export interface RoleInput {
   name?: string;
-  /** "#RRGGBB". */
   color?: string;
   hoist?: boolean;
   mentionable?: boolean;
@@ -24,18 +23,14 @@ interface Deps {
 const parseColor = (color: string | undefined) =>
   color && /^#[0-9a-f]{6}$/i.test(color) ? Number.parseInt(color.slice(1), 16) : undefined;
 
-/** Ad-hoc roles and role assignment (the legion hierarchy goes through MemberService). */
 export class RoleService {
   constructor(private readonly deps: Deps) {}
 
-  /** Why a role can't be touched here, if it can't. */
   private refuse(role: Role, forAssignment: boolean): string | null {
     if (role.managed) return t.integration;
     const me = this.deps.guild.members.me;
     if (me && role.position >= me.roles.highest.position) return t.aboveBot;
     if (forAssignment) {
-      // Standing roles (ranks, Aliado and the alliances, Parceiro, Restrito, Visitante) go
-      // through MemberService, which swaps the previous one.
       const s = this.deps.directory.standingRoles();
       const standing = new Set(
         [

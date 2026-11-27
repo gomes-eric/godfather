@@ -10,7 +10,6 @@ import { COLORS } from './colors.js';
 
 type NotOk = Exclude<ServiceOutcome<unknown>, { status: 'ok' }>;
 
-/** Why an action didn't run (refused, not allowed), or the preview it waits to be confirmed on. */
 export function failureText(outcome: NotOk): string {
   switch (outcome.status) {
     case 'denied':
@@ -22,12 +21,10 @@ export function failureText(outcome: NotOk): string {
   }
 }
 
-/** Text for any outcome of an action whose result is a message. */
 export function outcomeText(outcome: ServiceOutcome<string>): string {
   return outcome.status === 'ok' ? outcome.value : failureText(outcome);
 }
 
-/** A list card: one line per item, or `empty` when there are none. */
 export function listEmbed(title: string, lines: string[], empty: string): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle(title)
@@ -38,10 +35,6 @@ export function listEmbed(title: string, lines: string[], empty: string): EmbedB
 export type PrivateReply =
   string | Pick<InteractionReplyOptions, 'content' | 'embeds' | 'components' | 'allowedMentions'>;
 
-/**
- * Answers only whoever clicked or typed (the bot sends no DMs). Edits the reply when the
- * interaction was already deferred.
- */
 export async function replyPrivately(
   interaction: RepliableInteraction,
   reply: PrivateReply,

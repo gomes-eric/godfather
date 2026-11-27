@@ -31,7 +31,7 @@ const character = (legion = '') => ({
 });
 const asMember = (legion = '') => ({ picked: 'member', character: character(legion) }) as const;
 const describeStanding = (s: Standing) =>
-  s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.alliance}` : s.kind;
+  s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.allianceKey}` : s.kind;
 
 function setup(
   options: {
@@ -236,7 +236,6 @@ describe('RecruitmentDesk', () => {
       value: { autoApproved: true, application: { status: 'approved', decidedBy: 'padrinho' } },
     });
     expect(s.moves).toEqual(['padrinho u1 soldier']);
-    // No ping: the card and the welcome only go in their private thread.
     expect(s.sent.map((m) => m.content)).toEqual([undefined, expect.stringContaining('🎉')]);
     expect(s.notices).toEqual([expect.stringContaining('entrou sozinho')]);
   });
@@ -246,7 +245,7 @@ describe('RecruitmentDesk', () => {
     const outcome = await s.desk.submit(visitor, asMember('M4F1A'));
 
     expect(outcome).toMatchObject({ status: 'ok', value: { autoApproved: false } });
-    expect(s.applications.list()[0]).toMatchObject({ status: 'pending', duplicateOf: 'u9' });
+    expect(s.applications.list()[0]).toMatchObject({ status: 'pending', characterTakenBy: 'u9' });
     expect(s.notices).toEqual([expect.stringContaining('<@u9>')]);
     expect(s.moves).toEqual([]);
   });
@@ -354,7 +353,6 @@ describe('RecruitmentDesk', () => {
     const review = s.applications.list()[0]!;
     expect(review).toMatchObject({ origin: 'check', kind: 'restricted' });
     expect(s.created[0]).toMatchObject({ name: 'Análise · Padrinho' });
-    // The applicant is not in the officers' thread.
     expect(s.added).toEqual(['officer-1', 'commander-1']);
 
     await s.desk.decide(officer, review.id, false);

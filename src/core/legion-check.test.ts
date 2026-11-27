@@ -91,22 +91,21 @@ describe('legionTransition', () => {
       departure: true,
     });
     expect(go(soldier, 'M4F1A', 'noxus')).toMatchObject({
-      to: { kind: 'ally', alliance: 'ally-noxus' },
+      to: { kind: 'ally', allianceKey: 'ally-noxus' },
     });
     expect(go(soldier, 'M4F1A', 'M4F1A')).toBeNull();
-    // Approved but not in the legion yet: nothing left, nothing to do.
     expect(go(soldier, '', '')).toBeNull();
   });
 
   it('only reports an Oficial who left', () => {
     expect(go({ kind: 'tier', tier: 'officer' }, 'M4F1A', '')).toMatchObject({
-      to: null,
+      kind: 'reportOnly',
       review: true,
     });
   });
 
   it('follows an Aliado who left the allied legion', () => {
-    const ally = { kind: 'ally', alliance: 'ally-noxus' } as const;
+    const ally = { kind: 'ally', allianceKey: 'ally-noxus' } as const;
     expect(go(ally, 'Noxus', 'Outra')).toMatchObject({ to: { kind: 'restricted' }, review: true });
     expect(go(ally, 'Noxus', 'M4F1A')).toMatchObject({
       to: { kind: 'tier', tier: 'soldier' },
@@ -123,7 +122,7 @@ describe('legionTransition', () => {
       why: 'returned',
     });
     expect(go(restricted, 'Outra', 'Noxus', 'check')).toMatchObject({
-      to: { kind: 'ally', alliance: 'ally-noxus' },
+      to: { kind: 'ally', allianceKey: 'ally-noxus' },
     });
     expect(go(restricted, 'Outra', 'M4F1A', 'manual')).toBeNull();
   });

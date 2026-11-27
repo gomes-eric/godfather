@@ -7,16 +7,14 @@ import { ptBR } from '../i18n/pt-BR.js';
 
 const t = ptBR.recruitment;
 
-/** What a sent form records. */
 export interface ApplicationInput {
   picked: FormKind;
   kind: ApplicationKind;
   character: CharacterProfile | null;
   allianceLegion: string | null;
-  duplicateOf: string | null;
+  characterTakenBy: string | null;
 }
 
-/** What the daily check records when it opens a review for the officers. */
 export interface ReviewInput {
   userId: string;
   kind: ApplicationKind;
@@ -38,11 +36,6 @@ function characterColumns(c: CharacterProfile | null) {
   };
 }
 
-/**
- * Recruitment applications: a Visitante sends the form, officers approve or refuse it, and the
- * daily check opens reviews of its own. The rules live here; posting the cards and carrying out
- * a decision is RecruitmentDesk's job.
- */
 export class RecruitmentService {
   constructor(
     private readonly deps: {
@@ -51,7 +44,6 @@ export class RecruitmentService {
     },
   ) {}
 
-  /** Records an application; refuses a second one while the first waits for a decision. */
   apply(actor: Actor, input: ApplicationInput): Promise<ServiceOutcome<Application>> {
     if (actor.tier !== 'visitor') return Promise.resolve(rejected(t.alreadyMember));
     if (this.deps.store.pendingFor(actor.userId))
@@ -70,12 +62,11 @@ export class RecruitmentService {
           kind: input.kind,
           requestedKind: input.picked,
           allianceLegion: input.allianceLegion,
-          duplicateOf: input.duplicateOf,
+          characterTakenBy: input.characterTakenBy,
         }),
     });
   }
 
-  /** A review the daily check opens after changing someone's standing (or for an Oficial). */
   openReview(actor: Actor, input: ReviewInput): Promise<ServiceOutcome<Application>> {
     return this.deps.runAction({
       actor,
@@ -96,7 +87,6 @@ export class RecruitmentService {
     });
   }
 
-  /** Mudar: what approving the application will do. */
   changeKind(
     actor: Actor,
     id: number,
@@ -108,7 +98,7 @@ export class RecruitmentService {
     if (application.status !== 'pending') return Promise.resolve(rejected(t.alreadyDecided));
     return this.deps.runAction({
       actor,
-      action: 'recruit.edit',
+      action: 'recruit.kind',
       target: application.characterName ?? application.userId,
       params: { userId: application.userId, from: application.kind, to: kind },
       preview: kind,
@@ -119,10 +109,6 @@ export class RecruitmentService {
     });
   }
 
-  /**
-   * An officer's decision. `carryOut` runs inside the audited action (register the character,
-   * set the standing, or put the previous one back) before the application is marked decided.
-   */
   decide(
     actor: Actor,
     id: number,

@@ -6,9 +6,7 @@ import { customId, parseCustomId } from './custom-id.js';
 
 const t = ptBR.voice.panel;
 
-/** Buttons are `room:<action>:<roomId>`; the room id rides along so a click names its room. */
 export const ROOM_PREFIX = 'room:';
-/** Modals (rename, limit) and the kick picker the buttons open. */
 export const ROOM_MODAL_PREFIX = 'room-modal:';
 export const ROOM_KICK_PREFIX = 'room-kick:';
 
@@ -21,7 +19,6 @@ export interface RoomPanelView extends RoomAccess {
   userLimit: number;
 }
 
-/** `room:lock:123` → { action: 'lock', roomId: '123' }; anything else → undefined. */
 export function parsePanelCustomId(
   id: string,
   prefix: string,
@@ -38,11 +35,6 @@ function button(action: PanelAction, roomId: string, emoji: string, label: strin
     .setStyle(ButtonStyle.Secondary);
 }
 
-/**
- * The control panel posted in a temp room's chat. It follows the room: the privacy buttons show
- * the action available now, and the description names the current owner and mode. Everyone in
- * the room sees the same buttons; who may press them is checked on click.
- */
 export function roomPanel(view: RoomPanelView): {
   embeds: EmbedBuilder[];
   components: ActionRowBuilder<ButtonBuilder>[];

@@ -69,7 +69,6 @@ export const setupCommand: SlashCommand = {
         target: 'server.yaml',
         params: { prune, ops: plan.ops.length, warnings: plan.warnings.length },
         preview: `${ptBR.setup.confirmPreview(summary)}\n\n${formatPlan(plan, PROMPT_LIMIT)}`,
-        // Re-plan at click time: the guild may have changed while the prompt was open.
         execute: async () => {
           const fresh = await ctx.setup.plan(prune);
           const result = await ctx.setup.apply(fresh);

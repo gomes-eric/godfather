@@ -1,7 +1,3 @@
-// Padrinho as its own identity provider for Workload Identity Federation: an ES256 key pair kept
-// on the server signs short-lived JWTs that the Claude API exchanges for access tokens. The public
-// key is registered in the Claude Console as an issuer with an inline JWKS.
-
 import {
   createHash,
   createPrivateKey,
@@ -13,7 +9,6 @@ import {
 } from 'node:crypto';
 
 export const CLAUDE_AUDIENCE = 'https://api.anthropic.com';
-/** Identity tokens live 5 minutes; each exchange gets a fresh one (unique `jti`). */
 const LIFETIME_SECONDS = 300;
 
 export interface PublicJwk {
@@ -37,7 +32,6 @@ export function publicJwk(privateKey: KeyObject): PublicJwk {
   return { kty, crv, x, y, kid, alg: 'ES256', use: 'sig' };
 }
 
-/** A new P-256 key, as PKCS#8 PEM for the key file. */
 export function generateSigningKey(): string {
   const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
   return privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
@@ -47,7 +41,6 @@ export function loadSigningKey(pem: string): KeyObject {
   return createPrivateKey(pem);
 }
 
-/** A signed identity token for one token exchange. */
 export function signIdentityToken(
   privateKey: KeyObject,
   claims: { issuer: string; subject: string },

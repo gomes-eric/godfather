@@ -16,8 +16,6 @@ const VIEW: Record<Kind, bigint> = {
   category: P.ViewChannel | P.ReadMessageHistory | P.Connect,
 };
 
-// Writing includes starting threads, public or private: a read-only channel must not let
-// people open a thread under a post.
 const TEXT_WRITE =
   P.SendMessages | P.SendMessagesInThreads | P.CreatePublicThreads | P.CreatePrivateThreads;
 
@@ -41,7 +39,6 @@ const LEVEL_RANK: Record<AccessLevel, number> = {
   none: 4,
 };
 
-/** @everyone's base permissions with ChangeNickname removed (locked) or granted (unlocked). */
 export function lockedNicknamePermissions(current: bigint, locked: boolean): bigint {
   return locked ? current & ~P.ChangeNickname : current | P.ChangeNickname;
 }
@@ -55,24 +52,13 @@ export interface OverwriteInput {
   kind: Kind;
   view: AccessLevel;
   write: AccessLevel;
-  /** Extra level for slash commands (e.g. #musica: nobody writes, soldiers run commands). */
   slashCommands?: AccessLevel;
-  /** Role key per tier, e.g. { soldier: "soldier" }. */
   tierRoleKeys: Partial<Record<RankedTier, string>>;
-  /** Roles that get whatever the soldier tier gets here (server.yaml `asSoldier`). */
   asSoldierRoleKeys?: string[];
-  /** Fixed allows on top of the access rules, e.g. the Bot role in every voice channel. */
   extraAllows?: { roleKey: string; allow: bigint }[];
-  /** Fixed denies on top of the access rules, from a channel's `deny` in server.yaml. */
   extraDenies?: { roleKey: string; deny: bigint }[];
 }
 
-/**
- * Turns access levels into permission overwrites:
- * - `everyone`: allowed explicitly on @everyone.
- * - a tier: denied on @everyone, allowed on that tier's role and every role above it.
- * - `bot` / `none`: denied on @everyone with no allows (Padrinho is Administrator).
- */
 export function computeOverwrites(input: OverwriteInput): DesiredOverwrite[] {
   const byTarget = new Map<string, { allow: bigint; deny: bigint }>();
   const entry = (target: string) => {
@@ -106,14 +92,12 @@ export function computeOverwrites(input: OverwriteInput): DesiredOverwrite[] {
   for (const { roleKey, allow } of input.extraAllows ?? []) {
     entry(roleKey).allow |= allow;
   }
-  // A fixed deny wins over what the access rules gave that role.
   for (const { roleKey, deny } of input.extraDenies ?? []) {
     const target = entry(roleKey);
     target.allow &= ~deny;
     target.deny |= deny;
   }
 
-  // Never allow and deny the same bit on one target (e.g. view "everyone", write "everyone").
   return [...byTarget.entries()]
     .map(([target, { allow, deny }]) => ({ target, allow, deny: deny & ~allow }))
     .filter((o) => o.allow !== 0n || o.deny !== 0n)

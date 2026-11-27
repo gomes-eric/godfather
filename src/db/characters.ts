@@ -4,7 +4,6 @@ import { registeredCharacters } from './schema.js';
 
 export type RegisteredCharacter = typeof registeredCharacters.$inferSelect;
 
-/** What the official site shows about a character right now. */
 export interface CharacterSnapshot {
   name: string;
   classKey: string;
@@ -24,7 +23,6 @@ export class CharacterStore {
       .get();
   }
 
-  /** Who has this in-game character registered, if anyone. */
   byCharacter(characterId: string): RegisteredCharacter | undefined {
     return this.db
       .select()
@@ -33,7 +31,6 @@ export class CharacterStore {
       .get();
   }
 
-  /** The member no longer has a character (it moved to another account). */
   delete(userId: string): void {
     this.db.delete(registeredCharacters).where(eq(registeredCharacters.userId, userId)).run();
   }
@@ -42,7 +39,6 @@ export class CharacterStore {
     return this.db.select().from(registeredCharacters).all();
   }
 
-  /** Registering again replaces the previous character. */
   save(
     entry: Pick<RegisteredCharacter, 'userId' | 'characterId' | 'serverId'> & CharacterSnapshot,
   ): void {
@@ -55,7 +51,6 @@ export class CharacterStore {
       .run();
   }
 
-  /** Records what the daily check saw, keeping the registration itself. */
   updateSnapshot(userId: string, snapshot: CharacterSnapshot): void {
     this.db
       .update(registeredCharacters)

@@ -1,9 +1,6 @@
 import { canChangeTier } from './permissions.js';
 import { TIER_RANK, TIERS, type Tier } from './tiers.js';
 
-// Pure decisions behind /member and /mod (PLAN.md §5.2, §6.2, §6.8). The services only fetch
-// Discord state, ask these functions, and carry out the answer.
-
 export type MemberRefusal =
   | 'targetIsBot'
   | 'targetIsOwner'
@@ -24,15 +21,12 @@ interface TierChangeInput {
   targetTier: Tier;
   targetIsBot: boolean;
   targetIsOwner: boolean;
-  /** The server owner may move anyone to any tier, Comandante included. */
   actorIsOwner?: boolean;
-  /** Explicit rank; defaults to one step up (promote) or down (demote). */
   rank?: Tier;
   officerCount: number;
   maxOfficers?: number;
 }
 
-/** Nobody acts on a bot, the server owner or themselves. */
 function checkTarget(
   input: Pick<TierChangeInput, 'actorId' | 'targetId' | 'targetIsBot' | 'targetIsOwner'>,
 ): 'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | null {
@@ -79,7 +73,6 @@ export function decideDemotion(input: TierChangeInput): TierDecision {
 
 export type ModerationRefusal = 'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | 'targetTooHigh';
 
-/** Kick/ban/timeout: only members strictly below the actor's tier (officers can't kick officers). */
 export function checkModerationTarget(input: {
   actorTier: Tier;
   actorId: string;

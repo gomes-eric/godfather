@@ -31,36 +31,23 @@ interface Deps {
   logger: Logger;
 }
 
-/**
- * Ties a member to their in-game character: class role, "⚔️ Nome" nickname, the stored character
- * (for /perfil, the daily check and #ranking), and Soldado for a Visitante. Used when an
- * application is approved and when an officer registers someone by hand.
- */
 export class RegistrationService {
   constructor(private readonly deps: Deps) {}
 
-  /** The class role for the game's class name, e.g. "Clérigo". */
   classRole(className: string): RoleConfig | undefined {
     return matchClass(className, classRoles(this.deps.config.get()));
   }
 
-  /** The character with this exact name on the legion's server, read fresh from the site. */
   async lookup(name: string): Promise<CharacterProfile | null> {
     const ref = await this.deps.characters.find(normalizeGameName(name), true);
     return ref && this.deps.characters.profile(ref, true);
   }
 
-  /** Who else has this character registered (not `userId`), if anyone. */
   ownerOf(characterId: string, userId: string): string | undefined {
     const row = this.deps.registrations.byCharacter(characterId);
     return row && row.userId !== userId ? row.userId : undefined;
   }
 
-  /**
-   * Ties the character to the member: class role, nickname and the stored character. A character
-   * registered to another account moves here: that account loses it, becomes Restrito, and the
-   * officers are told. Runs inside the caller's audited action; returns the nickname set, if any.
-   */
   async link(
     actor: Actor,
     member: GuildMember,
@@ -84,7 +71,6 @@ export class RegistrationService {
     return nickname;
   }
 
-  /** The character moved to `newOwner`: the old account loses it and becomes Restrito. */
   private async takeFrom(
     actor: Actor,
     oldOwner: string,
@@ -107,10 +93,6 @@ export class RegistrationService {
     await notifyOfficers(this.deps, t.transferred(character, oldOwner, newOwner));
   }
 
-  /**
-   * Applies the character to the member and makes a Visitante a Soldado (an audited promotion by
-   * `actor`). Runs inside the caller's audited action; returns the nickname set, if any.
-   */
   async admit(
     actor: Actor,
     member: GuildMember,
@@ -127,10 +109,6 @@ export class RegistrationService {
     return { nickname, promoted };
   }
 
-  /**
-   * An officer registering a member's character by hand (MCP `register_character`). A character
-   * someone else has needs `confirm` (it moves to this member) and the officers are told.
-   */
   async register(
     actor: Actor,
     userId: string,

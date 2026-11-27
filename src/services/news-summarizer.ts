@@ -10,15 +10,12 @@ import {
 import type { NewsPost } from '../core/news.js';
 
 export interface NewsSummarizer {
-  /** Throws when Claude can't give a usable answer; the caller retries on the next poll. */
   digest(note: NewsPost): Promise<NewsDigest>;
 }
 
-/** Haiku has no server-side fallback; the other models route a declined request to another. */
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 const hasServerFallback = (model: string) => !model.startsWith('claude-haiku');
 
-/** Summaries by Claude (Sonnet by default): one structured answer per announcement. */
 export function createNewsSummarizer(deps: {
   client: Anthropic;
   model: () => string;
@@ -31,7 +28,6 @@ export function createNewsSummarizer(deps: {
       const response = await deps.client.beta.messages.parse({
         model,
         max_tokens: 8000,
-        // A summary is routine work; low effort keeps it quick and cheap.
         output_config: { effort: 'low', format: betaZodOutputFormat(digestSchema(classes)) },
         ...(hasServerFallback(model) && { betas: [FALLBACK_BETA], fallbacks: 'default' as const }),
         system: [

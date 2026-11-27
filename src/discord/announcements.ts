@@ -22,7 +22,6 @@ import type { GuildDirectory } from './directory.js';
 const t = ptBR.events;
 export const RSVP_PREFIX = 'rsvp:';
 
-/** "2 Clérigo, 1 Templário" for the people who said yes. */
 function classBreakdown(
   guild: Guild,
   directory: GuildDirectory,
@@ -79,7 +78,6 @@ export interface ReminderCard {
   footer: string;
 }
 
-/** The reminder as an embed: countdown, time, room, details and attendance. */
 export function reminderCard(
   message: ReminderMessage,
   rsvpClasses: string,
@@ -113,7 +111,6 @@ export function reminderCard(
   };
 }
 
-/** The #agenda text: next 7 days grouped by day in the server timezone, Hoje/Amanhã first. */
 export function agendaDescription(items: OccurrenceView[], timeZone: string, now: Date): string {
   const a = t.agenda;
   if (items.length === 0) return [a.subtitle, t.agendaEmpty].join('\n\n');
@@ -147,7 +144,6 @@ export function agendaDescription(items: OccurrenceView[], timeZone: string, now
   return [a.subtitle, ...body].join('\n\n');
 }
 
-/** AnnouncementPort for Discord: reminders in #eventos, the agenda in #agenda. */
 export function createDiscordAnnouncements(
   guild: Guild,
   directory: GuildDirectory,

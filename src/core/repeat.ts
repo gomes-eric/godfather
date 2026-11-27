@@ -1,13 +1,7 @@
-/** Work the bot keeps doing from startup until shutdown (reminders, polls, the daily check). */
 export interface BackgroundJob {
-  /** Starts the work; returns the function that stops it. */
   start(): () => void;
 }
 
-/**
- * Runs `task` now and then every `intervalMs`. A failed run goes to `onError` and the next one
- * still happens. Returns the function that stops it.
- */
 export function repeat(
   intervalMs: number,
   task: () => Promise<unknown>,

@@ -29,7 +29,6 @@ function found<T>(
   return { ok: false, reason: t.none(t.what[what], input) };
 }
 
-/** Member by mention, id, username, display name or nickname (from the member cache). */
 export function findMember(guild: Guild, input: string): Found<GuildMember> {
   const candidates = [...guild.members.cache.values()].map((m) => ({
     id: m.id,
@@ -48,7 +47,6 @@ const KIND_LABEL: Partial<Record<ChannelType, string>> = {
   [ChannelType.GuildForum]: '📋 ',
 };
 
-/** Channel by mention, id or name; `filter` narrows the kinds accepted. */
 export function findChannel(
   guild: Guild,
   input: string,
@@ -67,7 +65,6 @@ export function findCategory(guild: Guild, input: string): Found<GuildBasedChann
   return findChannel(guild, input, (c) => c.type === ChannelType.GuildCategory, 'category');
 }
 
-/** Role by mention, id or name (never @everyone). */
 export function findRole(guild: Guild, input: string): Found<Role> {
   const candidates = [...guild.roles.cache.values()]
     .filter((r) => r.id !== guild.id)

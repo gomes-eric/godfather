@@ -11,7 +11,6 @@ const t = ptBR.party;
 
 export type PartyAction = 'join' | 'leave' | 'close';
 
-/** Party finder (/party): a card where members join a group for a dungeon, boss or Abyss run. */
 export class PartyService {
   constructor(
     private readonly deps: {
@@ -39,7 +38,6 @@ export class PartyService {
     };
   }
 
-  /** Creates the group (the creator is its first member); the caller posts the card. */
   create(
     actor: Actor,
     input: { channelId: string; activity: string; slots: number; startsAt: string | null },
@@ -58,10 +56,6 @@ export class PartyService {
     return partyCard(this.view(party));
   }
 
-  /**
-   * Join, leave or close. Resolves to the updated party and whether this click filled it (so
-   * the caller can call everyone), or a refusal for the clicker.
-   */
   async act(
     actor: Actor,
     partyId: number,

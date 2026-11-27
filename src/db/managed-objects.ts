@@ -9,7 +9,6 @@ export interface ManagedEntry {
   fingerprint: string | null;
 }
 
-/** key → entry for one kind. */
 export type ManagedMap = Map<string, ManagedEntry>;
 
 export interface ManagedState {
@@ -19,10 +18,6 @@ export interface ManagedState {
   message: ManagedMap;
 }
 
-/**
- * Keys → Discord ids of what /setup manages. Looked up on every message, interaction and voice
- * change, so the table is kept in memory; every write goes through `set` and `delete`.
- */
 export class ManagedObjectStore {
   private cache: ManagedState | undefined;
 
@@ -41,7 +36,6 @@ export class ManagedObjectStore {
     return this.cache;
   }
 
-  /** A copy: callers may change it freely. */
   all(): ManagedState {
     const { role, category, channel, message } = this.state();
     return {

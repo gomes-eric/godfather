@@ -32,27 +32,19 @@ export interface CommandContext {
   audit: AuditLog;
   setup: SetupService;
   members: MemberService;
-  /** Allied legions (/alliance). */
   alliances: AllianceService;
   moderation: ModerationService;
   messages: MessageService;
   voice: VoiceService;
   events: EventService;
-  /** Characters from the official Aion 2 site. */
   characters: GameCharacterService;
-  /** Which in-game character each member has (from approved applications). */
   registrations: CharacterStore;
-  /** The legion check and the #ranking board (/ranking). */
   legion: LegionCheckService;
-  /** Party finder (/party). */
   parties: PartyService;
-  /** Ties members to their characters (class role, nickname, Soldado). */
   registration: RegistrationService;
-  /** "Enviar minha ficha": posting applications and carrying out decisions. */
   recruitmentDesk: RecruitmentDesk;
   applications: ApplicationStore;
   tokens: TokenService;
-  /** Public URL of the MCP endpoint, shown with new tokens. */
   mcpUrl: string;
   runAction: ActionRunner;
   confirmations: ConfirmationStore;

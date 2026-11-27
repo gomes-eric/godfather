@@ -8,10 +8,8 @@ import type { SlashCommand } from './types.js';
 const t = ptBR.help;
 
 export interface HelpEntry {
-  /** How to call it, e.g. "/voice rename". */
   readonly usage: string;
   readonly text: string;
-  /** Lowest tier that can use it (from the action policies). */
   readonly tier: Tier;
 }
 
@@ -20,7 +18,6 @@ export interface HelpSection {
   readonly entries: readonly HelpEntry[];
 }
 
-/** The sections and commands a member of this tier can use; empty sections are left out. */
 export function helpFor(tier: Tier): HelpSection[] {
   return t.sections
     .map((section) => ({

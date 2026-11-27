@@ -5,13 +5,11 @@ import type { CommandContext } from '../commands/types.js';
 import { characterCard, gearMenu } from '../profile-card.js';
 import { RANKING_SELECT_ID } from '../ranking-menu.js';
 
-/** The #ranking menu: the chosen member's profile, shown only to whoever chose. */
 export async function handleRankingSelect(
   interaction: StringSelectMenuInteraction,
   ctx: CommandContext,
 ): Promise<boolean> {
   if (interaction.customId !== RANKING_SELECT_ID) return false;
-  // The card can be slow (two requests to the official site), so answer within 3s first.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const registered = ctx.registrations.get(interaction.values[0] ?? '');

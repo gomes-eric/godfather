@@ -34,7 +34,6 @@ interface Deps {
   now?: () => Date;
 }
 
-/** One-off events, cancellations, RSVP lists and recurring templates (PLAN.md §6.4, §6.5). */
 export class EventService {
   private readonly now: () => Date;
 
@@ -139,7 +138,6 @@ export class EventService {
     });
   }
 
-  /** Upcoming occurrences (next 7 days), cancelled ones left out. */
   async list(actor: Actor): Promise<ServiceOutcome<OccurrenceView[]>> {
     return this.deps.runAction({
       actor,
@@ -163,7 +161,6 @@ export class EventService {
     });
   }
 
-  /** RSVP button click. */
   async vote(
     actor: Actor,
     occurrenceId: number,
@@ -210,7 +207,6 @@ export class EventService {
   }
 }
 
-/** "mon,thu,sat" / "seg qui sáb" / "daily" → template days. */
 export function parseDays(input: string): (Weekday | 'daily')[] | null {
   const aliases: Record<string, Weekday | 'daily'> = {
     daily: 'daily',

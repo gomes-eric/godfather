@@ -12,14 +12,12 @@ import { customId, parseCustomId } from '../custom-id.js';
 import { outcomeText } from '../replies.js';
 
 const t = ptBR.say;
-/** `say:<channelId>:<1|0 allow mentions>`: the form's id carries the command's choices. */
 const SAY_MODAL_PREFIX = 'say:';
 const TITLE_FIELD = 'title';
 const TEXT_FIELD = 'text';
 /** An embed description holds 4096 characters; a plain message 2000 (longer goes as embed). */
 const MAX_TEXT = 4000;
 
-/** The /say form, for texts with line breaks (a slash command option has none). */
 export function sayModal(channelId: string, allowMentions: boolean): ModalBuilder {
   const title = new TextInputBuilder()
     .setCustomId(TITLE_FIELD)
@@ -45,7 +43,6 @@ export function sayModal(channelId: string, allowMentions: boolean): ModalBuilde
     );
 }
 
-/** The submitted /say form. Returns false for any other modal. */
 export async function handleSayModal(
   interaction: ModalSubmitInteraction,
   ctx: CommandContext,

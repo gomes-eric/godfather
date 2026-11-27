@@ -15,7 +15,6 @@ export interface CharacterProfile extends CharacterRef {
   level: number;
   combatPower: number | null;
   itemLevel: number | null;
-  /** In-game legion name; empty when the character has none. */
   legion: string;
   title: string | null;
   avatarUrl: string | null;
@@ -24,7 +23,6 @@ export interface CharacterProfile extends CharacterRef {
 export type EquipmentGroup = 'weapons' | 'armor' | 'accessories' | 'runes' | 'arcana';
 
 export interface EquipmentItem {
-  /** Item id in the game data (0 when the site left it out); with the slot it fetches the details. */
   id: number;
   /** Slot number the official site uses to fetch this piece's details. */
   slotPos: number;
@@ -58,7 +56,6 @@ const SLOT_ORDER = Object.values(GROUP_SLOTS).flat();
 const num = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 
-/** "<strong>Padrinho</strong>" → "Padrinho". */
 function plainName(value: unknown): string {
   return str(value)
     .replace(/<[^>]*>/g, '')
@@ -74,7 +71,6 @@ function decodeId(value: unknown): string {
   }
 }
 
-/** The character with exactly this name (any case) on this server, from a search response. */
 export function parseSearch(json: unknown, name: string, serverId: number): CharacterRef | null {
   const list = obj(json).list;
   if (!Array.isArray(list)) return null;
@@ -121,7 +117,6 @@ function groupOf(slot: string): EquipmentGroup | null {
   return null;
 }
 
-/** Equipped items in display order; cosmetic skins and unknown slots are left out. */
 export function parseEquipment(json: unknown): EquipmentItem[] {
   const list = obj(obj(json).equipment).equipmentList;
   if (!Array.isArray(list)) return [];
@@ -145,34 +140,26 @@ export function parseEquipment(json: unknown): EquipmentItem[] {
   return items.sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot));
 }
 
-/** "+15 Martelo ✦3": enchant, name and the exceed (breakthrough) level when there is one. */
 export function itemLabel(item: EquipmentItem): string {
   const enchant = item.enchantLevel > 0 ? `+${item.enchantLevel} ` : '';
   const exceed = item.exceedLevel > 0 ? ` ✦${item.exceedLevel}` : '';
   return `${enchant}${item.name}${exceed}`;
 }
 
-/** One equipped piece in full, as the official site's item tooltip shows it. */
 export interface ItemDetail {
   name: string;
-  /** "Único", "Lendário"… in Portuguese. */
   gradeName: string;
   icon: string | null;
-  /** Item level (the "Nível 45" on the tooltip). */
   level: number | null;
   enchantLevel: number;
   maxEnchantLevel: number | null;
-  /** "Maça", "Runa"… */
   category: string;
-  /** Classes that can use it; empty when every class can. */
   classes: string[];
-  /** Base stats; `extra` is what the enchantment adds ("+50"), null when it adds nothing. */
   mainStats: { name: string; value: string; extra: string | null }[];
   subStats: { name: string; value: string }[];
   magicStones: { name: string; value: string }[];
   godStones: { name: string; description: string }[];
   tradable: boolean;
-  /** Where it drops or comes from ("Campanha", "Baú de Recompensa"…). */
   sources: string[];
 }
 
@@ -186,7 +173,6 @@ const statExtra = (value: unknown): string | null => {
   return /^[+-]?0(\.0+)?%?$/.test(text) || !text ? null : `+${text.replace(/^\+/, '')}`;
 };
 
-/** An equipped item's details (/api/character/equipment/item), or null when the answer is unusable. */
 export function parseItemDetail(json: unknown): ItemDetail | null {
   const item = obj(json);
   const name = str(item.name);
@@ -224,7 +210,6 @@ const fold = (text: string) =>
     .toLowerCase()
     .trim();
 
-/** The class role whose name is the game's class name ("Clérigo" ↔ "Clérigo"), if any. */
 export function matchClass<T extends { name: string }>(
   className: string,
   classRoles: readonly T[],
@@ -233,7 +218,6 @@ export function matchClass<T extends { name: string }>(
   return wanted ? classRoles.find((role) => fold(role.name) === wanted) : undefined;
 }
 
-/** Same legion, ignoring case and accents. */
 export function sameLegion(a: string, b: string): boolean {
   return fold(a) !== '' && fold(a) === fold(b);
 }

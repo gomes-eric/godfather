@@ -14,28 +14,19 @@ interface Deps {
   runAction: ActionRunner;
   botUserId: string;
   logger: Logger;
-  /** Posts a warning in #audit-log. */
   warn: (text: string) => Promise<void>;
-  /** Called after a template moves, so reminders follow right away. */
   onChange?: () => void;
   fetchJson?: FetchJson;
 }
 
-/**
- * Keeps the recurring events linked by `shugoEvent` on the times shugo.gg publishes
- * (timers.json, South America on São Paulo time): a template whose days or time differ is
- * rewritten in server.yaml, audited as Padrinho.
- */
 export class EventTimesService implements BackgroundJob {
   private readonly fetchJson: FetchJson;
-  /** Last problem warned per template, so each one goes to #audit-log once. */
   private readonly warned = new Map<string, string>();
 
   constructor(private readonly deps: Deps) {
     this.fetchJson = deps.fetchJson ?? ((url) => fetchJson(url, 15_000));
   }
 
-  /** Brings the linked templates in line with timers.json; returns the keys it changed. */
   async check(): Promise<string[]> {
     const config = this.deps.config.get();
     const settings = config.settings.eventTimes;

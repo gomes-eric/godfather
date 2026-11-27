@@ -9,11 +9,9 @@ import type { Logger } from '../logger.js';
 const MINUTE = 60_000;
 const TICK_MS = 30_000;
 const WINDOW_MS = 7 * 24 * 60 * MINUTE;
-/** Occurrences that started this recently still get their "starting now" reminder. */
 const LOOKBACK_MS = 15 * MINUTE;
 export const AGENDA_MESSAGE_KEY = 'agenda';
 
-/** Everything needed to show an occurrence, whatever its source (template or one-off). */
 export interface OccurrenceView {
   occurrenceId: number;
   title: string;
@@ -23,7 +21,6 @@ export interface OccurrenceView {
   voiceChannelId: string | null;
   ping: boolean;
   cancelled: boolean;
-  /** Set for one-off events; templates are identified by key. */
   eventId: number | null;
   templateKey: string | null;
 }
@@ -40,11 +37,9 @@ export interface ReminderMessage {
   rsvp: RsvpSummary;
 }
 
-/** Where reminders and the agenda are posted. Implemented for Discord in src/discord. */
 export interface AnnouncementPort {
   postReminder(message: ReminderMessage): Promise<string>;
   refreshReminder(messageId: string, message: ReminderMessage): Promise<void>;
-  /** Edits the agenda message if it exists, otherwise posts it. Returns the message id. */
   upsertAgenda(messageId: string | null, items: OccurrenceView[]): Promise<string>;
 }
 
@@ -64,13 +59,6 @@ interface Deps {
   now?: () => Date;
 }
 
-/**
- * Persistent, restart-proof reminder loop (PLAN.md §6.4). Each tick:
- * 1. materializes template occurrences for the next 7 days and drops stale untouched ones,
- * 2. ensures one reminder row per (occurrence, offset),
- * 3. sends due reminders (claim first, release on failure) or skips the ones too late,
- * 4. refreshes the #agenda message when its content changed.
- */
 export class ReminderScheduler implements BackgroundJob {
   private readonly now: () => Date;
   private agendaChecked = false;
@@ -88,12 +76,10 @@ export class ReminderScheduler implements BackgroundJob {
     );
   }
 
-  /** Picks up a change right away instead of waiting for the next tick. */
   refreshSoon(): void {
     void this.tick().catch(() => undefined);
   }
 
-  /** Occurrences in the next 7 days, cancelled ones left out. */
   upcoming(now: Date): OccurrenceView[] {
     return this.deps.store
       .occurrencesBetween(now, new Date(now.getTime() + WINDOW_MS))
@@ -101,13 +87,11 @@ export class ReminderScheduler implements BackgroundJob {
       .filter((v): v is OccurrenceView => v !== null && !v.cancelled);
   }
 
-  /** Runs one tick; overlapping calls share the tick in progress. */
   tick(): Promise<TickReport> {
     this.running ??= this.runTick().finally(() => (this.running = undefined));
     return this.running;
   }
 
-  /** How an occurrence should look right now, or null if its template is gone or disabled. */
   view(occurrence: OccurrenceRow): OccurrenceView | null {
     const config = this.deps.config();
     const defaultPing = config.settings.eventDefaults.ping === 'everyone';
@@ -154,7 +138,6 @@ export class ReminderScheduler implements BackgroundJob {
     return summary;
   }
 
-  /** Records a vote and refreshes every posted reminder of that occurrence. */
   async vote(occurrenceId: number, userId: string, status: RsvpStatus): Promise<RsvpSummary> {
     this.deps.store.setRsvp(occurrenceId, userId, status, this.now());
     const occurrence = this.deps.store.getOccurrence(occurrenceId);
@@ -190,7 +173,6 @@ export class ReminderScheduler implements BackgroundJob {
     const timeZone = config().settings.timezone;
     const until = new Date(now.getTime() + WINDOW_MS);
 
-    // 1. Template occurrences.
     const wanted = new Set<string>();
     for (const template of config().eventTemplates.filter((t) => t.enabled)) {
       for (const startsAt of templateOccurrences(template, now, until, timeZone)) {
@@ -204,7 +186,6 @@ export class ReminderScheduler implements BackgroundJob {
       }
     }
 
-    // 2. Reminder rows.
     const recent = new Date(now.getTime() - LOOKBACK_MS);
     for (const occurrence of store.occurrencesBetween(recent, until)) {
       if (occurrence.cancelledAt || !this.view(occurrence)) continue;
@@ -217,7 +198,6 @@ export class ReminderScheduler implements BackgroundJob {
       }
     }
 
-    // 3. Due reminders.
     const report: TickReport = { sent: 0, skipped: 0, failed: 0, agendaUpdated: false };
     for (const reminder of store.dueReminders(now)) {
       const occurrence = store.getOccurrence(reminder.occurrenceId);
@@ -245,7 +225,6 @@ export class ReminderScheduler implements BackgroundJob {
       }
     }
 
-    // 4. Agenda.
     report.agendaUpdated = await this.refreshAgenda(this.upcoming(now));
     return report;
   }
@@ -266,7 +245,6 @@ export class ReminderScheduler implements BackgroundJob {
       .digest('hex')
       .slice(0, 16);
     const current = this.deps.managed.get('message', AGENDA_MESSAGE_KEY);
-    // Always rewrite once after startup, in case the message was deleted while the bot was off.
     if (this.agendaChecked && current?.fingerprint === fingerprint) return false;
 
     try {

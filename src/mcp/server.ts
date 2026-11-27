@@ -7,9 +7,7 @@ import { buildInstructions } from './instructions.js';
 import { RateLimiter } from '../core/rate-limit.js';
 import { registerTools, type McpServices } from './tools.js';
 
-/** Tool calls act on Discord, so they get the tight limit. */
 const CALLS_PER_MINUTE = 60;
-/** Handshakes and listings (5 per client connect) only need a guard against loops. */
 const PROTOCOL_PER_MINUTE = 600;
 
 export interface McpDeps {
@@ -27,7 +25,6 @@ function jsonError(status: number, message: string, headers: Record<string, stri
   });
 }
 
-/** "claude-code/2.1.0 (...)" → "claude-code"; an explicit X-Harness header wins. */
 export function harnessName(headers: Headers): string | undefined {
   const explicit = headers.get('x-harness')?.trim();
   if (explicit) return explicit.slice(0, 50);
@@ -35,7 +32,6 @@ export function harnessName(headers: Headers): string | undefined {
   return product ? product.toLowerCase().slice(0, 50) : undefined;
 }
 
-/** JSON-RPC methods in the body (a single message or a batch); empty when it isn't JSON. */
 async function rpcMethods(request: Request): Promise<string[]> {
   try {
     const body: unknown = await request.clone().json();
@@ -47,12 +43,6 @@ async function rpcMethods(request: Request): Promise<string[]> {
   }
 }
 
-/**
- * Stateless Streamable HTTP endpoint (PLAN.md §8.1): every request is authenticated with a
- * personal Bearer token, rate-limited per token (tool calls apart from the protocol chatter of
- * connecting), and served by a fresh MCP server whose tools act as the token owner with their
- * current Discord roles.
- */
 export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<Response> {
   const calls = new RateLimiter(CALLS_PER_MINUTE, 60_000);
   const protocol = new RateLimiter(PROTOCOL_PER_MINUTE, 60_000);

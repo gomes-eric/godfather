@@ -1,4 +1,3 @@
-# Padrinho — declarative server layout for the M4F1A legion (Aion 2, Triniel LATAM, Asmodian).
 # Applied with `/setup`. Keys are English; display names are PT-BR.
 # Every item has a stable `key`: renaming `name` never recreates the Discord object.
 #
@@ -8,7 +7,7 @@
 #   none      = nobody may write (used by #musica; slash commands still allowed)
 
 settings:
-  timezone: America/Sao_Paulo   # South America servers use São Paulo time (shugo.gg)
+  timezone: America/Sao_Paulo
   community:
     enable: true
     rulesChannel: rules
@@ -26,7 +25,7 @@ settings:
   restrictedRole: restricted
   # The legion roles of the alliances (listed under `alliances` at the end of this file).
   alliances:
-    color: "#5B9BD5"   # allied blue
+    color: "#5B9BD5"
     channel: alliance-chat
   welcome:
     channel: welcome
@@ -93,10 +92,8 @@ settings:
   # Nobody changes their own nickname by hand: an approved application and the daily check set
   # it (Comandantes are not affected).
   lockNicknames: true
-  # "Enviar minha ficha" (panel in #recrutamento): each application becomes a card there with
-  # Aprovar/Recusar (officers and up); approving registers the character and makes them Soldado.
   recruitment:
-    channel: recruitment       # the "Enviar minha ficha" form
+    channel: recruitment
     # Each application's card goes in a private thread here that only the applicant, Oficiais and
     # Comandantes see; the welcome on approval goes in the same thread.
     reviewChannel: recruitment
@@ -116,7 +113,7 @@ settings:
   # and logged in #audit-log.
   eventTimes:
     region: global-sa
-    group: 1                  # Triniel's siege group (21:00 / 21:30)
+    group: 1
     checkHours: 6
   # Characters are read from the official Aion 2 site (the same data shugo.gg shows).
   # Triniel (South America, Asmodian side) is server 2403.
@@ -125,8 +122,6 @@ settings:
     serverId: 2403
     # In-game legion name: the daily check reports who left or joined it.
     legion: M4F1A
-    # Once a day every registered character is re-read: new class/name → role and nickname
-    # updated; left or joined the legion → reported in reportChannel. Then #ranking is rebuilt.
     reportChannel: officers
     rankingChannel: ranking
   audit:
@@ -136,7 +131,6 @@ settings:
     # Jockie Music reads text commands (m!p, m!s...); messages starting with these stay.
     commandPrefixes: ["m!"]
   # Safety net for the ➕ Criar generators: new rooms per minute for the whole server (0 = no limit).
-  # There is no per-person wait; leaving a room to create another just swaps them.
   voiceRooms:
     maxCreationsPerMinute: 30
   eventDefaults:
@@ -146,71 +140,58 @@ settings:
     ping: everyone
 
 roles:
-  # Asmodian palette: blood crimson, abyss violet, ash and steel.
-  # Colors are mid-tone so names stay readable on Discord's dark theme.
   # Hierarchy (top to bottom). Fundador sits above the bot's own role; every other role below it.
   # The server owner only. Padrinho can't edit a role above its own, so /setup only warns when
   # it differs from this; the owner always counts as the commander tier, so it needs no tier.
   - key: owner
     name: Fundador
-    color: "#D9485F"   # set by hand in Discord
+    color: "#D9485F"
     hoist: false
     permissions: [Administrator]
   - key: commander
     name: Comandante
     tier: commander
-    color: "#D9485F"   # rose red, Asmodian crimson family
+    color: "#D9485F"
     hoist: true
     permissions: [Administrator]
   - key: officer
     name: Oficial
     tier: officer
     maxMembers: 4
-    color: "#A855F7"   # abyss violet
+    color: "#A855F7"
     hoist: true
     permissions: [KickMembers, ModerateMembers, ManageMessages, ManageThreads, MoveMembers, MuteMembers]
   - key: soldier
     name: Soldado
     tier: soldier
-    color: "#8B7FB8"   # dusk lavender
+    color: "#8B7FB8"
     hoist: true
-  # Friends who don't play: they chat and hang out in voice, outside the tier ladder.
-  # Channels let them in with access.asSoldier.
-  # Allied legions: counts as Soldado everywhere (settings.allyRole). The legion roles of the
-  # alliances sit right above it, each hoisted, so the member list groups people by legion.
   - key: ally
     name: Aliado
-    color: "#5B9BD5"   # allied blue
+    color: "#5B9BD5"
   - key: partner
     name: Parceiro
-    color: "#C98A6B"   # copper
+    color: "#C98A6B"
     hoist: true
-  # Left the legion in the game, or restricted by an officer: only #geral (settings.restrictedRole).
   - key: restricted
     name: Restrito
-    color: "#5C5866"   # dim ash
+    color: "#5C5866"
   - key: visitor
     name: Visitante
     tier: visitor
-    color: "#7D7A8C"   # ash
-  # Shared role for every third-party bot (Jockie Music, Rythm, future ones).
-  # Padrinho assigns it automatically to any bot that joins.
+    color: "#7D7A8C"
   - key: bots
     name: Bot
-    color: "#6E7F99"   # steel
+    color: "#6E7F99"
     hoist: true
-  # Classes, given by the approved recruitment application and the daily legion check.
-  # Colors follow the in-game class icons (sampled from https://sistersofmercy.altervista.org/classes/):
-  # Guerreiro = blue, Batedor = green, Mago = purple, Sacerdote = pale gold.
-  # Each pair uses a deeper and a lighter shade so the two classes stay distinct.
-  - { key: class-gladiator,   name: Gladiador,      class: true, emoji: "⚔️", color: "#6EC6F5" }  # sky blue
-  - { key: class-templar,     name: Templário,      class: true, emoji: "🛡️", color: "#4A7BD0" }  # deep blue
-  - { key: class-assassin,    name: Assassino,      class: true, emoji: "🗡️", color: "#4FB286" }  # emerald
-  - { key: class-ranger,      name: Arqueiro,       class: true, emoji: "🏹", color: "#8EF5B7" }  # mint
-  - { key: class-sorcerer,    name: Mago,           class: true, emoji: "🔥", color: "#D291EF" }  # lilac
-  - { key: class-spiritmaster, name: Espiritualista, class: true, emoji: "👻", color: "#9B59D0" }  # deep purple
-  - { key: class-cleric,      name: Clérigo,        class: true, emoji: "✨", color: "#E6C46A" }  # gold
-  - { key: class-chanter,     name: Encantador,     class: true, emoji: "📿", color: "#EEE6A8" }  # cream
+  - { key: class-gladiator,   name: Gladiador,      class: true, emoji: "⚔️", color: "#6EC6F5" }
+  - { key: class-templar,     name: Templário,      class: true, emoji: "🛡️", color: "#4A7BD0" }
+  - { key: class-assassin,    name: Assassino,      class: true, emoji: "🗡️", color: "#4FB286" }
+  - { key: class-ranger,      name: Arqueiro,       class: true, emoji: "🏹", color: "#8EF5B7" }
+  - { key: class-sorcerer,    name: Mago,           class: true, emoji: "🔥", color: "#D291EF" }
+  - { key: class-spiritmaster, name: Espiritualista, class: true, emoji: "👻", color: "#9B59D0" }
+  - { key: class-cleric,      name: Clérigo,        class: true, emoji: "✨", color: "#E6C46A" }
+  - { key: class-chanter,     name: Encantador,     class: true, emoji: "📿", color: "#EEE6A8" }
 
 categories:
   - key: info
@@ -225,7 +206,6 @@ categories:
     name: 🤝 RECRUTAMENTO
     access: { view: everyone, write: everyone }
     channels:
-      # Not a chat: the application form, and one card per application with Aprovar/Recusar.
       - { key: recruitment, type: text, name: recrutamento, access: { write: bot } }
       - { key: visitor-qa,  type: text, name: duvidas-visitantes }
 
@@ -234,7 +214,6 @@ categories:
     name: 📣 M4F1A
     access: { view: soldier, write: soldier, asSoldier: [partner] }
     channels:
-      # Restrito sees only this channel (and the ones open to everyone).
       - key: general
         type: text
         name: geral
@@ -248,8 +227,6 @@ categories:
       - { key: news,         type: text, name: noticias, topic: "Notícias do Aion 2 (atualizações, manutenções, eventos e avisos), postadas pelo Padrinho assim que saem na Steam.", access: { write: bot, asSoldier: [] } }
       - { key: ranking,      type: text, name: ranking, topic: "Membros da legião por poder de combate, atualizado todo dia pelo Padrinho. Entra quem teve a ficha de recrutamento aprovada.", access: { write: bot, asSoldier: [] } }
 
-  # Allied legions and the legion together: Aliado counts as Soldado, so view: soldier lets both
-  # in and leaves Parceiro out.
   - key: alliance
     name: 🤝 ALIANÇA
     access: { view: soldier, write: soldier }
@@ -282,7 +259,6 @@ categories:
           - { name: Crafting }
           - { name: Iniciantes }
 
-  # Fixed rooms everyone shares.
   - key: voice-rooms
     name: 🔊 SALAS GERAIS
     access: { view: soldier, write: soldier, asSoldier: [partner] }
@@ -297,7 +273,6 @@ categories:
           - role: officer
             permissions: [ManageChannels, MuteMembers, MoveMembers]
 
-  # One category per room type: its "➕ Criar" generator and the rooms it creates live together.
   - key: dungeon-rooms
     name: 🗝️ SALAS DUNGEON
     access: { view: soldier, write: soldier }
@@ -319,10 +294,8 @@ categories:
         type: text
         name: musica
         topic: "Só comandos de música: Jockie (m!p, m!s...) e Rythm (/play, /skip...). Outras mensagens são apagadas."
-        # People write here only to type Jockie's m! commands; the music guard deletes the rest.
         access: { write: soldier }
         allowSlashCommands: soldier
-        # Music bots post "now playing" here.
         allow:
           - role: bots
             permissions: [ViewChannel, SendMessages, EmbedLinks, ReadMessageHistory]
@@ -332,7 +305,6 @@ categories:
     access: { view: officer, write: officer }
     channels:
       - { key: officers,      type: text,  name: oficiais }
-      # Only slash commands: nobody types here, the replies only the caller sees.
       - key: officer-commands
         type: text
         name: comandos

@@ -28,7 +28,6 @@ describe('ConfigStore.updateEventTemplate', () => {
       time: '20:00',
       days: ['tue', 'fri'],
     });
-    // Only that template changed.
     expect(
       new ConfigStore(path).get().eventTemplates.find((t) => t.key === 'abyss-bosses')?.time,
     ).toBe('21:30');

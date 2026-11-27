@@ -9,7 +9,6 @@ import {
   sameLegion,
 } from './game-character.js';
 
-// Trimmed copies of real responses (names replaced).
 const search = {
   list: [
     {

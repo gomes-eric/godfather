@@ -3,10 +3,6 @@ import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 import { backupFileName, backupsToDelete } from './core/backups.js';
 
-// Daily SQLite backup, kept for 14 days (PLAN.md §11.4). Runs inside the container, so the host
-// needs neither sqlite3 nor write access to the data folder:
-//   docker compose exec -T padrinho node dist/backup.js
-
 const KEEP = 14;
 const databasePath = process.env.DATABASE_PATH ?? './data/padrinho.db';
 const folder = join(dirname(databasePath), 'backups');

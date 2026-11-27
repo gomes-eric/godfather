@@ -7,7 +7,6 @@ import { GEAR_PREFIX, itemCard, parseGearValue } from '../profile-card.js';
 
 const t = ptBR.profile;
 
-/** The gear menu under a profile: the chosen piece in full, shown only to whoever chose. */
 export async function handleGearSelect(
   interaction: StringSelectMenuInteraction,
   ctx: CommandContext,
@@ -17,11 +16,9 @@ export async function handleGearSelect(
   const [rawServerId, ...idParts] = parts;
   const serverId = numericPart(rawServerId);
   const piece = parseGearValue(interaction.values[0] ?? '');
-  // The character id is base64 and may not contain ":", but join defensively anyway.
   const characterId = idParts.join(':');
   if (serverId === undefined || !characterId || !piece) return false;
 
-  // Two requests to the official site can pass Discord's 3-second window.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const item = await ctx.characters.item({ id: characterId, serverId }, piece);

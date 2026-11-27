@@ -7,6 +7,7 @@ import type { ActionName } from '../core/permissions.js';
 import {
   allyOf,
   decideStandingChange,
+  ladderTier,
   PARTNER,
   RESTRICTED,
   rolesForStanding,
@@ -26,7 +27,6 @@ export interface MemberInfo {
   name: string;
   avatarUrl: string;
   tier: Tier;
-  /** "Soldado", "Aliado (Noxus)", "Restrito"… */
   standing: string;
   classes: string[];
   joinedAt: Date | null;
@@ -42,33 +42,24 @@ interface Deps {
   runAction: ActionRunner;
 }
 
-/** Why someone becomes Restrito; kept so the daily check knows whether it may lift it. */
 export interface RestrictionCause {
   origin: RestrictionOrigin;
   reason: string | null;
 }
 
-/**
- * A member's standing: promotion and demotion on the legion's ladder, and the roles outside it
- * (Aliado, Parceiro, Restrito). Every change swaps the previous standing role for the new one, so
- * nobody has to demote someone first (PLAN.md §6.8).
- */
 export class MemberService {
   constructor(private readonly deps: Deps) {}
 
-  /** The name of an ally's legion, for texts. */
   legionOf(standing: Standing): string | undefined {
     return standing.kind === 'ally'
-      ? this.deps.config.get().alliances.find((a) => a.key === standing.alliance)?.legion
+      ? this.deps.config.get().alliances.find((a) => a.key === standing.allianceKey)?.legion
       : undefined;
   }
 
-  /** "Soldado", "Aliado (Noxus)"… */
   standingName(standing: Standing): string {
     return ptBR.standing(standing, this.legionOf(standing));
   }
 
-  /** Why they are Restrito, if they are. */
   restrictionOf(userId: string): RestrictionOrigin | undefined {
     return this.deps.restrictions.get(userId)?.origin;
   }
@@ -111,9 +102,8 @@ export class MemberService {
       : 0;
     const maxOfficers = config.get().roles.find((r) => r.tier === 'officer')?.maxMembers;
 
-    // On the ladder, everyone outside it (Aliado, Parceiro, Restrito) stands where Visitante does.
     const standing = memberStanding(member, directory, roles);
-    const from: Tier = standing.kind === 'tier' ? standing.tier : 'visitor';
+    const from = ladderTier(standing);
     const input = {
       actorTier: actor.tier,
       actorId: actor.userId,
@@ -155,7 +145,6 @@ export class MemberService {
     });
   }
 
-  /** Gives Parceiro to someone who doesn't play, whatever they were; `remove` sends them to Visitante. */
   async partner(actor: Actor, userId: string, remove: boolean): Promise<ServiceOutcome<string>> {
     if (!this.deps.directory.standingRoles().partner) return rejected(t.noPartnerRole);
     if (remove) {
@@ -176,7 +165,6 @@ export class MemberService {
     });
   }
 
-  /** Makes the member an ally of an existing alliance (by key), whatever they were. */
   async ally(actor: Actor, userId: string, allianceKey: string): Promise<ServiceOutcome<string>> {
     const alliance = this.deps.config.get().alliances.find((a) => a.key === allianceKey);
     if (!alliance) return rejected(t.unknownAlliance(allianceKey));
@@ -189,7 +177,6 @@ export class MemberService {
     });
   }
 
-  /** /member restrict: only #geral from now on, until an officer moves them again. */
   async restrict(actor: Actor, userId: string, reason: string): Promise<ServiceOutcome<string>> {
     if (!this.deps.directory.standingRoles().restricted) return rejected(t.noRestrictedRole);
     let fromName = '';
@@ -209,7 +196,6 @@ export class MemberService {
     return outcome;
   }
 
-  /** Why `actor` may not move the member to `to` (null when they may, or already are there). */
   refusalFor(actor: Actor, member: GuildMember, to: Standing): string | null {
     const refusal = decideStandingChange({
       actorTier: actor.tier,
@@ -230,10 +216,6 @@ export class MemberService {
     return t.refusals[refusal] ?? refusal;
   }
 
-  /**
-   * Moves a member to `to` as an audited action, after the rank rule (decideStandingChange). Used
-   * by the commands above, the recruitment desk and the daily check.
-   */
   async move(
     actor: Actor,
     userId: string,
@@ -242,7 +224,6 @@ export class MemberService {
       action: ActionName;
       preview: string | ((name: string, from: string) => string);
       done: (name: string) => string;
-      /** Refusal text when they already have this standing; without it, that is a no-op success. */
       already?: string;
       restriction?: RestrictionCause;
     },
@@ -286,7 +267,6 @@ export class MemberService {
     });
   }
 
-  /** Swaps the member's standing roles and keeps the restriction record in step. */
   private async applyStanding(
     member: GuildMember,
     to: Standing,

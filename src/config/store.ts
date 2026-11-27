@@ -9,11 +9,6 @@ export type EventTemplatePatch = Partial<
   Pick<EventTemplateConfig, 'title' | 'time' | 'days' | 'enabled' | 'emoji' | 'description'>
 >;
 
-/**
- * Holds the current server.yaml. `reload` validates the file first, so a broken edit never
- * replaces a working configuration. Edits made by the bot (e.g. a template's time) are written
- * back to the file with comments and formatting preserved, so the file stays the source of truth.
- */
 export class ConfigStore {
   private current: ServerConfig;
 
@@ -25,13 +20,11 @@ export class ConfigStore {
     return this.current;
   }
 
-  /** Throws ConfigError (keeping the previous config) when the file is invalid. */
   reload(): ServerConfig {
     this.current = loadServerConfig(this.path);
     return this.current;
   }
 
-  /** Updates one event template in server.yaml. Throws ConfigError if the result is invalid. */
   updateEventTemplate(key: string, patch: EventTemplatePatch): ServerConfig {
     const doc = this.document();
     const node = findItem(doc.get('eventTemplates'), key);
@@ -40,7 +33,6 @@ export class ConfigStore {
     return this.save(doc);
   }
 
-  /** Adds a voice generator, or updates the one with the same key. */
   upsertVoiceGenerator(generator: VoiceGeneratorConfig): ServerConfig {
     const doc = this.document();
     const list = doc.get('voiceGenerators');
@@ -65,7 +57,6 @@ export class ConfigStore {
     return this.save(doc);
   }
 
-  /** Adds an allied legion to server.yaml (its role is created by the caller). */
   addAlliance(alliance: AllianceConfig): ServerConfig {
     const doc = this.document();
     const list = doc.get('alliances');
@@ -97,7 +88,6 @@ export class ConfigStore {
     return parseDocument(readFileSync(this.path, 'utf8'));
   }
 
-  /** Validates the edited document, then writes it and makes it current. */
   private save(doc: ReturnType<typeof parseDocument>): ServerConfig {
     const text = doc.toString();
     const config = parseServerConfig(text, this.path);

@@ -24,14 +24,9 @@ export interface ApplyResult {
 export interface ApplyDeps {
   port: GuildPort;
   store: ManagedObjectStore;
-  /** The snapshot the plan was computed from (for overwrites and tags to preserve). */
   snapshot: GuildSnapshot;
 }
 
-/**
- * Runs the plan op by op. A failing op is recorded and the rest continue, so one bad item
- * doesn't block the whole layout; running /setup again retries whatever is still different.
- */
 export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<ApplyResult> {
   const { port, store, snapshot } = deps;
   const managed = store.all();
@@ -46,7 +41,6 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
       return id === undefined ? [] : [{ id, type: 'role' as const, allow: o.allow, deny: o.deny }];
     });
 
-  /** Overwrites /setup doesn't own (members, other bots' roles) survive an edit. */
   const foreignOverwrites = (existingId: string | undefined): PermissionOverwrite[] => {
     const owned = new Set([snapshot.everyoneRoleId, ...roleIds.values()]);
     const existing = existingId ? channelsById.get(existingId) : undefined;
@@ -190,7 +184,6 @@ export async function applySetup(plan: SetupPlan, deps: ApplyDeps): Promise<Appl
   return result;
 }
 
-/** "{channel:general}" → "<#id>", so panel texts can link channels by their yaml key. */
 function linkChannels(text: string, channelIds: Map<string, string>): string {
   return text.replace(/\{channel:([a-z0-9-]+)\}/g, (match, key: string) => {
     const id = channelIds.get(key);
@@ -198,7 +191,6 @@ function linkChannels(text: string, channelIds: Map<string, string>): string {
   });
 }
 
-/** Which channels /setup must check for its panel messages before planning. */
 export function panelMessagesToCheck(
   store: ManagedObjectStore,
   panels: { key: string; channelKey: string }[],

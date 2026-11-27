@@ -2,9 +2,6 @@ import type { ChannelKind } from '../config/schema.js';
 import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 import type { ForumTag, GuildSnapshot, PanelButton } from './model.js';
 
-// The only surface /setup needs from Discord. The real implementation lives in
-// src/discord/guild-port.ts; tests use an in-memory fake.
-
 export interface RoleSpec {
   name: string;
   color: number;
@@ -44,7 +41,6 @@ export interface GuildPort {
   createRole(spec: RoleSpec): Promise<string>;
   editRole(id: string, spec: RoleSpec): Promise<void>;
   deleteRole(id: string): Promise<void>;
-  /** Places the roles at the bottom of the list (above @everyone), in this order. */
   setRolePositions(idsTopToBottom: string[]): Promise<void>;
 
   createChannel(spec: ChannelSpec): Promise<string>;
@@ -57,6 +53,5 @@ export interface GuildPort {
   setAfk(channelId: string, timeoutSeconds: number): Promise<void>;
   setEveryonePermissions(permissions: bigint): Promise<void>;
 
-  /** Edits the message if it exists, otherwise posts a new one. Returns the message id. */
   upsertPanel(channelId: string, messageId: string | null, panel: PanelMessage): Promise<string>;
 }

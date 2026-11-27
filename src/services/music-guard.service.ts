@@ -5,10 +5,8 @@ import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 
 const NOTICE_EVERY_MS = 10 * 60_000;
-/** How long the in-channel notice stays before the bot deletes it. */
 const NOTICE_LIFETIME_MS = 10_000;
 
-/** Remembers who was told recently, so nobody gets a notice for every deleted message. */
 export class NoticeThrottle {
   private readonly lastNotice = new Map<string, number>();
 
@@ -17,7 +15,6 @@ export class NoticeThrottle {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** True if this user should be told now (and records that they were). */
   take(userId: string): boolean {
     const now = this.now();
     const last = this.lastNotice.get(userId);
@@ -27,11 +24,6 @@ export class NoticeThrottle {
   }
 }
 
-/**
- * Messages that stay in #musica: anything from a bot (music bots answering, slash command
- * replies), Discord's own system messages, and text commands for a music bot (`m!play ...`).
- * Anything else a person types is removed.
- */
 export function keepInMusicChannel(
   message: { authorIsBot: boolean; system: boolean; content: string },
   commandPrefixes: readonly string[],
@@ -58,11 +50,6 @@ export function isMusicCommand(
 
 const USER_TYPES = new Set([MessageType.Default, MessageType.Reply]);
 
-/**
- * Keeps music where it belongs (PLAN.md §6.7): #musica holds only music commands, and a music
- * command typed in any other text channel (not a voice channel's chat) is deleted. The music bots
- * can't see those channels anyway, so the command would only sit there unanswered.
- */
 export class MusicGuardService {
   private readonly throttle = new NoticeThrottle();
 
@@ -100,11 +87,9 @@ export class MusicGuardService {
     await this.tell(message, ptBR.music.notice(message.author.id, musicGuard.commandPrefixes));
   }
 
-  /** Deletes a music command typed outside #musica and the voice channels' chat. */
   private async outsideMusicChannel(message: Message<true>, musicChannelId: string): Promise<void> {
     if (message.author.bot || !USER_TYPES.has(message.type)) return;
     if (message.channel.isVoiceBased()) return;
-    // Any other bot mentioned at the start is taken as a music bot; Padrinho is not one.
     const musicBotIds = new Set(
       message.mentions.users
         .filter((user) => user.bot && user.id !== message.client.user.id)

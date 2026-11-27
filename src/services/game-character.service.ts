@@ -17,7 +17,6 @@ const API_URL = 'https://aion2.plaync.com/api/character';
 /** The game updates a profile when the character logs out; half an hour is fresh enough. */
 const CACHE_MS = 30 * 60_000;
 
-/** The official site didn't answer, or answered something unexpected. */
 export class GameApiError extends Error {}
 
 export interface CharacterSheet {
@@ -25,10 +24,6 @@ export interface CharacterSheet {
   equipment: EquipmentItem[];
 }
 
-/**
- * Reads characters from the official Aion 2 site (aion2.plaync.com), the same public API shugo.gg
- * uses. Responses are cached, so repeated /perfil calls don't hit the site again.
- */
 export class GameCharacterService {
   private readonly cache = new Map<string, { at: number; value: unknown }>();
   private readonly fetchJson: FetchJson;
@@ -67,7 +62,6 @@ export class GameCharacterService {
     }
   }
 
-  /** The character with exactly this name on the legion's server, or null. */
   async find(name: string, fresh = false): Promise<CharacterRef | null> {
     const { region, serverId } = this.lookup;
     const query = new URLSearchParams({
@@ -98,7 +92,6 @@ export class GameCharacterService {
     return profile;
   }
 
-  /** One equipped piece in full; throws GameApiError when the site can't give it. */
   async item(
     ref: { id: string; serverId: number },
     piece: Pick<EquipmentItem, 'id' | 'slotPos' | 'enchantLevel'>,

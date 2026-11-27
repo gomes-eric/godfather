@@ -19,7 +19,6 @@ const RESULT_COLORS: Record<AuditResult, number> = {
 const MAX_DETAIL_LINES = 10;
 const MAX_VALUE_LENGTH = 120;
 
-/** One readable value: ids become mentions, dates become Discord timestamps. */
 function formatValue(key: string, value: unknown): string {
   if (typeof value === 'boolean') return value ? t.yes : t.no;
   if (Array.isArray(value)) return value.map((v) => formatValue(key, v)).join(', ');
@@ -37,7 +36,6 @@ function formatValue(key: string, value: unknown): string {
   return text.length > MAX_VALUE_LENGTH ? `${text.slice(0, MAX_VALUE_LENGTH)}…` : text;
 }
 
-/** "• **Motivo:** flood" lines for the parameters, most useful first. */
 export function formatDetails(params: Record<string, unknown>): string {
   const lines = Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -53,7 +51,6 @@ export interface AuditCard {
   footer: string;
 }
 
-/** The #audit-log entry: what happened, who did it, how, to what, and the details. */
 export function auditCard(entry: RecordedAuditEntry): AuditCard {
   const f = t.fields;
   const fields: AuditCard['fields'] = [
@@ -84,7 +81,6 @@ function buildAuditEmbed(entry: RecordedAuditEntry): EmbedBuilder {
     .setTimestamp(entry.at);
 }
 
-/** Posts each audit entry to the configured audit channel, when it exists. */
 export function createDiscordAuditPublisher(
   directory: GuildDirectory,
   auditChannelKey: () => string,

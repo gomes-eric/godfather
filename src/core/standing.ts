@@ -1,15 +1,9 @@
 import { canChangeTier } from './permissions.js';
 import type { RankedTier, Tier, TierRoleIds } from './tiers.js';
 
-// A member's standing in the server: one rank of the legion's ladder, or one of the roles outside
-// it (an ally of another legion, a partner who doesn't play, someone restricted, a visitor). A
-// member has exactly one; changing it swaps every standing role at once and keeps the rest
-// (class roles, Bot...).
-
 export type Standing =
   | { kind: 'tier'; tier: RankedTier }
-  /** `alliance` is the alliance's key in server.yaml. */
-  | { kind: 'ally'; alliance: string }
+  | { kind: 'ally'; allianceKey: string }
   | { kind: 'partner' }
   | { kind: 'restricted' }
   | { kind: 'visitor' };
@@ -18,22 +12,19 @@ export const VISITOR: Standing = { kind: 'visitor' };
 export const PARTNER: Standing = { kind: 'partner' };
 export const RESTRICTED: Standing = { kind: 'restricted' };
 export const SOLDIER: Standing = { kind: 'tier', tier: 'soldier' };
-export const allyOf = (alliance: string): Standing => ({ kind: 'ally', alliance });
+export const allyOf = (allianceKey: string): Standing => ({ kind: 'ally', allianceKey });
 
-/** The role ids behind each standing; a role not created yet is missing. */
 export interface StandingRoles {
   tiers: TierRoleIds;
   visitor?: string | undefined;
   partner?: string | undefined;
   restricted?: string | undefined;
   ally?: string | undefined;
-  /** Alliance key → the role named after its legion. */
   alliances: Record<string, string>;
 }
 
 const RANKED: RankedTier[] = ['commander', 'officer', 'soldier'];
 
-/** The standing the member's roles give: the highest rank first, then ally, partner, restricted. */
 export function standingOf(
   roleIds: Iterable<string>,
   roles: StandingRoles,
@@ -55,20 +46,22 @@ export function standingOf(
   return VISITOR;
 }
 
-/** The permission tier a standing acts with: an ally counts as Soldado, the rest as Visitante. */
 export function standingTier(standing: Standing): Tier {
   if (standing.kind === 'tier') return standing.tier;
   return standing.kind === 'ally' ? 'soldier' : 'visitor';
 }
 
+export function ladderTier(standing: Standing): Tier {
+  return standing.kind === 'tier' ? standing.tier : 'visitor';
+}
+
 export function sameStanding(a: Standing, b: Standing): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'tier' && b.kind === 'tier') return a.tier === b.tier;
-  if (a.kind === 'ally' && b.kind === 'ally') return a.alliance === b.alliance;
+  if (a.kind === 'ally' && b.kind === 'ally') return a.allianceKey === b.allianceKey;
   return true;
 }
 
-/** Every role id that marks a standing. */
 function standingRoleIds(roles: StandingRoles): Set<string> {
   return new Set(
     [
@@ -82,10 +75,6 @@ function standingRoleIds(roles: StandingRoles): Set<string> {
   );
 }
 
-/**
- * The member's roles after moving to `standing`: every standing role goes, then the new one is
- * added. Null when a role the new standing needs does not exist (run /setup).
- */
 export function rolesForStanding(
   currentRoleIds: readonly string[],
   standing: Standing,
@@ -99,7 +88,7 @@ export function rolesForStanding(
     case 'tier':
       return add(roles.tiers[standing.tier]);
     case 'ally':
-      return add(roles.ally, roles.alliances[standing.alliance]);
+      return add(roles.ally, roles.alliances[standing.allianceKey]);
     case 'partner':
       return add(roles.partner);
     case 'restricted':
@@ -109,10 +98,9 @@ export function rolesForStanding(
   }
 }
 
-/** Stored form, e.g. in an application: "soldier", "partner", "ally:ally-noxus". */
 export function encodeStanding(standing: Standing): string {
   if (standing.kind === 'tier') return standing.tier;
-  return standing.kind === 'ally' ? `ally:${standing.alliance}` : standing.kind;
+  return standing.kind === 'ally' ? `ally:${standing.allianceKey}` : standing.kind;
 }
 
 export function decodeStanding(value: string): Standing {
@@ -128,11 +116,6 @@ export function decodeStanding(value: string): Standing {
 export type StandingRefusal =
   'targetIsBot' | 'targetIsOwner' | 'targetIsSelf' | 'alreadyThere' | 'cannotManageTier';
 
-/**
- * Whether `actor` may move the member to `to`. The rank rule of promotions applies: the member's
- * current and new tiers (an ally counts as Soldado) must both sit below the actor's own, unless the
- * actor owns the server. Nobody moves a bot, the owner or themselves.
- */
 export function decideStandingChange(input: {
   actorTier: Tier;
   actorId: string;

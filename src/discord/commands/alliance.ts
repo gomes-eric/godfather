@@ -15,7 +15,6 @@ const legionOption =
       .setMaxLength(100)
       .setRequired(true);
 
-/** Allied legions: Comandantes add and remove them; anyone in the legion sees the list. */
 export const allianceCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName('alliance')

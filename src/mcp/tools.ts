@@ -51,9 +51,7 @@ export interface McpServices {
   events: EventService;
   channels: ChannelService;
   roles: RoleService;
-  /** Characters on the official Aion 2 site. */
   characters: GameCharacterService;
-  /** Which character each member has. */
   registrations: CharacterStore;
   registration: RegistrationService;
   applications: ApplicationStore;
@@ -61,7 +59,6 @@ export interface McpServices {
   alliances: AllianceService;
   legion: LegionCheckService;
   news: NewsService;
-  /** Whether the bot has the Message Content intent (needed by read_messages). */
   messageContent: boolean;
 }
 
@@ -71,7 +68,6 @@ const text = (value: string): ToolResult => ({ content: [{ type: 'text', text: v
 const fail = (value: string): ToolResult => ({ ...text(value), isError: true });
 const json = (value: unknown): ToolResult => text(JSON.stringify(value, null, 2));
 
-/** Turns a service outcome into a tool result; a pending confirmation becomes a preview. */
 function fromOutcome<T>(
   outcome: ServiceOutcome<T>,
   render: (value: T) => ToolResult = (value) =>
@@ -101,9 +97,7 @@ const confirm = z
   .describe('Só true depois que o usuário confirmou a prévia mostrada');
 const reason = z.string().max(400).optional().describe('Motivo (vai para a auditoria)');
 
-/** Registers every Padrinho tool, bound to the calling actor (PLAN.md §8.3). */
 export function registerTools(server: McpServer, s: McpServices, actor: Actor): void {
-  /** Handlers may return a service outcome; it is rendered by `fromOutcome`. */
   const tool = <Shape extends z.ZodRawShape>(
     name: string,
     description: string,
@@ -122,7 +116,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       }
     }) as never);
 
-  /** Read-only actions: no target, params or confirmation. */
   const read = <T>(action: ActionName, execute: () => Promise<T>) =>
     s.runAction({ actor, action, preview: action, execute });
 
@@ -140,8 +133,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     if (!found.ok) throw new NotFound(found.reason);
     return found.value.id;
   };
-
-  // ---- Reading -------------------------------------------------------------------------------
 
   tool(
     'get_server_overview',
@@ -268,8 +259,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     async ({ limit }) => read('audit.read', async () => s.audit.recent(limit)),
   );
 
-  // ---- Channels and roles --------------------------------------------------------------------
-
   tool(
     'create_channel',
     'Cria um canal avulso de texto ou voz (fora do server.yaml).',
@@ -335,8 +324,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     { member, role: z.string() },
     async (args) => s.roles.setAssignment(actor, args.member, args.role, false),
   );
-
-  // ---- Members and moderation ----------------------------------------------------------------
 
   const rank = z.enum(TIERS).optional().describe('visitor | soldier | officer');
   tool(
@@ -464,8 +451,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     },
   );
 
-  // ---- Events --------------------------------------------------------------------------------
-
   tool('list_events', 'Eventos dos próximos 7 dias, com o número (id) de cada um.', {}, async () =>
     fromOutcome(await s.events.list(actor), (views) =>
       json(
@@ -545,8 +530,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
       });
     },
   );
-
-  // ---- Characters, registration, recruitment and the legion -----------------------------------
 
   const sheetJson = ({ profile, equipment }: CharacterSheet) => ({
     ...profile,
@@ -632,8 +615,8 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
           picked: a.requestedKind,
           origin: a.origin,
           allianceLegion: a.allianceLegion,
-          characterTakenBy: a.duplicateOf
-            ? (s.guild.members.cache.get(a.duplicateOf)?.displayName ?? a.duplicateOf)
+          characterTakenBy: a.characterTakenBy
+            ? (s.guild.members.cache.get(a.characterTakenBy)?.displayName ?? a.characterTakenBy)
             : null,
           character: a.characterName,
           class: a.className,
@@ -705,8 +688,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
         execute: async () => (await s.news.preview(args.count, args.channel)).join('\n'),
       }),
   );
-
-  // ---- Voice generators and server.yaml ------------------------------------------------------
 
   tool('list_voice_generators', 'Geradores de salas de voz (➕) do server.yaml.', {}, async () =>
     json(s.config.get().voiceGenerators),
@@ -811,10 +792,8 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   );
 }
 
-/** A member or channel the tool was given doesn't exist; the reason is shown as is. */
 class NotFound extends Error {}
 
-/** The official Aion 2 site didn't answer: a refusal the user can retry, not a crash. */
 function gameFailure(error: unknown): ServiceOutcome<never> {
   if (error instanceof GameApiError) return rejected(ptBR.profile.apiDown);
   throw error;

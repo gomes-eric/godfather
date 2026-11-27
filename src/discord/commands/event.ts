@@ -16,7 +16,6 @@ import type { SlashCommand } from './types.js';
 
 const t = ptBR.events;
 
-/** Text replies never ping: event titles may contain mentions. */
 function replyText(interaction: ChatInputCommandInteraction, content: string) {
   return replyPrivately(interaction, { content, allowedMentions: { parse: [] } });
 }

@@ -32,7 +32,6 @@ import type { Logger } from '../logger.js';
 const t = ptBR.voice;
 const CREATION_WINDOW_MS = 60_000;
 const GUILD_KEY = 'guild';
-/** How long a rename may wait on Discord before the reply says it is queued. */
 const RENAME_REPLY_AFTER_MS = 5_000;
 
 type Generator = { key: string; nameTemplate: string; userLimit: number };
@@ -56,7 +55,6 @@ interface Deps {
   logger: Logger;
 }
 
-/** The access a lock/unlock/hide/unhide leaves the room in. */
 function nextAccess(current: RoomAccess, type: 'lock' | 'unlock' | 'hide' | 'unhide'): RoomAccess {
   switch (type) {
     case 'lock':
@@ -70,7 +68,6 @@ function nextAccess(current: RoomAccess, type: 'lock' | 'unlock' | 'hide' | 'unh
   }
 }
 
-/** Join-to-create voice rooms (PLAN.md §6.6). */
 export class VoiceService {
   private readonly allocator = new RoomAllocator();
   private creationLimit: { limit: number; limiter: RateLimiter } | undefined;
@@ -79,12 +76,6 @@ export class VoiceService {
 
   constructor(private readonly deps: Deps) {}
 
-  /**
-   * Server-wide safety net, like Auto Voice Channels: at most N new rooms per minute for the
-   * whole guild (settings.voiceRooms.maxCreationsPerMinute, 0 = no limit). There is no
-   * per-person wait: someone hopping between ➕ Criar channels only swaps one empty room for
-   * another, since the room they leave is deleted.
-   */
   private allowCreation(): boolean {
     const limit = this.deps.config.get().settings.voiceRooms.maxCreationsPerMinute;
     if (limit <= 0) return true;
@@ -94,7 +85,6 @@ export class VoiceService {
     return this.creationLimit.limiter.take(GUILD_KEY);
   }
 
-  /** Generator channel id → generator config, for the generators /setup created. */
   private generators(): Map<string, Generator> {
     const map = new Map<string, Generator>();
     for (const generator of this.deps.config.get().voiceGenerators) {
@@ -128,7 +118,6 @@ export class VoiceService {
   ): Promise<void> {
     const { guild, rooms, logger } = this.deps;
     if (!this.allowCreation()) {
-      // They stay in ➕ Criar; joining it again once the minute passes creates the room.
       logger.warn({ member: member.user.tag }, 'voice room creation throttled for the guild');
       return;
     }
@@ -139,7 +128,6 @@ export class VoiceService {
     const room = await this.allocator.run(generator.key, async () => {
       const used = rooms.numbersFor(generator.key);
       const n = lowestFreeNumber(used);
-      // Sit right below the previous number (or the generator) so rooms stay in order.
       const previous = rooms
         .all()
         .filter((r) => r.generatorKey === generator.key && r.number < n)
@@ -171,7 +159,6 @@ export class VoiceService {
       await member.voice.setChannel(room, 'Moved to their new room');
       logger.info({ room: room.name, owner: member.user.tag }, 'temp voice room created');
     } catch {
-      // They left the generator before the move; don't leave an empty room behind.
       await this.deleteIfEmpty(room.id);
       return;
     }
@@ -188,7 +175,6 @@ export class VoiceService {
     };
   }
 
-  /** Posts the control panel in the room's chat; a room keeps working without one. */
   private async postPanel(channelId: string): Promise<void> {
     const room = this.deps.rooms.get(channelId);
     const channel = this.voiceChannel(channelId);
@@ -201,7 +187,6 @@ export class VoiceService {
     }
   }
 
-  /** Re-renders the panel after the room changed; posts a new one if it was deleted. */
   private async refreshPanel(channelId: string): Promise<void> {
     const room = this.deps.rooms.get(channelId);
     const channel = this.voiceChannel(channelId);
@@ -233,10 +218,6 @@ export class VoiceService {
       );
   }
 
-  /**
-   * On startup: drop rooms that emptied while the bot was off, give a panel to rooms from before
-   * panels existed, and serve anyone waiting in a ➕.
-   */
   async sweep(): Promise<{ removed: number; created: number }> {
     let removed = 0;
     for (const room of this.deps.rooms.all()) {
@@ -258,10 +239,6 @@ export class VoiceService {
     return { removed, created };
   }
 
-  /**
-   * Why the actor may not run this kind of command on the room, or undefined if they may. The
-   * panel asks before opening a form, so nobody types a name only to be refused.
-   */
   refusal(actor: Actor, channelId: string | null, type: RoomCommand['type']): string | undefined {
     const found = this.roomAndChannel(channelId);
     if (!found) return t.notInRoom;
@@ -283,14 +260,12 @@ export class VoiceService {
     return undefined;
   }
 
-  /** A temp room and its Discord channel, when both still exist. */
   private roomAndChannel(channelId: string | null) {
     const room = channelId ? this.deps.rooms.get(channelId) : undefined;
     const channel = room && this.voiceChannel(room.channelId);
     return room && channel ? { room, channel } : undefined;
   }
 
-  /** Everyone in the room but the actor and bots: who the kick picker offers. */
   occupants(channelId: string, exceptUserId: string): GuildMember[] {
     const channel = this.roomAndChannel(channelId)?.channel;
     return [...(channel?.members.values() ?? [])].filter(
@@ -298,7 +273,6 @@ export class VoiceService {
     );
   }
 
-  /** Owner (or officer) commands for a room: the one the actor is in, or a panel's room. */
   async manage(
     actor: Actor,
     channelId: string | null,
@@ -379,7 +353,6 @@ export class VoiceService {
     }
   }
 
-  /** Rebuilds the room's overwrites for the access mode and remembers it for the panel. */
   private async setAccess(room: TempRoom, channel: VoiceChannel, access: RoomAccess) {
     const generatorId = this.deps.managed.get('channel', room.generatorKey)?.discordId;
     const generator = generatorId ? this.voiceChannel(generatorId) : undefined;

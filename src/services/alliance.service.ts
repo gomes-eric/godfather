@@ -29,11 +29,6 @@ interface Deps {
   logger: Logger;
 }
 
-/**
- * Allied legions: each one is listed in server.yaml (`alliances`) and has a role named after the
- * legion, above Aliado. Adding or removing one writes the file and creates or deletes its role
- * right away, without waiting for /setup.
- */
 export class AllianceService {
   constructor(private readonly deps: Deps) {}
 
@@ -51,7 +46,6 @@ export class AllianceService {
     });
   }
 
-  /** A new allied legion and its role. */
   async add(actor: Actor, legion: string): Promise<ServiceOutcome<string>> {
     const { config } = this.deps;
     const name = legion.trim().replace(/\s+/g, ' ');
@@ -83,7 +77,6 @@ export class AllianceService {
     });
   }
 
-  /** Drops an alliance: its allies become Restrito, then its role and server.yaml entry go. */
   async remove(actor: Actor, legion: string, confirm: boolean): Promise<ServiceOutcome<string>> {
     const alliance = findAlliance(this.deps.config.get().alliances, legion);
     if (!alliance) return rejected(ptBR.members.unknownAlliance(legion));
@@ -107,7 +100,6 @@ export class AllianceService {
             preview: (name, from) =>
               ptBR.members.restrictPreview(name, from, t.removedReason(alliance.legion)),
             done: ptBR.members.restricted,
-            // Like leaving the legion: the daily check lifts it if they join us or an ally.
             restriction: { origin: 'check', reason: t.removedReason(alliance.legion) },
           });
           if (outcome.status === 'ok') restricted++;

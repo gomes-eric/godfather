@@ -10,25 +10,16 @@ import type { StandingRoles } from '../core/standing.js';
 import type { RankedTier, TierRoleIds } from '../core/tiers.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 
-/** Resolves configured roles and channels to live Discord objects. */
 export interface GuildDirectory {
   roleId(key: string): string | undefined;
   tierRoleIds(): TierRoleIds;
-  /** Visitante, which sits below the ranked tiers. */
   visitorRoleId(): string | undefined;
-  /** Every role that marks a member's standing: tiers, Aliado and the alliances, Parceiro... */
   standingRoles(): StandingRoles;
-  /** Ids of every class role that exists in Discord. */
   classRoleIds(): string[];
-  /** The member's class roles, in server.yaml order. */
   classesOf(member: { roles: { cache: { has(id: string): boolean } } }): RoleConfig[];
   channelByKey(key: string): TextChannel | undefined;
 }
 
-/**
- * Uses the ids recorded by /setup (managed_objects), which survive renames. Before the first
- * /setup, falls back to looking objects up by their configured name.
- */
 export function createDirectory(
   guild: Guild,
   store: ManagedObjectStore,

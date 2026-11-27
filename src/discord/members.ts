@@ -4,10 +4,6 @@ import { standingOf, standingTier, type Standing, type StandingRoles } from '../
 import type { Tier } from '../core/tiers.js';
 import type { GuildDirectory } from './directory.js';
 
-/**
- * The member's standing (rank, ally, partner...) from their roles as they are right now. Pass
- * `roles` when classifying many members at once, so the role ids are looked up only once.
- */
 export function memberStanding(
   member: Pick<GuildMember, 'id' | 'roles' | 'guild'>,
   directory: GuildDirectory,
@@ -16,7 +12,6 @@ export function memberStanding(
   return standingOf(member.roles.cache.keys(), roles, member.guild.ownerId === member.id);
 }
 
-/** Permission tier of a member right now: an ally counts as Soldado. */
 export function memberTier(
   member: Pick<GuildMember, 'id' | 'roles' | 'guild'>,
   directory: GuildDirectory,
@@ -25,7 +20,6 @@ export function memberTier(
   return standingTier(memberStanding(member, directory, roles));
 }
 
-/** The member, or null when they are no longer in the server. */
 export function fetchMember(guild: Guild, userId: string): Promise<GuildMember | null> {
   return guild.members.fetch(userId).catch(() => null);
 }
@@ -40,7 +34,6 @@ export function canRename(member: Pick<GuildMember, 'id' | 'guild' | 'manageable
   return member.id !== member.guild.ownerId && member.manageable;
 }
 
-/** Builds an Actor from the member's roles as they are right now. */
 export async function resolveActor(
   guild: Guild,
   directory: GuildDirectory,

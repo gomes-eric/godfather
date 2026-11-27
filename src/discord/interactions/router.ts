@@ -18,7 +18,6 @@ import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } fro
 import { handleRsvpButton } from './rsvp.js';
 import { handleSayModal } from './say.js';
 
-/** Answers the interaction if it is its own (by custom id prefix); false lets the next one try. */
 type Handler<T> = (interaction: T, ctx: CommandContext) => Promise<boolean>;
 
 const buttons: Handler<ButtonInteraction>[] = [
@@ -60,7 +59,6 @@ async function replyWithError(interaction: Interaction, content: string): Promis
   }
 }
 
-/** Dispatches slash commands, buttons, forms and menus; any unexpected error becomes a generic reply. */
 export function attachInteractionRouter(
   client: Client,
   commands: SlashCommand[],

@@ -9,17 +9,10 @@ import type { Logger } from '../logger.js';
 /** The `sub` of Padrinho's identity tokens; the federation rule matches it exactly. */
 export const WIF_SUBJECT = 'padrinho:news';
 
-/** The signing key lives next to the database, on the data volume. */
 export function wifKeyPath(databasePath: string): string {
   return join(dirname(databasePath), 'wif', 'issuer-es256.pem');
 }
 
-/**
- * A Claude API client authenticated by Workload Identity Federation: every token exchange
- * presents a fresh JWT signed with Padrinho's own key, and the SDK caches and refreshes the
- * short-lived access token. Null (features that need Claude stay off) until the federation ids
- * are in the environment and the key exists.
- */
 export function createClaudeClient(env: Env, logger: Logger): Anthropic | null {
   const ruleId = env.ANTHROPIC_FEDERATION_RULE_ID;
   const organizationId = env.ANTHROPIC_ORGANIZATION_ID;

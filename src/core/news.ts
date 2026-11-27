@@ -1,14 +1,9 @@
-// Pure handling of the game's Steam announcements (store.steampowered.com events API): reading the
-// posts, telling their kind and turning Steam's BBCode into Discord markdown.
-
 import { obj, str } from './text.js';
 
 export interface NewsPost {
-  /** Steam event id, the one in store.steampowered.com/news/app/<app>/view/<id>. */
   id: string;
   title: string;
   postedAt: Date;
-  /** Discord markdown. */
   body: string;
   url: string;
   imageUrl: string | null;
@@ -17,21 +12,20 @@ export interface NewsPost {
 /** Steam's ELanguage index for Brazilian Portuguese, used by localized image arrays. */
 const BRAZILIAN = 22;
 const CLAN_IMAGES = 'https://clan.akamai.steamstatic.com/images';
-/** Private-use stand-ins for "[" and "]" that the tag rules must not touch. */
-const OPEN = String.fromCharCode(0xe000);
-const CLOSE = String.fromCharCode(0xe001);
+const ESCAPED_OPEN_BRACKET = String.fromCharCode(0xe000);
+const ESCAPED_CLOSE_BRACKET = String.fromCharCode(0xe001);
 
-/** Steam BBCode → Discord markdown: headings and bold, bullet lists, links; images dropped. */
 export function bbcodeToMarkdown(input: string): string {
   let depth = 0;
   const out = input
     .replace(/\u200b/g, '')
-    // Literal brackets (written \[) and link brackets are kept away from the tag rules below.
-    .replaceAll('\\[', OPEN)
+    .replaceAll('\\[', ESCAPED_OPEN_BRACKET)
     .replace(
       /\[url=["']?([^"'\]]+)["']?\]([\s\S]*?)\[\/url\]/gi,
       (_, href: string, text: string) =>
-        text.trim() ? `${OPEN}${text.trim()}${CLOSE}(${href})` : href,
+        text.trim()
+          ? `${ESCAPED_OPEN_BRACKET}${text.trim()}${ESCAPED_CLOSE_BRACKET}(${href})`
+          : href,
     )
     .replace(/\[img[^\]]*\][\s\S]*?\[\/img\]|\[img[^\]]*\]/gi, '')
     .replace(
@@ -53,9 +47,8 @@ export function bbcodeToMarkdown(input: string): string {
     .replace(/\[\/td\]/gi, ' · ')
     .replace(/\[\/(p|tr|table)\]|\[br\]/gi, '\n')
     .replace(/\[\/?[a-z][a-z0-9]*(?:[ =][^\]]*)?\]/gi, '')
-    .replaceAll(OPEN, '[')
-    .replaceAll(CLOSE, ']')
-    // Bold markers around nothing read as stray asterisks.
+    .replaceAll(ESCAPED_OPEN_BRACKET, '[')
+    .replaceAll(ESCAPED_CLOSE_BRACKET, ']')
     .replace(/\*\*[ \t]*\*\*/g, '');
   return out
     .split('\n')
@@ -67,7 +60,6 @@ export function bbcodeToMarkdown(input: string): string {
     .trim();
 }
 
-/** What a post is about, from its title: it picks the card's emoji, color and label. */
 export type NewsKind = 'patch' | 'maintenance' | 'event' | 'restriction' | 'notice';
 
 export function newsKind(title: string): NewsKind {
@@ -79,13 +71,8 @@ export function newsKind(title: string): NewsKind {
   return 'notice';
 }
 
-/** "Olá, Daevas,", "Saudações, Daevas,", "**Olá Daevas,**": openings that say nothing. */
 const GREETING = /^(\*\*)?((ol[áa]|sauda[çc][õo]es|caros?|prezados?),?\s*)?daevas[,!.]?(\*\*)?$/i;
 
-/**
- * The start of a post for its card: whole paragraphs up to `max` characters, without the greeting,
- * and "…" when something was left out.
- */
 export function newsExcerpt(body: string, max: number): string {
   const paragraphs = body
     .split(/\n{2,}/)
@@ -105,7 +92,6 @@ export function newsExcerpt(body: string, max: number): string {
       continue;
     }
     if (!out) {
-      // A single long paragraph: cut it at the last line break or space that fits.
       const cut = paragraph.slice(0, max - 2);
       const at = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf(' '));
       out = cut.slice(0, at > 0 ? at : cut.length).trimEnd();
@@ -116,23 +102,17 @@ export function newsExcerpt(body: string, max: number): string {
 }
 
 export interface NewsSummary {
-  /** "Notas da Atualização" from "[Aviso] Notas da Atualização | 20 outubro (PDT) / …". */
   name: string;
-  /** What follows the "|" in the title, e.g. "20 outubro (PDT) / 21 outubro (CEST)". */
   when: string | null;
-  /** The opening line after the greeting, e.g. "Confira a atualização desta semana." */
   intro: string | null;
-  /** Each "[Section]" heading with the topics highlighted in bold under it. */
   sections: { title: string; highlights: string[] }[];
 }
 
 const MAX_HIGHLIGHTS = 4;
 const MAX_HIGHLIGHT_LENGTH = 60;
-/** Bold lines that are table column headers, not topics ("Nome do Item", "Quantidade"…). */
 const TABLE_HEADER =
   /^(nome( d[aoe]s?)? .+|item( d[aoe]s? .+)?|itens|quantidade( de .+)?|pre[çc]o|descri[çc][ãa]o|categoria|ra[çc]a|regi[ãa]o|recompensas?|mudan[çc]as|imagem|efeito|material|limite( de .+)?|moeda( de .+)?|cidade .+|n[íi]vel( para .+)?|conte[úu]dos?|data( de .+)?|negociar.*|redefini[çc][ãa]o.*|detalhes( d[aoe]s? .+)?)$/i;
 
-/** A post boiled down to its name, date, opening line and the highlighted topics of each section. */
 export function summarizeNews(note: Pick<NewsPost, 'title' | 'body'>): NewsSummary {
   const [rawName = note.title, ...rest] = note.title.split('|');
   const name = rawName.replace(/^\s*\[[^\]]*\]\s*/, '').trim() || note.title.trim();
@@ -161,14 +141,12 @@ export function summarizeNews(note: Pick<NewsPost, 'title' | 'body'>): NewsSumma
     if (!current || current.highlights.length >= MAX_HIGHLIGHTS) continue;
     const topic = text.replace(/^(\d+[.)]|■|[a-z]\))\s*/i, '').trim();
     if (!topic || topic.length > MAX_HIGHLIGHT_LENGTH || TABLE_HEADER.test(topic)) continue;
-    // "Melhorias" under "[Outras Melhorias e Correções]" says nothing new.
     if (current.title.toLowerCase().includes(topic.toLowerCase())) continue;
     if (!current.highlights.includes(topic)) current.highlights.push(topic);
   }
   return { name, when, intro, sections };
 }
 
-/** Every announcement in the Steam events feed, oldest first. */
 export function parseNews(json: unknown, appId: number): NewsPost[] {
   const events = obj(json).events;
   if (!Array.isArray(events)) return [];

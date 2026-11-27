@@ -2,8 +2,6 @@ import type { AuditResult } from '../core/audit.js';
 import type { Standing } from '../core/standing.js';
 import type { Tier } from '../core/tiers.js';
 
-// Every string shown to users in Discord lives here (PLAN.md §4).
-
 const tierNames: Record<Tier, string> = {
   commander: 'Comandante',
   officer: 'Oficial',
@@ -20,7 +18,6 @@ const auditResults: Record<AuditResult, string> = {
 
 export const ptBR = {
   tier: (tier: Tier) => tierNames[tier],
-  /** "Soldado", "Aliado (Noxus)", "Parceiro"…; `legion` names an ally's legion. */
   standing: (standing: Standing, legion?: string) =>
     standing.kind === 'tier'
       ? tierNames[standing.tier]
@@ -58,7 +55,6 @@ export const ptBR = {
       result: '📌 Resultado',
       params: '📝 Detalhes',
     },
-    /** Title of each action in #audit-log; unknown actions fall back to their key. */
     actions: {
       'member.ban': '🔨 Banimento',
       'member.unban': '🕊️ Banimento removido',
@@ -71,7 +67,7 @@ export const ptBR = {
       'member.restrict': '🔒 Restrito',
       'alliance.add': '🤝 Aliança criada',
       'alliance.remove': '✂️ Aliança desfeita',
-      'recruit.edit': '🔀 Tipo da ficha trocado',
+      'recruit.kind': '🔀 Tipo da ficha trocado',
       'member.sync': '🔄 Sincronizado com o jogo',
       'recruit.decide': '🤝 Ficha de recrutamento',
       'member.register': '🎮 Personagem registrado',
@@ -99,7 +95,6 @@ export const ptBR = {
       'mcp.token.revoke.own': '🗑️ Token MCP revogado',
       'mcp.token.revoke.any': '🗑️ Token MCP revogado',
     } as Record<string, string>,
-    /** Friendly names for common action parameters. */
     params: {
       reason: 'Motivo',
       minutes: 'Minutos',
@@ -194,10 +189,8 @@ export const ptBR = {
       `🎉 **${name}** já está na legião no jogo, então você já é **Soldado**! As boas-vindas estão na sua conversa em #recrutamento.`,
     newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
     newReview: (roleId: string) => `<@&${roleId}> a conferência diária pede uma análise:`,
-    /** Name of the private thread an application's card goes in. */
     threadName: (name: string) => `Ficha · ${name}`,
     reviewThreadName: (name: string) => `Análise · ${name}`,
-    /** Reason in Discord's audit log when a decided application's thread is deleted. */
     threadClosedReason: 'Ficha de recrutamento decidida',
     cardTitle: (name: string) => `📝 Ficha · ${name}`,
     reviewTitle: (name: string) => `🔎 Análise · ${name}`,
@@ -241,7 +234,6 @@ export const ptBR = {
     gone: 'Essa ficha não existe mais.',
     alreadyDecided: 'Essa ficha já foi decidida.',
     leftServer: 'Essa pessoa saiu do servidor.',
-    /** Reason in Discord's audit log for the roles and nickname of an approved member. */
     approvedReason: 'Ficha de recrutamento aprovada',
     autoApprovedNotice: (userId: string, character: string, legion: string) =>
       `🤖 <@${userId}> entrou sozinho como **${character}**: o personagem já está na **${legion}** no jogo. Se não for a pessoa certa, use /member restrict.`,
@@ -249,7 +241,6 @@ export const ptBR = {
       `⚠️ <@${userId}> mandou a ficha de **${character}**, que já está na legião, mas não consegui aprovar sozinho (falta algum cargo?). A ficha está em #recrutamento esperando um Oficial.`,
     duplicateNotice: (userId: string, character: string, owner: string) =>
       `⚠️ <@${userId}> mandou uma ficha com **${character}**, que já está cadastrado para <@${owner}>. A ficha espera a análise de um Oficial.`,
-    /** `inLegion`: the character was already in the legion in the game when the form was sent. */
     welcome: (id: string, legion: string, nickname: string | null, inLegion: boolean) => {
       const rest = `Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`;
       return inLegion
@@ -278,7 +269,6 @@ export const ptBR = {
       `**${character}** já está cadastrado para <@${owner}>. Para passar o personagem para esta pessoa (a outra conta vira Restrito), repita com confirm=true.`,
     noClassRole: (className: string) =>
       `A classe **${className}** não tem um cargo no server.yaml, então não sei qual cargo dar.`,
-    /** Reason in Discord's audit log for a registration done by an officer. */
     reason: (officer: string) => `Registro feito por ${officer}`,
     preview: (member: string, character: string) =>
       `Registrar **${character}** para ${member} (classe, apelido e Soldado se for Visitante).`,
@@ -323,7 +313,6 @@ export const ptBR = {
   legionCheck: {
     reportTitle: '🔎 Conferência diária da legião',
     restrictReason: 'saiu da legião no jogo',
-    /** Reason in Discord's audit log when the check changes a class role or nickname. */
     syncReason: 'Conferência diária da legião',
     renamed: (id: string, from: string, to: string) =>
       `✏️ <@${id}> trocou de nome no jogo: **${from}** → **${to}** (apelido atualizado).`,
@@ -467,7 +456,6 @@ export const ptBR = {
       alreadyAlly: 'Essa pessoa já é Aliado dessa legião.',
       alreadyRestricted: 'Essa pessoa já é Restrito.',
     } as Record<string, string>,
-    /** Could not set a standing: one of its roles is missing. */
     missingStandingRole: (standing: string) =>
       `O cargo de **${standing}** ainda não existe. Rode /setup.`,
     partnerPreview: (name: string, from: string) =>

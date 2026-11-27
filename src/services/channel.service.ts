@@ -21,10 +21,6 @@ export interface ChannelEdit {
   userLimit?: number;
 }
 
-/**
- * Ad-hoc channels (e.g. "a fixed voice room for Saturday's raid"). The planned layout belongs in
- * server.yaml; channels made here aren't managed by /setup.
- */
 export class ChannelService {
   constructor(
     private readonly deps: { guild: Guild; managed: ManagedObjectStore; runAction: ActionRunner },

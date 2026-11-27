@@ -16,7 +16,7 @@ import {
   applicationModal,
   kindMenu,
   kindText,
-  RECRUIT_DECIDE_PREFIX,
+  RECRUIT_CARD_PREFIX,
   RECRUIT_FIELDS,
   RECRUIT_MODAL_ID,
 } from '../recruitment.js';
@@ -25,7 +25,6 @@ import { failureText, replyPrivately } from '../replies.js';
 const t = ptBR.recruitment;
 const KINDS: readonly ApplicationKind[] = ['member', 'ally', 'partner', 'restricted'];
 
-/** "Enviar minha ficha": opens the form, unless they are in already or wait for a decision. */
 async function openApplication(interaction: ButtonInteraction, ctx: CommandContext) {
   const actor = await ctx.resolveActor(interaction.user.id);
   const problem =
@@ -41,7 +40,6 @@ async function openApplication(interaction: ButtonInteraction, ctx: CommandConte
   await interaction.showModal(applicationModal(ctx.registrations.get(actor.userId)?.name));
 }
 
-/** Mudar: a menu only the officer sees, with the types approving can give. */
 async function openKindMenu(interaction: ButtonInteraction, ctx: CommandContext, id: number) {
   const application = ctx.applications.get(id);
   if (!application || application.status !== 'pending') {
@@ -59,7 +57,6 @@ async function openKindMenu(interaction: ButtonInteraction, ctx: CommandContext,
   });
 }
 
-/** "Enviar minha ficha" and the officers' Aprovar/Recusar/Mudar. Returns false for other buttons. */
 export async function handleRecruitButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,
@@ -71,7 +68,7 @@ export async function handleRecruitButton(
     return true;
   }
 
-  const [action, rawId] = parseCustomId(interaction.customId, RECRUIT_DECIDE_PREFIX) ?? [];
+  const [action, rawId] = parseCustomId(interaction.customId, RECRUIT_CARD_PREFIX) ?? [];
   const id = numericPart(rawId);
   if (id === undefined) return false;
   if (action === 'change') {
@@ -80,7 +77,6 @@ export async function handleRecruitButton(
   }
   if (action !== 'approve' && action !== 'reject') return false;
 
-  // Registering can take a few seconds; the desk updates the card itself once it is decided.
   await interaction.deferUpdate();
   const actor = await ctx.resolveActor(interaction.user.id);
   const outcome = await ctx.recruitmentDesk.decide(actor, id, action === 'approve');
@@ -90,12 +86,11 @@ export async function handleRecruitButton(
   return true;
 }
 
-/** The officer picked a type in Mudar's menu: the card shows it, and Aprovar gives it. */
 export async function handleRecruitSelect(
   interaction: StringSelectMenuInteraction,
   ctx: CommandContext,
 ): Promise<boolean> {
-  const [action, rawId] = parseCustomId(interaction.customId, RECRUIT_DECIDE_PREFIX) ?? [];
+  const [action, rawId] = parseCustomId(interaction.customId, RECRUIT_CARD_PREFIX) ?? [];
   const id = numericPart(rawId);
   if (action !== 'kind' || id === undefined) return false;
   const kind = KINDS.find((k) => k === interaction.values[0]);
@@ -114,7 +109,6 @@ export async function handleRecruitSelect(
   return true;
 }
 
-/** The submitted form: checks the character on the official site and tells the officers. */
 export async function handleRecruitModal(
   interaction: ModalSubmitInteraction,
   ctx: CommandContext,
@@ -144,7 +138,6 @@ export async function handleRecruitModal(
 
   const actor = await ctx.resolveActor(interaction.user.id);
   const outcome = await ctx.recruitmentDesk.submit(actor, { picked, character });
-  // A Parceiro without a character is shown by their Discord name.
   const shown =
     character?.name ??
     (interaction.inCachedGuild() ? interaction.member.displayName : interaction.user.username);
