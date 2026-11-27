@@ -199,6 +199,11 @@ const settingsSchema = z.looseObject({
    * approved application and the daily check set it. Administrators are not affected.
    */
   lockNicknames: z.boolean().default(false),
+  /**
+   * Only roles with Administrator (and the bot) create invite links: CreateInstantInvite is
+   * removed from @everyone.
+   */
+  lockInvites: z.boolean().default(false),
   /** #noticias: every one of the game's Steam announcements, in Portuguese. */
   news: z
     .object({

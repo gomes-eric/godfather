@@ -95,6 +95,8 @@ settings:
   # Nobody changes their own nickname by hand: an approved application and the daily check set
   # it (Comandantes are not affected).
   lockNicknames: true
+  # Only Fundador, Comandante (Administrator) and Padrinho create invite links.
+  lockInvites: true
   recruitment:
     channel: recruitment
     # Each application's card goes in a private thread here that only the applicant, Oficiais and

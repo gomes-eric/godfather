@@ -3,7 +3,7 @@ import { isVoiceKind } from '../config/schema.js';
 import type { PermissionOverwrite } from '../core/permission-overwrite.js';
 import type { ManagedState } from '../db/managed-objects.js';
 import { PANEL_PREFIX } from './desired.js';
-import { lockedNicknamePermissions } from './overwrites.js';
+import { everyonePermissions } from './overwrites.js';
 import {
   EVERYONE,
   type ChannelSnapshot,
@@ -365,13 +365,10 @@ class SetupPlanner {
       });
     }
 
-    const everyone = lockedNicknamePermissions(snapshot.everyonePermissions, desired.lockNicknames);
+    const locks = { nicknames: desired.lockNicknames, invites: desired.lockInvites };
+    const everyone = everyonePermissions(snapshot.everyonePermissions, locks);
     if (everyone !== snapshot.everyonePermissions) {
-      this.layoutOps.push({
-        type: 'setNicknameLock',
-        locked: desired.lockNicknames,
-        permissions: everyone,
-      });
+      this.layoutOps.push({ type: 'setEveryoneLocks', locks, permissions: everyone });
     }
   }
 

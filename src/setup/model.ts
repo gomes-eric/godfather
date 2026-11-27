@@ -67,6 +67,7 @@ export interface DesiredState {
   community: { enable: boolean; rulesChannelKey: string; updatesChannelKey: string };
   afk: { channelKey: string; channelName: string; timeoutSeconds: number };
   lockNicknames: boolean;
+  lockInvites: boolean;
   panels: DesiredPanel[];
   unmanagedKeys: { role: Set<string>; category: Set<string>; channel: Set<string> };
 }
@@ -128,7 +129,11 @@ export type SetupOp =
   | { type: 'setCommunityChannels'; rulesChannelKey: string; updatesChannelKey: string }
   | { type: 'reorderChannels'; categoryKeys: string[]; channelKeys: Record<string, string[]> }
   | { type: 'setAfk'; channelKey: string; channelName: string; timeoutSeconds: number }
-  | { type: 'setNicknameLock'; locked: boolean; permissions: bigint }
+  | {
+      type: 'setEveryoneLocks';
+      locks: { nicknames: boolean; invites: boolean };
+      permissions: bigint;
+    }
   | { type: 'upsertPanel'; panel: DesiredPanel; messageId: string | null }
   | {
       type: 'deleteChannel' | 'deleteCategory' | 'deleteRole';

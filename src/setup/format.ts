@@ -32,8 +32,8 @@ function describeOp(op: SetupOp): string {
       return t.ops.reorderChannels;
     case 'setAfk':
       return t.ops.setAfk(op.channelName, op.timeoutSeconds / 60);
-    case 'setNicknameLock':
-      return t.ops.setNicknameLock(op.locked);
+    case 'setEveryoneLocks':
+      return t.ops.setEveryoneLocks(op.locks);
     case 'upsertPanel':
       return t.ops.upsertPanel(op.panel.channelName);
     case 'deleteChannel':

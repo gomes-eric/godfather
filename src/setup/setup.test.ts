@@ -195,6 +195,19 @@ describe('/setup reconciliation', () => {
     expect(guild.everyonePermissions & P.ChangeNickname).toBe(P.ChangeNickname);
   });
 
+  it('lets only Administrators create invites by taking CreateInstantInvite from @everyone', async () => {
+    guild.everyonePermissions |= P.CreateInstantInvite;
+    await setup(buildDesiredState(repoConfig));
+    expect(guild.everyonePermissions & P.CreateInstantInvite).toBe(0n);
+    expect(guild.everyonePermissions & P.ChangeNickname).toBe(0n);
+
+    const open = structuredClone(repoConfig);
+    open.settings.lockInvites = false;
+    await setup(buildDesiredState(open));
+    expect(guild.everyonePermissions & P.CreateInstantInvite).toBe(P.CreateInstantInvite);
+    expect(guild.everyonePermissions & P.ChangeNickname).toBe(0n);
+  });
+
   it('keeps #recrutamento read-only: the form and the cards only', async () => {
     await setup(buildDesiredState(repoConfig));
     const channel = (name: string) => guild.channels.find((c) => c.name === name)!;

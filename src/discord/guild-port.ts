@@ -268,7 +268,10 @@ export function createDiscordGuildPort(guild: Guild): GuildPort {
     },
 
     async setEveryonePermissions(permissions) {
-      await guild.roles.everyone.setPermissions(permissions, 'server.yaml: lockNicknames');
+      await guild.roles.everyone.setPermissions(
+        permissions,
+        'server.yaml: lockNicknames, lockInvites',
+      );
     },
 
     async upsertPanel(channelId, messageId, panel) {

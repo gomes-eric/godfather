@@ -208,6 +208,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
       timeoutSeconds: config.settings.afk.timeoutSeconds,
     },
     lockNicknames: config.settings.lockNicknames,
+    lockInvites: config.settings.lockInvites,
     panels,
     unmanagedKeys: {
       role: new Set(config.roles.filter((r) => !r.managed).map((r) => r.key)),

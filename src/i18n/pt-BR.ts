@@ -834,10 +834,15 @@ export const ptBR = {
       setCommunityChannels: '🏛️ Definir canais de regras e de atualizações da Comunidade',
       reorderChannels: '🔀 Reordenar categorias e canais',
       setAfk: (name: string, minutes: number) => `🌙 Canal AFK: **${name}** após ${minutes} min`,
-      setNicknameLock: (locked: boolean) =>
-        locked
-          ? '🔒 Travar apelidos: só o Padrinho muda o nome de cada um'
-          : '🔓 Destravar apelidos: cada um pode mudar o próprio',
+      setEveryoneLocks: (locks: { nicknames: boolean; invites: boolean }) =>
+        [
+          locks.nicknames
+            ? '🔒 Apelidos travados: só o Padrinho muda o nome de cada um'
+            : '🔓 Apelidos livres: cada um pode mudar o próprio',
+          locks.invites
+            ? '🔒 Convites travados: só quem é Administrador cria convite'
+            : '🔓 Convites livres: qualquer um cria convite',
+        ].join(' · '),
       upsertPanel: (name: string) => `📌 Publicar/atualizar mensagem fixa em **#${name}**`,
       deleteChannel: (name: string) => `🗑️ Apagar canal **${name}**`,
       deleteCategory: (name: string) => `🗑️ Apagar categoria **${name}**`,

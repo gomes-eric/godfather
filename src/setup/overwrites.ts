@@ -39,8 +39,18 @@ const LEVEL_RANK: Record<AccessLevel, number> = {
   none: 4,
 };
 
-export function lockedNicknamePermissions(current: bigint, locked: boolean): bigint {
-  return locked ? current & ~P.ChangeNickname : current | P.ChangeNickname;
+/** @everyone's base permissions with ChangeNickname and CreateInstantInvite locked or granted. */
+export function everyonePermissions(
+  current: bigint,
+  locks: { nicknames: boolean; invites: boolean },
+): bigint {
+  const toggle = (bits: bigint, bit: bigint, locked: boolean) =>
+    locked ? bits & ~bit : bits | bit;
+  return toggle(
+    toggle(current, P.ChangeNickname, locks.nicknames),
+    P.CreateInstantInvite,
+    locks.invites,
+  );
 }
 
 export interface AccessRule {
