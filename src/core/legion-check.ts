@@ -1,4 +1,6 @@
+import { findAlliance, type Alliance } from './alliances.js';
 import { sameLegion } from './game-character.js';
+import { allyOf, RESTRICTED, SOLDIER, type Standing } from './standing.js';
 
 // Pure rules for the daily legion check and the #ranking board.
 
@@ -32,6 +34,67 @@ export function characterChanges(
     leftLegion: wasIn && !isIn,
     joinedLegion: !wasIn && isIn,
   };
+}
+
+/** More departures than this in one check look like a site problem: nobody is moved. */
+export const MAX_DEPARTURES = 3;
+
+/** What the check does about someone's standing after reading their character. */
+export interface Transition {
+  /** The new standing; null when it only tells the officers (an Oficial or Comandante left). */
+  to: Standing | null;
+  /** Opens a review for the officers (Aprovar keeps it, Recusar puts the old standing back). */
+  review: boolean;
+  /** Left the legion or the alliance; counts toward MAX_DEPARTURES. */
+  departure: boolean;
+  why: 'leftLegion' | 'leftAlliance' | 'returned';
+}
+
+/**
+ * Who the check moves, from their standing and their character's legion at the last check and
+ * now:
+ * - a Soldado who left the legion becomes Aliado (if the new legion is an alliance) or Restrito;
+ *   an Oficial or Comandante who left is only reported;
+ * - an Aliado who left the allied legion becomes Soldado (joined us), Aliado of the new alliance,
+ *   or Restrito;
+ * - someone the check made Restrito whose character is back in the legion or in an alliance gets
+ *   Soldado or Aliado back. A restriction by an officer stays.
+ * Each change away from the legion or alliance opens a review.
+ */
+export function legionTransition(input: {
+  standing: Standing;
+  before: string;
+  now: string;
+  legion: string;
+  alliances: readonly Alliance[];
+  /** Why they are Restrito, when they are: only the check's own restrictions are lifted. */
+  restrictedBy: 'check' | 'manual' | 'transfer' | undefined;
+}): Transition | null {
+  const { standing, before, now, legion } = input;
+  const nowIn = sameLegion(now, legion);
+  const ally = findAlliance(input.alliances, now);
+  const elsewhere = (): Standing => (ally ? allyOf(ally.key) : RESTRICTED);
+
+  if (standing.kind === 'tier') {
+    if (!sameLegion(before, legion) || nowIn) return null;
+    return standing.tier === 'soldier'
+      ? { to: elsewhere(), review: true, departure: true, why: 'leftLegion' }
+      : { to: null, review: true, departure: true, why: 'leftLegion' };
+  }
+  if (standing.kind === 'ally') {
+    const allied = input.alliances.find((a) => a.key === standing.alliance);
+    if (!allied || !sameLegion(before, allied.legion) || sameLegion(now, allied.legion)) {
+      return null;
+    }
+    return nowIn
+      ? { to: SOLDIER, review: false, departure: false, why: 'returned' }
+      : { to: elsewhere(), review: true, departure: true, why: 'leftAlliance' };
+  }
+  if (standing.kind === 'restricted' && input.restrictedBy === 'check') {
+    if (nowIn) return { to: SOLDIER, review: false, departure: false, why: 'returned' };
+    if (ally) return { to: allyOf(ally.key), review: false, departure: false, why: 'returned' };
+  }
+  return null;
 }
 
 /** The check runs again once the oldest registration was last checked this long ago. */

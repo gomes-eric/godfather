@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isMap, isScalar, isSeq, parseDocument, type YAMLMap } from 'yaml';
 import { ConfigError, loadServerConfig, parseServerConfig } from './loader.js';
-import type { EventTemplateConfig, ServerConfig } from './schema.js';
+import type { AllianceConfig, EventTemplateConfig, ServerConfig } from './schema.js';
 
 export type VoiceGeneratorConfig = ServerConfig['voiceGenerators'][number];
 
@@ -62,6 +62,34 @@ export class ConfigStore {
     if (!node || !isSeq(list))
       throw new ConfigError(`voice generator "${key}" not found in server.yaml`);
     list.items.splice(list.items.indexOf(node), 1);
+    return this.save(doc);
+  }
+
+  /** Adds an allied legion to server.yaml (its role is created by the caller). */
+  addAlliance(alliance: AllianceConfig): ServerConfig {
+    const doc = this.document();
+    const list = doc.get('alliances');
+    if (findItem(list, alliance.key)) {
+      throw new ConfigError(`alliance "${alliance.key}" is already in server.yaml`);
+    }
+    if (isSeq(list) && list.items.length > 0) {
+      list.add(doc.createNode(alliance, { flow: true }));
+    } else {
+      // An empty `alliances: []` is a flow sequence; a block list reads better as it grows.
+      const node = doc.createNode([alliance]);
+      node.items[0]!.flow = true;
+      doc.set('alliances', node);
+    }
+    return this.save(doc);
+  }
+
+  removeAlliance(key: string): ServerConfig {
+    const doc = this.document();
+    const list = doc.get('alliances');
+    const node = findItem(list, key);
+    if (!node || !isSeq(list)) throw new ConfigError(`alliance "${key}" not found in server.yaml`);
+    list.items.splice(list.items.indexOf(node), 1);
+    if (list.items.length === 0) list.flow = true;
     return this.save(doc);
   }
 

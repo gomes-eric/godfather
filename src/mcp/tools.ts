@@ -9,7 +9,8 @@ import type { ActionName } from '../core/permissions.js';
 import { SNOWFLAKE } from '../core/resolve.js';
 import type { AuditLog } from '../core/audit.js';
 import { TIERS } from '../core/tiers.js';
-import { memberTier } from '../discord/members.js';
+import { memberStanding, memberTier } from '../discord/members.js';
+import { findAlliance } from '../core/alliances.js';
 import type { GuildDirectory } from '../discord/directory.js';
 import { findChannel, findMember } from '../discord/resolvers.js';
 import { ptBR } from '../i18n/pt-BR.js';
@@ -18,6 +19,7 @@ import { itemLabel, sameLegion } from '../core/game-character.js';
 import { byCombatPower } from '../core/legion-check.js';
 import type { ApplicationStore } from '../db/applications.js';
 import type { CharacterStore } from '../db/characters.js';
+import type { AllianceService } from '../services/alliance.service.js';
 import type { ChannelService } from '../services/channel.service.js';
 import {
   GameApiError,
@@ -56,6 +58,7 @@ export interface McpServices {
   registration: RegistrationService;
   applications: ApplicationStore;
   recruitmentDesk: RecruitmentDesk;
+  alliances: AllianceService;
   legion: LegionCheckService;
   news: NewsService;
   /** Whether the bot has the Message Content intent (needed by read_messages). */
@@ -146,10 +149,10 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     {},
     async () => {
       const byTier: Record<string, number> = {};
-      const tierIds = s.directory.tierRoleIds();
+      const standingRoles = s.directory.standingRoles();
       for (const m of s.guild.members.cache.values()) {
         if (m.user.bot) continue;
-        const tier = ptBR.tier(memberTier(m, s.directory, tierIds));
+        const tier = ptBR.tier(memberTier(m, s.directory, standingRoles));
         byTier[tier] = (byTier[tier] ?? 0) + 1;
       }
       const categories = [...s.guild.channels.cache.values()]
@@ -206,7 +209,7 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
     { query: z.string().optional() },
     async ({ query }) => {
       const needle = query?.toLowerCase();
-      const tierIds = s.directory.tierRoleIds();
+      const standingRoles = s.directory.standingRoles();
       const rows = [...s.guild.members.cache.values()]
         .filter((m) => !m.user.bot)
         .filter(
@@ -220,7 +223,8 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
           id: m.id,
           name: m.displayName,
           username: m.user.username,
-          tier: ptBR.tier(memberTier(m, s.directory, tierIds)),
+          tier: ptBR.tier(memberTier(m, s.directory, standingRoles)),
+          standing: s.members.standingName(memberStanding(m, s.directory, standingRoles)),
           classes: s.directory.classesOf(m).map((r) => r.name),
         }));
       return json(rows);
@@ -350,9 +354,39 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   );
   tool(
     'partner_member',
-    'Torna Parceiro (amigo que não joga) um Visitante, ou com remove=true tira o Parceiro e volta para Visitante.',
+    'Torna Parceiro (amigo que não joga) qualquer membro, tirando o cargo anterior (Soldado, Aliado, Restrito...). Com remove=true tira o Parceiro e volta para Visitante.',
     { member, remove: z.boolean().optional().describe('true para tirar o cargo') },
     async (args) => s.members.partner(actor, memberId(args.member), args.remove === true),
+  );
+  tool(
+    'ally_member',
+    'Torna alguém Aliado de uma aliança que já existe (veja list_alliances), tirando o cargo anterior. Aliado vê os mesmos canais de um Soldado.',
+    { member, legion: z.string().describe('A legião aliada') },
+    async (args) => {
+      const alliance = findAlliance(s.config.get().alliances, args.legion);
+      return s.members.ally(actor, memberId(args.member), alliance?.key ?? args.legion);
+    },
+  );
+  tool(
+    'restrict_member',
+    'Restringe alguém: tira o cargo atual e dá Restrito (só vê o #geral). O motivo vai para o canal dos oficiais. promote_member, partner_member ou ally_member tiram o Restrito.',
+    { member, reason: z.string().min(1).max(300).describe('Motivo (aparece para os oficiais)') },
+    async (args) => s.members.restrict(actor, memberId(args.member), args.reason),
+  );
+  tool('list_alliances', 'As legiões aliadas e quantos aliados cada uma tem.', {}, async () =>
+    s.alliances.list(actor),
+  );
+  tool(
+    'add_alliance',
+    'Cria uma aliança com uma legião (só Comandante): entra no server.yaml e ganha um cargo com o nome da legião, acima de Aliado.',
+    { legion: z.string().min(1).max(100).describe('Nome da legião, exatamente como no jogo') },
+    async (args) => s.alliances.add(actor, args.legion),
+  );
+  tool(
+    'remove_alliance',
+    'Desfaz uma aliança (destrutivo, só Comandante): os aliados dela viram Restrito e o cargo da legião é apagado.',
+    { legion: z.string().describe('A legião aliada'), confirm },
+    async (args) => s.alliances.remove(actor, args.legion, args.confirm === true),
   );
   tool(
     'kick_member',
@@ -574,8 +608,16 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   tool(
     'register_character',
     'Registra o personagem de um membro, como uma ficha aprovada: cargo da classe, apelido "emoji Nome", personagem guardado para /perfil e #ranking, e Soldado se ele for Visitante.',
-    { member, character: z.string().describe('Nome exato do personagem no jogo') },
-    async (args) => s.registration.register(actor, memberId(args.member), args.character),
+    {
+      member,
+      character: z.string().describe('Nome exato do personagem no jogo'),
+      confirm: z
+        .boolean()
+        .optional()
+        .describe('true para passar um personagem que já é de outra conta (ela vira Restrito)'),
+    },
+    async (args) =>
+      s.registration.register(actor, memberId(args.member), args.character, args.confirm === true),
   );
   tool(
     'list_applications',
@@ -586,6 +628,14 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
         s.applications.list(status === 'all' ? undefined : status).map((a) => ({
           id: a.id,
           status: a.status,
+          kind: a.kind,
+          picked: a.requestedKind,
+          origin: a.origin,
+          allianceLegion: a.allianceLegion,
+          note: a.note,
+          characterTakenBy: a.duplicateOf
+            ? (s.guild.members.cache.get(a.duplicateOf)?.displayName ?? a.duplicateOf)
+            : null,
           character: a.characterName,
           class: a.className,
           level: a.level,
@@ -600,14 +650,23 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
   );
   tool(
     'decide_application',
-    'Aprova ou recusa uma ficha de recrutamento. Aprovar registra o personagem, dá Soldado e dá as boas-vindas no canal; o card no #recrutamento é atualizado.',
-    { id: z.number().int(), approve: z.boolean() },
-    async (args) =>
-      fromOutcome(await s.recruitmentDesk.decide(actor, args.id, args.approve), (application) =>
+    'Aprova ou recusa uma ficha (ou uma análise da conferência diária). Aprovar dá o cargo do tipo da ficha: member = Soldado (registra o personagem), ally = Aliado da legião do personagem (aliança nova só Comandante, e cria a aliança), partner = Parceiro, restricted = Restrito. Passe kind para trocar o tipo antes de aprovar. Recusar uma análise devolve o cargo anterior.',
+    {
+      id: z.number().int(),
+      approve: z.boolean(),
+      kind: z.enum(['member', 'ally', 'partner', 'restricted']).optional(),
+    },
+    async (args) => {
+      if (args.kind) {
+        const changed = await s.recruitmentDesk.changeKind(actor, args.id, args.kind);
+        if (changed.status !== 'ok') return fromOutcome(changed, () => text(''));
+      }
+      return fromOutcome(await s.recruitmentDesk.decide(actor, args.id, args.approve), (a) =>
         text(
-          `Ficha #${application.id} (${application.characterName}): ${application.status === 'approved' ? 'aprovada' : 'recusada'}.`,
+          `Ficha #${a.id} (${a.characterName ?? a.userId}, ${s.recruitmentDesk.kindName(a)}): ${a.status === 'approved' ? 'aprovada' : 'recusada'}.`,
         ),
-      ),
+      );
+    },
   );
   tool(
     'run_legion_check',

@@ -7,6 +7,9 @@ describe('authorize', () => {
     ['member.ban', 'commander'],
     ['member.kick', 'officer'],
     ['channel.delete', 'commander'],
+    ['member.restrict', 'officer'],
+    ['alliance.add', 'commander'],
+    ['alliance.read', 'soldier'],
     ['event.create', 'officer'],
     ['event.rsvp', 'soldier'],
     ['setup.apply', 'commander'],
@@ -44,6 +47,7 @@ describe('destructive actions', () => {
       .sort();
 
     expect(destructive).toEqual([
+      'alliance.remove',
       'channel.delete',
       'event.cancel',
       'member.ban',

@@ -118,8 +118,18 @@ export class WelcomeService {
    */
   async syncAutoRoles(): Promise<{ bots: number; visitors: number }> {
     const { visitor, bot } = this.autoRoleIds();
-    const legionRoles = new Set(Object.values(this.deps.directory.tierRoleIds()));
-    if (visitor) legionRoles.add(visitor);
+    // Anyone with a standing role (a rank, Aliado, Parceiro, Restrito...) already has one.
+    const standing = this.deps.directory.standingRoles();
+    const legionRoles = new Set(
+      [
+        ...Object.values(standing.tiers),
+        ...Object.values(standing.alliances),
+        standing.visitor,
+        standing.partner,
+        standing.restricted,
+        standing.ally,
+      ].filter((id): id is string => id !== undefined),
+    );
     for (const key of soldierLikeRoleKeys(this.deps.config.get())) {
       const id = this.deps.directory.roleId(key);
       if (id) legionRoles.add(id);

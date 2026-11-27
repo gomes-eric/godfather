@@ -24,6 +24,20 @@ export class CharacterStore {
       .get();
   }
 
+  /** Who has this in-game character registered, if anyone. */
+  byCharacter(characterId: string): RegisteredCharacter | undefined {
+    return this.db
+      .select()
+      .from(registeredCharacters)
+      .where(eq(registeredCharacters.characterId, characterId))
+      .get();
+  }
+
+  /** The member no longer has a character (it moved to another account). */
+  delete(userId: string): void {
+    this.db.delete(registeredCharacters).where(eq(registeredCharacters.userId, userId)).run();
+  }
+
   all(): RegisteredCharacter[] {
     return this.db.select().from(registeredCharacters).all();
   }

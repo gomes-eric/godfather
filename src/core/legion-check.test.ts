@@ -3,6 +3,7 @@ import {
   characterChanges,
   checkDue,
   CHECK_EVERY_MS,
+  legionTransition,
   RANKING_SIZE,
   rankingLines,
 } from './legion-check.js';
@@ -70,5 +71,60 @@ describe('rankingLines', () => {
     expect(lines).toHaveLength(RANKING_SIZE);
     expect(lines[0]).toContain('**M13**');
     expect(lines.at(-1)).toContain('**M4**');
+  });
+});
+
+describe('legionTransition', () => {
+  const alliances = [{ key: 'ally-noxus', legion: 'Noxus' }];
+  const soldier = { kind: 'tier', tier: 'soldier' } as const;
+  const go = (
+    standing: Parameters<typeof legionTransition>[0]['standing'],
+    before: string,
+    now: string,
+    restrictedBy?: 'check' | 'manual',
+  ) => legionTransition({ standing, before, now, legion: 'M4F1A', alliances, restrictedBy });
+
+  it('restricts a Soldado who left, or makes them Aliado of an allied legion', () => {
+    expect(go(soldier, 'M4F1A', 'Outra')).toMatchObject({
+      to: { kind: 'restricted' },
+      review: true,
+      departure: true,
+    });
+    expect(go(soldier, 'M4F1A', 'noxus')).toMatchObject({
+      to: { kind: 'ally', alliance: 'ally-noxus' },
+    });
+    expect(go(soldier, 'M4F1A', 'M4F1A')).toBeNull();
+    // Approved but not in the legion yet: nothing left, nothing to do.
+    expect(go(soldier, '', '')).toBeNull();
+  });
+
+  it('only reports an Oficial who left', () => {
+    expect(go({ kind: 'tier', tier: 'officer' }, 'M4F1A', '')).toMatchObject({
+      to: null,
+      review: true,
+    });
+  });
+
+  it('follows an Aliado who left the allied legion', () => {
+    const ally = { kind: 'ally', alliance: 'ally-noxus' } as const;
+    expect(go(ally, 'Noxus', 'Outra')).toMatchObject({ to: { kind: 'restricted' }, review: true });
+    expect(go(ally, 'Noxus', 'M4F1A')).toMatchObject({
+      to: { kind: 'tier', tier: 'soldier' },
+      review: false,
+      departure: false,
+    });
+    expect(go(ally, 'Noxus', 'Noxus')).toBeNull();
+  });
+
+  it("lifts only the check's own restrictions", () => {
+    const restricted = { kind: 'restricted' } as const;
+    expect(go(restricted, 'Outra', 'M4F1A', 'check')).toMatchObject({
+      to: { kind: 'tier', tier: 'soldier' },
+      why: 'returned',
+    });
+    expect(go(restricted, 'Outra', 'Noxus', 'check')).toMatchObject({
+      to: { kind: 'ally', alliance: 'ally-noxus' },
+    });
+    expect(go(restricted, 'Outra', 'M4F1A', 'manual')).toBeNull();
   });
 });

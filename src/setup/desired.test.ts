@@ -32,3 +32,43 @@ describe('music bots only in #musica and the voice chats', () => {
     }
   });
 });
+
+describe('Aliado, Restrito and the alliances', () => {
+  const on = (state: typeof desired, channelKey: string, role: string) =>
+    state.channels.find((c) => c.key === channelKey)!.overwrites.find((o) => o.target === role);
+
+  it('gives Aliado what Soldado gets, even where Parceiro is left out', () => {
+    for (const key of ['general', 'builds', 'agenda', 'alliance-chat', 'alliance-voice']) {
+      expect(on(desired, key, 'ally')?.allow ?? 0n, key).not.toBe(0n);
+    }
+    expect(on(desired, 'builds', 'partner')).toBeUndefined();
+    expect(on(desired, 'alliance-chat', 'partner')).toBeUndefined();
+    expect(on(desired, 'officers', 'ally')).toBeUndefined();
+  });
+
+  it('lets Restrito into #geral only', () => {
+    expect(on(desired, 'general', 'restricted')!.allow & P.ViewChannel).toBe(P.ViewChannel);
+    for (const key of ['off-topic', 'news', 'alliance-chat', 'general-voice']) {
+      expect(on(desired, key, 'restricted'), key).toBeUndefined();
+    }
+  });
+
+  it('puts each alliance role right above Aliado, hoisted, without permissions', () => {
+    const withAlliance = buildDesiredState({
+      ...config,
+      alliances: [{ key: 'ally-noxus', legion: 'Noxus' }],
+    });
+    const keys = withAlliance.roles.map((r) => r.key);
+    expect(keys.slice(keys.indexOf('soldier'), keys.indexOf('partner') + 1)).toEqual([
+      'soldier',
+      'ally-noxus',
+      'ally',
+      'partner',
+    ]);
+    expect(withAlliance.roles.find((r) => r.key === 'ally-noxus')).toMatchObject({
+      name: 'Noxus',
+      hoist: true,
+      permissions: 0n,
+    });
+  });
+});

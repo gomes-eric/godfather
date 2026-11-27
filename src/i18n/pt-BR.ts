@@ -1,4 +1,5 @@
 import type { AuditResult } from '../core/audit.js';
+import type { Standing } from '../core/standing.js';
 import type { Tier } from '../core/tiers.js';
 
 // Every string shown to users in Discord lives here (PLAN.md §4).
@@ -19,6 +20,19 @@ const auditResults: Record<AuditResult, string> = {
 
 export const ptBR = {
   tier: (tier: Tier) => tierNames[tier],
+  /** "Soldado", "Aliado (Noxus)", "Parceiro"…; `legion` names an ally's legion. */
+  standing: (standing: Standing, legion?: string) =>
+    standing.kind === 'tier'
+      ? tierNames[standing.tier]
+      : standing.kind === 'ally'
+        ? legion
+          ? `Aliado (${legion})`
+          : 'Aliado'
+        : standing.kind === 'partner'
+          ? 'Parceiro'
+          : standing.kind === 'restricted'
+            ? 'Restrito'
+            : 'Visitante',
 
   errors: {
     denied: (requiredTier: Tier) =>
@@ -52,7 +66,12 @@ export const ptBR = {
       'member.timeout': '🔇 Timeout',
       'member.promote': '⬆️ Promoção',
       'member.demote': '⬇️ Rebaixamento',
-      'member.partner': '🤝 Parceiro',
+      'member.partner': '💬 Parceiro',
+      'member.ally': '🤝 Aliado',
+      'member.restrict': '🔒 Restrito',
+      'alliance.add': '🤝 Aliança criada',
+      'alliance.remove': '✂️ Aliança desfeita',
+      'recruit.edit': '🔀 Tipo da ficha trocado',
       'member.sync': '🔄 Sincronizado com o jogo',
       'recruit.decide': '🤝 Ficha de recrutamento',
       'member.register': '🎮 Personagem registrado',
@@ -125,14 +144,20 @@ export const ptBR = {
     recruitmentTitle: (legion: string) => `🎮 Ficha da ${legion}`,
     recruitmentIntro: (legion: string) =>
       [
-        'Clique em **Enviar minha ficha** e digite o nome do seu personagem no Aion 2. A ficha serve para os dois casos:',
+        'Clique em **Enviar minha ficha**, escolha o tipo e digite o nome do seu personagem no Aion 2.',
         '',
-        `🛡️ **Já está na ${legion} no jogo?** Mande a ficha para ganhar o seu cargo aqui no Discord.`,
-        `🌱 **Quer entrar na ${legion}?** Mande a ficha e um Oficial avalia.`,
+        `⚔️ **Membro**: para quem já está na ${legion} ou quer entrar.`,
+        'Se o seu personagem já está na legião, você vira **Soldado** na hora. Se não está, um Oficial avalia a sua ficha.',
         '',
-        '🔎 O Padrinho confere o seu personagem no site oficial (classe, nível, poder de combate e legião).',
-        '📋 A sua ficha aparece aqui embaixo, e um Oficial aprova ou recusa.',
-        '🎉 Aprovado, você vira **Soldado**, ganha o cargo da sua classe e o apelido com o nome do personagem.',
+        '🤝 **Aliança**: para quem é de uma legião aliada.',
+        'O Padrinho confere a sua legião no jogo e um Oficial aprova. Se a sua legião ainda não é aliada, a ficha vira um pedido de aliança, que um Comandante avalia.',
+        '',
+        '💬 **Parceiro**: para amigos que não jogam.',
+        'O personagem é opcional. Conte quem te convidou, e um Oficial avalia.',
+        '',
+        '🔎 O Padrinho confere o personagem no site oficial: classe, nível, poder de combate e legião.',
+        '🔒 A sua ficha abre uma conversa privada só com você e a liderança, e a resposta chega por lá.',
+        '🎉 Aprovado, você ganha o seu cargo, o cargo da sua classe e o apelido com o nome do personagem.',
         '',
         '-# Dúvidas? Pergunte em {channel:visitor-qa}.',
       ].join('\n'),
@@ -140,23 +165,49 @@ export const ptBR = {
 
   recruitment: {
     applyButton: 'Enviar minha ficha',
-    modalTitle: 'Ficha da legião',
+    modalTitle: 'Ficha de entrada',
+    kindLabel: 'Como você quer entrar?',
+    kindPlaceholder: 'Escolha: Membro, Aliança ou Parceiro',
+    kinds: {
+      member: { emoji: '⚔️', label: 'Membro', hint: 'Já está na legião ou quer entrar nela' },
+      ally: { emoji: '🤝', label: 'Aliança', hint: 'É de uma legião aliada' },
+      partner: { emoji: '💬', label: 'Parceiro', hint: 'Não joga, mas quer ficar com a gente' },
+      restricted: { emoji: '🔒', label: 'Restrito', hint: 'Só vê o #geral' },
+    },
     nameLabel: 'Nome do personagem',
     namePlaceholder: 'Exatamente como no Aion 2 (ex.: Padrinho)',
-    nameHint: 'O bot confere no site oficial do Aion 2: classe, poder e legião.',
+    nameHint: 'Obrigatório para Membro e Aliança. O bot confere classe, poder e legião.',
+    noteLabel: 'Quem te convidou / por que quer entrar',
+    notePlaceholder: 'Opcional. Ex.: amigo do Padrinho, jogo na Noxus…',
     alreadyMember: 'Você já faz parte da legião aqui no Discord.',
     notFound: (name: string) =>
       `Não achei o personagem **${name}** no Triniel. Confira o nome exatamente como aparece no jogo.`,
+    nameRequired: 'Para Membro e Aliança, digite o nome do seu personagem no jogo.',
+    noLegionForAlly:
+      'Seu personagem não está em uma legião no jogo. Mande a ficha como **Membro** ou **Parceiro**.',
     alreadyPending: 'Sua ficha já foi enviada e está com os Oficiais. Aguarde a resposta.',
     sent: (name: string) =>
-      `✅ Ficha de **${name}** enviada! Ela está no #recrutamento, e um Oficial vai aprovar ou recusar por lá.`,
+      `✅ Ficha de **${name}** enviada! Abri uma conversa privada com a liderança em #recrutamento, e a resposta chega por lá.`,
+    autoApproved: (name: string) =>
+      `🎉 **${name}** já está na legião no jogo, então você já é **Soldado**! As boas-vindas estão na sua conversa em #recrutamento.`,
     newApplication: (roleId: string) => `<@&${roleId}> nova ficha de recrutamento para analisar:`,
+    newReview: (roleId: string) => `<@&${roleId}> a conferência diária pede uma análise:`,
     /** Name of the private thread an application's card goes in. */
-    threadName: (character: string) => `Ficha · ${character}`,
+    threadName: (name: string) => `Ficha · ${name}`,
+    reviewThreadName: (name: string) => `Análise · ${name}`,
     /** Reason in Discord's audit log when a decided application's thread is deleted. */
     threadClosedReason: 'Ficha de recrutamento decidida',
-    cardTitle: (name: string) => `📝 Ficha da legião · ${name}`,
+    cardTitle: (name: string) => `📝 Ficha · ${name}`,
+    reviewTitle: (name: string) => `🔎 Análise · ${name}`,
     applicant: (id: string) => `👤 <@${id}>`,
+    fromCheck: (previous: string) =>
+      `🚪 A conferência diária viu que o personagem saiu da legião (era **${previous}**).`,
+    kindLine: (kind: string) => `📌 Tipo: **${kind}**`,
+    pickedLine: (kind: string) => `↪️ Escolheu na ficha: ${kind}`,
+    newAllianceWarning: (legion: string) =>
+      `🆕 **Pedido de aliança nova:** a **${legion}** ainda não é aliada. Só um Comandante aprova, e aprovar cria a aliança.`,
+    duplicateWarning: (owner: string) =>
+      `⚠️ **Personagem já cadastrado** para <@${owner}>. Aprovar passa o personagem para esta pessoa, e a outra conta vira Restrito.`,
     pending: '⏳ Aguardando um Oficial',
     approvedBy: (id: string) => `✅ Aprovada por <@${id}>`,
     rejectedBy: (id: string) => `✖️ Recusada por <@${id}>`,
@@ -165,15 +216,37 @@ export const ptBR = {
     powerField: '📊 Poder',
     legionField: '🏰 Legião atual',
     noLegion: 'Sem legião',
-    footer: (id: number, legion: string) =>
-      `Ficha #${id} · aprovar registra o personagem e dá Soldado na ${legion}`,
+    characterField: '🎮 Personagem',
+    noCharacter: 'Não informou',
+    noteField: '💬 Quem convidou / por que quer entrar',
+    footer: (id: number) => `Ficha #${id} · Mudar troca o tipo antes de aprovar`,
+    reviewFooter: (id: number) =>
+      `Análise #${id} · Aprovar mantém o que o bot fez · Recusar devolve o cargo anterior`,
     approve: 'Aprovar',
     reject: 'Recusar',
+    change: 'Mudar',
+    changePlaceholder: 'Escolha o tipo que aprovar vai dar',
+    changePrompt: 'Que tipo esta ficha deve ter? Depois é só clicar em **Aprovar** no card.',
+    allyNoLegionOption: 'Aliança (o personagem não está em legião)',
+    changed: (kind: string) => `🔀 Tipo da ficha trocado para **${kind}**.`,
+    noCharacterForKind:
+      'Essa ficha não tem personagem. Membro e Aliança precisam de um; peça uma ficha nova.',
+    noLegionForKind:
+      'O personagem desta ficha não está em uma legião, então não dá para ser Aliança.',
+    restrictedOnlyReviews: 'Restrito só vale para as análises da conferência diária.',
+    newAllianceNeedsCommander: (legion: string) =>
+      `A **${legion}** ainda não é uma aliança. Só um Comandante aprova um pedido de aliança nova (e aprovar cria a aliança).`,
     gone: 'Essa ficha não existe mais.',
     alreadyDecided: 'Essa ficha já foi decidida.',
     leftServer: 'Essa pessoa saiu do servidor.',
     /** Reason in Discord's audit log for the roles and nickname of an approved member. */
     approvedReason: 'Ficha de recrutamento aprovada',
+    autoApprovedNotice: (userId: string, character: string, legion: string) =>
+      `🤖 <@${userId}> entrou sozinho como **${character}**: o personagem já está na **${legion}** no jogo. Se não for a pessoa certa, use /member restrict.`,
+    autoApprovalFailed: (userId: string, character: string) =>
+      `⚠️ <@${userId}> mandou a ficha de **${character}**, que já está na legião, mas não consegui aprovar sozinho (falta algum cargo?). A ficha está em #recrutamento esperando um Oficial.`,
+    duplicateNotice: (userId: string, character: string, owner: string) =>
+      `⚠️ <@${userId}> mandou uma ficha com **${character}**, que já está cadastrado para <@${owner}>. A ficha espera a análise de um Oficial.`,
     /** `inLegion`: the character was already in the legion in the game when the form was sent. */
     welcome: (id: string, legion: string, nickname: string | null, inLegion: boolean) => {
       const rest = `Agora você é **Soldado** aqui${nickname ? ` e seu apelido virou **${nickname}**` : ''}.`;
@@ -184,9 +257,23 @@ export const ptBR = {
             `🎮 Falta só aceitar o convite da **${legion}** no jogo: um Oficial vai te convidar.`,
           ].join('\n');
     },
+    welcomeAlly: (id: string, legion: string, chatId: string | null) =>
+      [
+        `🤝 <@${id}>, bem-vindo(a), aliado(a) da **${legion}**! Você vê os mesmos canais de um Soldado.`,
+        ...(chatId ? [`💬 O chat da aliança é o <#${chatId}>.`] : []),
+      ].join('\n'),
+    welcomePartner: (id: string) =>
+      `💬 <@${id}>, bem-vindo(a)! Agora você é **Parceiro**: pode conversar e usar a voz com a gente.`,
   },
 
   registration: {
+    transferReason: (character: string) => `o personagem ${character} passou para outra conta`,
+    transferred: (character: string, oldOwner: string, newOwner: string) =>
+      `🔁 O personagem **${character}** passou de <@${oldOwner}> para <@${newOwner}>. A conta antiga perdeu o personagem e virou Restrito.`,
+    takenAttempt: (character: string, owner: string, userId: string, by: string) =>
+      `⚠️ <@${by}> tentou registrar **${character}** para <@${userId}>, mas ele já está cadastrado para <@${owner}>.`,
+    takenNeedsConfirm: (character: string, owner: string) =>
+      `**${character}** já está cadastrado para <@${owner}>. Para passar o personagem para esta pessoa (a outra conta vira Restrito), repita com confirm=true.`,
     noClassRole: (className: string) =>
       `A classe **${className}** não tem um cargo no server.yaml, então não sei qual cargo dar.`,
     /** Reason in Discord's audit log for a registration done by an officer. */
@@ -233,6 +320,7 @@ export const ptBR = {
 
   legionCheck: {
     reportTitle: '🔎 Conferência diária da legião',
+    restrictReason: 'saiu da legião no jogo',
     /** Reason in Discord's audit log when the check changes a class role or nickname. */
     syncReason: 'Conferência diária da legião',
     renamed: (id: string, from: string, to: string) =>
@@ -240,7 +328,19 @@ export const ptBR = {
     classChanged: (id: string, from: string, to: string) =>
       `🔄 <@${id}> mudou de classe: **${from}** → **${to}** (cargo atualizado).`,
     left: (id: string, name: string, legion: string, now: string) =>
-      `🚪 <@${id}> (**${name}**) saiu da **${legion}** no jogo${now ? ` e agora está na **${now}**` : ''}. Use \`/member demote\` se for o caso.`,
+      `🚪 <@${id}> (**${name}**) saiu da **${legion}** no jogo${now ? ` e agora está na **${now}**` : ''}. Use \`/member restrict\` se for o caso.`,
+    moved: (id: string, name: string, now: string, from: string, to: string) =>
+      `🚪 <@${id}> (**${name}**) saiu da legião no jogo${now ? ` e agora está na **${now}**` : ''}: era ${from}, virou **${to}**. A análise está numa thread aqui.`,
+    returned: (id: string, name: string, to: string) =>
+      `↩️ <@${id}> (**${name}**) voltou no jogo e virou **${to}** de novo.`,
+    leaderLeft: (id: string, name: string, legion: string, now: string, standing: string) =>
+      `🚨 <@${id}> (**${name}**, ${standing}) saiu da **${legion}** no jogo${now ? ` e agora está na **${now}**` : ''}. O cargo não muda sozinho; a análise está numa thread aqui.`,
+    moveFailed: (id: string, name: string, to: string) =>
+      `⚠️ <@${id}> (**${name}**) devia virar **${to}**, mas não consegui mudar o cargo. Confira à mão.`,
+    tooManyDepartures: (count: number, max: number) =>
+      `🛑 ${count} pessoas pareceram sair da legião de uma vez (o limite é ${max}). Pode ser um problema no site oficial, então ninguém mudou de cargo. Confira no jogo; a próxima conferência vê de novo.`,
+    heldBack: (id: string, name: string, now: string) =>
+      `⏸️ <@${id}> (**${name}**) aparece ${now ? `na **${now}**` : 'sem legião'}; nada mudou.`,
     joined: (id: string, name: string, legion: string) =>
       `🛡️ <@${id}> (**${name}**) entrou na **${legion}** no jogo.`,
     rankingTitle: (legion: string) => `🏆 Ranking da ${legion}`,
@@ -362,12 +462,31 @@ export const ptBR = {
       targetTooHigh: 'Você só pode moderar quem está abaixo do seu cargo.',
       alreadyPartner: 'Essa pessoa já é Parceiro.',
       notPartner: 'Essa pessoa não é Parceiro.',
-      inLegion:
-        'Essa pessoa já é da legião. Parceiro é para quem não joga; rebaixe para Visitante antes, se for o caso.',
+      alreadyAlly: 'Essa pessoa já é Aliado dessa legião.',
+      alreadyRestricted: 'Essa pessoa já é Restrito.',
     } as Record<string, string>,
+    /** Could not set a standing: one of its roles is missing. */
+    missingStandingRole: (standing: string) =>
+      `O cargo de **${standing}** ainda não existe. Rode /setup.`,
+    partnerPreview: (name: string, from: string) =>
+      `Tornar **${name}** Parceiro (hoje: ${from}). O cargo anterior sai.`,
+    allyPreview: (name: string, from: string, legion: string) =>
+      `Tornar **${name}** Aliado da **${legion}** (hoje: ${from}). O cargo anterior sai.`,
+    allied: (name: string, legion: string) =>
+      `🤝 **${name}** agora é **Aliado** da **${legion}**: vê os mesmos canais de um Soldado.`,
+    restrictPreview: (name: string, from: string, reason: string) =>
+      `Restringir **${name}** (hoje: ${from}): só vai ver o #geral. Motivo: ${reason}`,
+    restricted: (name: string) => `🔒 **${name}** agora é **Restrito**: só vê o #geral.`,
+    restrictNotice: (officerId: string, userId: string, from: string, reason: string) =>
+      `🔒 <@${officerId}> restringiu <@${userId}> (era ${from}). Motivo: ${reason}`,
+    noRestrictedRole:
+      'O cargo Restrito não está configurado (settings.restrictedRole). Rode /setup.',
+    noAllyRole: 'O cargo Aliado não está configurado (settings.allyRole). Rode /setup.',
+    unknownAlliance: (legion: string) =>
+      `**${legion}** não é uma aliança. Veja as alianças em /alliance list.`,
     noPartnerRole: 'O cargo de Parceiro não está configurado (settings.partnerRole). Rode /setup.',
     partnered: (name: string) =>
-      `🤝 **${name}** agora é **Parceiro**: pode conversar e usar a voz com a legião.`,
+      `💬 **${name}** agora é **Parceiro**: pode conversar e usar a voz com a legião.`,
     unpartnered: (name: string) => `↩️ **${name}** deixou de ser Parceiro e voltou a Visitante.`,
     notMember: 'Essa pessoa não está no servidor.',
     missingRole: (tier: string) => `O cargo **${tier}** ainda não existe. Rode /setup.`,
@@ -388,6 +507,27 @@ export const ptBR = {
       timedOut: 'Em timeout até',
       none: '—',
     },
+  },
+
+  alliances: {
+    emptyName: 'Diga o nome da legião aliada.',
+    ownLegion: 'Essa é a nossa própria legião.',
+    exists: (legion: string) => `A **${legion}** já é uma aliança.`,
+    addPreview: (legion: string) =>
+      `Criar a aliança com a **${legion}**: um cargo com o nome da legião, acima de Aliado.`,
+    added: (legion: string) =>
+      `🤝 A **${legion}** agora é uma aliança. Use /member ally para pôr alguém nela, ou aprove as fichas de Aliança.`,
+    addedWithoutRole: (legion: string) =>
+      `🤝 A **${legion}** entrou no server.yaml, mas não consegui criar o cargo. Rode /setup.`,
+    removePreview: (legion: string, allies: number) =>
+      `Desfazer a aliança com a **${legion}**: ${allies === 1 ? '1 aliado vira' : `${allies} aliados viram`} Restrito e o cargo da legião é apagado.`,
+    removedReason: (legion: string) => `a aliança com a ${legion} acabou`,
+    removed: (legion: string, restricted: number) =>
+      `✂️ A aliança com a **${legion}** acabou. ${restricted === 1 ? '1 aliado virou' : `${restricted} aliados viraram`} Restrito.`,
+    listTitle: '🤝 Alianças',
+    listEmpty: 'Nenhuma aliança ainda. Um Comandante cria com /alliance add.',
+    listLine: (legion: string, members: number) =>
+      `**${legion}** · ${members === 1 ? '1 aliado' : `${members} aliados`}`,
   },
 
   moderation: {
@@ -762,13 +902,29 @@ export const ptBR = {
           },
           {
             usage: 'Fichas no #recrutamento',
-            text: 'Aprove ou recuse quem pediu para entrar na legião',
+            text: 'Aprove, recuse ou mude o tipo (Membro, Aliança, Parceiro) de quem pediu para entrar',
             tier: 'officer',
           },
           {
             usage: '/member partner',
-            text: 'Dá ou tira o cargo Parceiro (quem não joga)',
+            text: 'Torna alguém Parceiro (quem não joga), tirando o cargo anterior',
             tier: 'officer',
+          },
+          {
+            usage: '/member ally',
+            text: 'Torna alguém Aliado de uma aliança, tirando o cargo anterior',
+            tier: 'officer',
+          },
+          {
+            usage: '/member restrict',
+            text: 'Restringe alguém ao #geral, com o motivo para os oficiais',
+            tier: 'officer',
+          },
+          { usage: '/alliance list', text: 'As legiões aliadas', tier: 'soldier' },
+          {
+            usage: '/alliance add · remove',
+            text: 'Cria ou desfaz uma aliança (os aliados dela viram Restrito)',
+            tier: 'commander',
           },
           { usage: '/member info', text: 'Cargo, classes e datas de alguém', tier: 'officer' },
         ],

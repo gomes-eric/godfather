@@ -13,7 +13,7 @@ import { handleConfirmationButton } from './confirmation.js';
 import { handlePartyButton } from './party.js';
 import { handleGearSelect } from './gear.js';
 import { handleRankingSelect } from './ranking.js';
-import { handleRecruitButton, handleRecruitModal } from './recruitment.js';
+import { handleRecruitButton, handleRecruitModal, handleRecruitSelect } from './recruitment.js';
 import { handleRoomKickSelect, handleRoomPanelButton, handleRoomPanelModal } from './room-panel.js';
 import { handleRsvpButton } from './rsvp.js';
 import { handleSayModal } from './say.js';
@@ -37,6 +37,7 @@ const selectMenus: Handler<StringSelectMenuInteraction>[] = [
   handleRankingSelect,
   handleGearSelect,
   handleRoomKickSelect,
+  handleRecruitSelect,
 ];
 
 async function dispatch<T extends { customId: string }>(

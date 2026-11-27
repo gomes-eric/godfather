@@ -6,6 +6,7 @@ import {
   type RoleConfig,
   type ServerConfig,
 } from '../config/schema.js';
+import type { StandingRoles } from '../core/standing.js';
 import type { RankedTier, TierRoleIds } from '../core/tiers.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 
@@ -15,6 +16,8 @@ export interface GuildDirectory {
   tierRoleIds(): TierRoleIds;
   /** Visitante, which sits below the ranked tiers. */
   visitorRoleId(): string | undefined;
+  /** Every role that marks a member's standing: tiers, Aliado and the alliances, Parceiro... */
+  standingRoles(): StandingRoles;
   /** Ids of every class role that exists in Discord. */
   classRoleIds(): string[];
   /** The member's class roles, in server.yaml order. */
@@ -34,25 +37,43 @@ export function createDirectory(
   const roleId = (key: string) => {
     const managed = store.get('role', key)?.discordId;
     if (managed && guild.roles.cache.has(managed)) return managed;
-    const name = config().roles.find((r) => r.key === key)?.name;
+    const name =
+      config().roles.find((r) => r.key === key)?.name ??
+      config().alliances.find((a) => a.key === key)?.legion;
     return name ? guild.roles.cache.find((r) => r.name === name)?.id : undefined;
   };
+  const settingRole = (key: string | undefined) => (key ? roleId(key) : undefined);
+  const tierRoleIds = () => {
+    const ids: TierRoleIds = {};
+    for (const [tier, key] of Object.entries(tierRoleKeys(config())) as [RankedTier, string][]) {
+      const id = roleId(key);
+      if (id) ids[tier] = id;
+    }
+    return ids;
+  };
+  const visitorRoleId = () => settingRole(config().roles.find((r) => r.tier === 'visitor')?.key);
 
   return {
     roleId,
 
-    tierRoleIds() {
-      const ids: TierRoleIds = {};
-      for (const [tier, key] of Object.entries(tierRoleKeys(config())) as [RankedTier, string][]) {
-        const id = roleId(key);
-        if (id) ids[tier] = id;
-      }
-      return ids;
-    },
+    tierRoleIds,
+    visitorRoleId,
 
-    visitorRoleId() {
-      const key = config().roles.find((r) => r.tier === 'visitor')?.key;
-      return key ? roleId(key) : undefined;
+    standingRoles() {
+      const { settings, alliances } = config();
+      const allianceIds: Record<string, string> = {};
+      for (const alliance of alliances) {
+        const id = roleId(alliance.key);
+        if (id) allianceIds[alliance.key] = id;
+      }
+      return {
+        tiers: tierRoleIds(),
+        visitor: visitorRoleId(),
+        partner: settingRole(settings.partnerRole),
+        restricted: settingRole(settings.restrictedRole),
+        ally: settingRole(settings.allyRole),
+        alliances: allianceIds,
+      };
     },
 
     classRoleIds() {

@@ -26,19 +26,20 @@ trocar para usar o bot no seu servidor.
 
 ## O que o bot faz
 
-| Área         | O que faz                                                                                                                                                                                                                                     |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Servidor     | Cria e mantém cargos, categorias, canais, permissões, regras e o painel de boas-vindas a partir do `server.yaml` (`/setup`).                                                                                                                  |
-| Hierarquia   | Quatro níveis: Comandante, Oficial, Soldado e Visitante. Cada comando exige um nível mínimo, e o dono do servidor conta sempre como Comandante.                                                                                               |
-| Recrutamento | Painel "Enviar minha ficha". Cada ficha abre uma thread privada (candidato, Oficiais e Comandantes). Aprovar registra o personagem, dá Soldado, o cargo da classe e o apelido. A thread some 1 h depois de aprovada e 6 h depois de recusada. |
-| Personagens  | `/perfil` lê o personagem no site oficial do Aion 2, com os equipamentos. Uma checagem diária atualiza classe e nome e avisa quem entrou ou saiu da legião.                                                                                   |
-| Ranking      | Canal de ranking reconstruído todo dia e quando alguém usa `/ranking`.                                                                                                                                                                        |
-| Eventos      | Eventos recorrentes (Cerco, Chefes, Boss semanal) com lembretes, confirmação de presença por botões e agenda. Os horários seguem o [shugo.gg](https://shugo.gg/timers) sozinhos.                                                              |
-| Notícias     | Lê os anúncios do jogo na Steam a cada 15 min e posta no canal de notícias. Com Claude ligado, cada post vira um resumo em português que marca @everyone ou os cargos das classes afetadas.                                                   |
-| Voz          | Canais "➕ Criar" que geram salas temporárias (Dungeon 01, 02…). O dono da sala a renomeia e limita com `/voice`.                                                                                                                             |
-| Música       | Bots de música só respondem em #musica e no chat dos canais de voz. Comandos de música digitados em outro canal são apagados.                                                                                                                 |
-| Moderação    | `/mod`, `/member`, `/say` e log de auditoria de tudo que o bot faz.                                                                                                                                                                           |
-| Grupos       | `/party` monta grupos para conteúdo.                                                                                                                                                                                                          |
+| Área         | O que faz                                                                                                                                                                                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Servidor     | Cria e mantém cargos, categorias, canais, permissões, regras e o painel de boas-vindas a partir do `server.yaml` (`/setup`).                                                                                                                                                                                |
+| Hierarquia   | Quatro níveis: Comandante, Oficial, Soldado e Visitante. Fora deles: Aliado (de uma legião aliada, conta como Soldado), Parceiro (não joga) e Restrito (só vê o #geral). Mudar alguém de cargo tira o anterior sozinho. O dono do servidor conta sempre como Comandante.                                    |
+| Recrutamento | Painel "Enviar minha ficha" com três tipos: Membro (quem já está na legião vira Soldado na hora), Aliança (cria a aliança se um Comandante aprovar) e Parceiro. Cada ficha abre uma thread privada, e o Oficial aprova, recusa ou muda o tipo. Personagem já cadastrado em outra conta nunca entra sozinho. |
+| Personagens  | `/perfil` lê o personagem no site oficial do Aion 2, com os equipamentos. Uma checagem diária atualiza classe e nome e avisa quem entrou ou saiu da legião.                                                                                                                                                 |
+| Ranking      | Canal de ranking reconstruído todo dia e quando alguém usa `/ranking`.                                                                                                                                                                                                                                      |
+| Eventos      | Eventos recorrentes (Cerco, Chefes, Boss semanal) com lembretes, confirmação de presença por botões e agenda. Os horários seguem o [shugo.gg](https://shugo.gg/timers) sozinhos.                                                                                                                            |
+| Notícias     | Lê os anúncios do jogo na Steam a cada 15 min e posta no canal de notícias. Com Claude ligado, cada post vira um resumo em português que marca @everyone ou os cargos das classes afetadas.                                                                                                                 |
+| Voz          | Canais "➕ Criar" que geram salas temporárias (Dungeon 01, 02…). O dono da sala a renomeia e limita com `/voice`.                                                                                                                                                                                           |
+| Música       | Bots de música só respondem em #musica e no chat dos canais de voz. Comandos de música digitados em outro canal são apagados.                                                                                                                                                                               |
+| Moderação    | `/mod`, `/member`, `/say` e log de auditoria de tudo que o bot faz.                                                                                                                                                                                                                                         |
+| Alianças     | `/alliance add`, `remove` e `list`. Cada aliança tem um cargo com o nome da legião e acesso à categoria Aliança.                                                                                                                                                                                            |
+| Grupos       | `/party` monta grupos para conteúdo.                                                                                                                                                                                                                                                                        |
 
 `/help` lista os comandos que cada pessoa pode usar, de acordo com o nível dela.
 
@@ -110,6 +111,12 @@ a facção e as regras. `{member}` menciona quem entrou, e `{channel:<key>}` vir
 
 **Recrutamento** (`settings.recruitment`): o canal do painel, o canal das threads de ficha e o cargo
 avisado quando chega uma ficha nova.
+
+**Aliados e Restritos** (`settings.allyRole`, `settings.restrictedRole`, `settings.alliances` e a
+lista `alliances` no fim do arquivo): o cargo Aliado conta como Soldado em todos os canais; o
+Restrito só vê os canais que o liberam (no exemplo, o #geral). A lista `alliances` é escrita pelo
+`/alliance add`. A checagem diária transforma em Restrito quem sai da legião no jogo e abre uma
+análise para os oficiais (com mais de 3 saídas de uma vez, ela não muda ninguém).
 
 **Notícias** (`settings.news`): o canal e o app da Steam (`3393110` é o AION 2). Sem `summary`, sai o
 card simples da Steam. Os resumos com Claude estão na [seção 7](#7-resumos-de-notícias-com-claude-opcional).

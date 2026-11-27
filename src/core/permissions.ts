@@ -28,6 +28,13 @@ export const ACTION_POLICIES = {
   'member.promote': policy('officer'),
   'member.demote': policy('officer', { destructive: true }),
   'member.partner': policy('officer'),
+  // Aliado of an existing alliance, and Restrito (only #geral), in place of the previous standing.
+  'member.ally': policy('officer'),
+  'member.restrict': policy('officer'),
+  // Allied legions: creating or dropping one is the Comandantes' call; anyone in sees the list.
+  'alliance.add': policy('commander'),
+  'alliance.remove': policy('commander', { destructive: true }),
+  'alliance.read': policy('soldier', { audited: false }),
   // The daily legion check updating a member's class role and nickname (the bot itself).
   'member.sync': policy('commander'),
   'member.read': policy('officer', { audited: false }),
@@ -45,6 +52,8 @@ export const ACTION_POLICIES = {
   // Recruitment: a Visitante applies; an officer approves (registers them, makes them Soldado).
   'recruit.apply': policy('visitor', { audited: false }),
   'recruit.decide': policy('officer'),
+  // Mudar: what approving an application does (Membro, Aliança, Parceiro).
+  'recruit.edit': policy('officer'),
   'recruit.read': policy('officer', { audited: false }),
   // Running the daily legion check (or rebuilding #ranking) now instead of waiting for it.
   'legion.check': policy('officer'),

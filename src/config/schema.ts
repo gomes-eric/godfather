@@ -143,6 +143,12 @@ const botTextChannelsSchema = z.object({
   channels: z.array(key).min(1),
 });
 
+/** An allied legion; /alliance add writes these. Its role is named after the legion. */
+const allianceSchema = z.object({
+  key,
+  legion: z.string().min(1).max(100),
+});
+
 const AFK_TIMEOUTS = [60, 300, 900, 1800, 3600] as const;
 
 const settingsSchema = z.looseObject({
@@ -156,6 +162,20 @@ const settingsSchema = z.looseObject({
   }),
   /** Role /member partner gives to people who don't play (they keep it instead of Visitante). */
   partnerRole: key.optional(),
+  /**
+   * Members of an allied legion: this role counts as Soldado in every channel and command (outside
+   * the legion's ranking and check); each alliance adds a role named after its legion on top.
+   */
+  allyRole: key.optional(),
+  /** Who left the legion (or was restricted by an officer): sees only what its channels allow. */
+  restrictedRole: key.optional(),
+  /** Look of the per-legion alliance roles, and the alliance chat linked in their welcome. */
+  alliances: z
+    .object({
+      color: hexColor.optional(),
+      channel: key.optional(),
+    })
+    .default({}),
   welcome: z.object({
     channel: key,
     autoRole: key,
@@ -258,6 +278,7 @@ export const serverConfigSchema = z
     botTextChannels: botTextChannelsSchema.optional(),
     voiceGenerators: z.array(voiceGeneratorSchema).default([]),
     eventTemplates: z.array(eventTemplateSchema).default([]),
+    alliances: z.array(allianceSchema).default([]),
   })
   .superRefine((config, ctx) => {
     const issue = (path: (string | number)[], message: string) =>
@@ -299,6 +320,7 @@ export const serverConfigSchema = z
       [['recruitment', 'announceChannel'], s.recruitment?.announceChannel],
       [['characters', 'reportChannel'], s.characters.reportChannel],
       [['characters', 'rankingChannel'], s.characters.rankingChannel],
+      [['alliances', 'channel'], s.alliances.channel],
       [['eventDefaults', 'announceChannel'], s.eventDefaults.announceChannel],
       [['eventDefaults', 'agendaChannel'], s.eventDefaults.agendaChannel],
     ];
@@ -320,6 +342,23 @@ export const serverConfigSchema = z
     const partnerRole = config.settings.partnerRole;
     if (partnerRole !== undefined && !roleKeys.includes(partnerRole)) {
       issue(['settings', 'partnerRole'], `unknown role key "${partnerRole}"`);
+    }
+    for (const field of ['allyRole', 'restrictedRole'] as const) {
+      const roleKey = config.settings[field];
+      if (roleKey !== undefined && !roleKeys.includes(roleKey)) {
+        issue(['settings', field], `unknown role key "${roleKey}"`);
+      }
+    }
+    const allianceKeys = config.alliances.map((a) => a.key);
+    for (const dup of duplicates(allianceKeys))
+      issue(['alliances'], `duplicate alliance key "${dup}"`);
+    for (const clash of allianceKeys.filter((k) => roleKeys.includes(k))) {
+      issue(['alliances'], `alliance key "${clash}" is also a role key`);
+    }
+    const legions = config.alliances.map((a) => a.legion.toLowerCase());
+    for (const dup of duplicates(legions)) issue(['alliances'], `legion "${dup}" is listed twice`);
+    if (config.alliances.length > 0 && !config.settings.allyRole) {
+      issue(['settings', 'allyRole'], 'alliances need settings.allyRole');
     }
     const botRole = config.settings.welcome.botRole;
     if (botRole !== undefined && !roleKeys.includes(botRole)) {
@@ -397,9 +436,12 @@ export function classRoles(config: ServerConfig): RoleConfig[] {
   return config.roles.filter((role) => role.class);
 }
 
-/** Roles that stand in for Soldado somewhere (asSoldier), e.g. Parceiro. */
+export type AllianceConfig = ServerConfig['alliances'][number];
+
+/** Roles that stand in for Soldado somewhere (asSoldier, or Aliado everywhere), e.g. Parceiro. */
 export function soldierLikeRoleKeys(config: ServerConfig): string[] {
   const keys = new Set<string>();
+  if (config.settings.allyRole) keys.add(config.settings.allyRole);
   for (const category of config.categories) {
     for (const key of category.access.asSoldier ?? []) keys.add(key);
     for (const channel of category.channels) {

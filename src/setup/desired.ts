@@ -52,16 +52,37 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
     allow: permissionBits(entry.allow),
   }));
 
+  // Aliado counts as Soldado everywhere: it joins every channel's asSoldier list, even where
+  // Parceiro is left out with `asSoldier: []`.
+  const allyKey = config.settings.allyRole;
+  const asSoldier = (keys: string[] | undefined) => [
+    ...(keys ?? []),
+    ...(allyKey && !keys?.includes(allyKey) ? [allyKey] : []),
+  ];
+
+  // Each alliance's role (named after its legion, no permissions) sits right above Aliado,
+  // hoisted so the member list groups people by legion.
+  const allianceRoles = config.alliances.map((alliance) => ({
+    key: alliance.key,
+    name: alliance.legion,
+    color: config.settings.alliances.color ?? 0,
+    hoist: true,
+    mentionable: false,
+    permissions: 0n,
+  }));
   const roles = config.roles
     .filter((role) => role.managed)
-    .map((role) => ({
-      key: role.key,
-      name: role.name,
-      color: role.color ?? 0,
-      hoist: role.hoist,
-      mentionable: role.mentionable,
-      permissions: permissionBits(role.permissions),
-    }));
+    .flatMap((role) => [
+      ...(role.key === allyKey ? allianceRoles : []),
+      {
+        key: role.key,
+        name: role.name,
+        color: role.color ?? 0,
+        hoist: role.hoist,
+        mentionable: role.mentionable,
+        permissions: permissionBits(role.permissions),
+      },
+    ]);
 
   const categories = config.categories
     .filter((category) => category.managed)
@@ -77,7 +98,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: category.access.view,
           write: category.access.write,
           tierRoleKeys: tiers,
-          asSoldierRoleKeys: category.access.asSoldier ?? [],
+          asSoldierRoleKeys: asSoldier(category.access.asSoldier),
           ...(hasVoice && { extraAllows: voiceAllows }),
         }),
       };
@@ -100,7 +121,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: access.view,
           write: access.write,
           tierRoleKeys: tiers,
-          asSoldierRoleKeys: access.asSoldier ?? [],
+          asSoldierRoleKeys: asSoldier(access.asSoldier),
           ...(channel.allowSlashCommands && { slashCommands: channel.allowSlashCommands }),
           extraAllows: [
             ...(isVoice ? voiceAllows : []),
@@ -139,7 +160,7 @@ export function buildDesiredState(config: ServerConfig): DesiredState {
           view: category.access.view,
           write: category.access.write,
           tierRoleKeys: tiers,
-          asSoldierRoleKeys: category.access.asSoldier ?? [],
+          asSoldierRoleKeys: asSoldier(category.access.asSoldier),
           extraAllows: voiceAllows,
         }),
         tags: [],

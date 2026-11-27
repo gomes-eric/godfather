@@ -3,6 +3,7 @@ import type { Db } from './client.js';
 import { applications } from './schema.js';
 
 export type Application = typeof applications.$inferSelect;
+export type ApplicationKind = Application['kind'];
 export type NewApplication = Omit<
   typeof applications.$inferInsert,
   'id' | 'status' | 'messageId' | 'decidedBy' | 'decidedAt' | 'createdAt'
@@ -60,6 +61,11 @@ export class ApplicationStore {
       .set({ threadId: null, messageId: null })
       .where(eq(applications.id, id))
       .run();
+  }
+
+  /** An officer's Mudar: what approving the application will do. */
+  setKind(id: number, kind: ApplicationKind, allianceLegion: string | null): void {
+    this.db.update(applications).set({ kind, allianceLegion }).where(eq(applications.id, id)).run();
   }
 
   decide(id: number, status: 'approved' | 'rejected', decidedBy: string): void {

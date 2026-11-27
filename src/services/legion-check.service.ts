@@ -4,19 +4,32 @@ import type { ConfigStore } from '../config/store.js';
 import type { ActionRunner } from '../core/action.js';
 import { systemActor } from '../core/actor.js';
 import { matchClass, sameLegion } from '../core/game-character.js';
-import { characterChanges, checkDue, rankingLines } from '../core/legion-check.js';
+import {
+  characterChanges,
+  checkDue,
+  legionTransition,
+  MAX_DEPARTURES,
+  rankingLines,
+  type Transition,
+} from '../core/legion-check.js';
+import type { CharacterProfile } from '../core/game-character.js';
+import { encodeStanding, type Standing } from '../core/standing.js';
+import type { ActionName } from '../core/permissions.js';
 import { registrationNickname } from '../core/registration.js';
 import { repeat, type BackgroundJob } from '../core/repeat.js';
-import type { CharacterStore, RegisteredCharacter } from '../db/characters.js';
+import type { CharacterSnapshot, CharacterStore, RegisteredCharacter } from '../db/characters.js';
+import type { RestrictionStore } from '../db/restrictions.js';
 import type { ManagedObjectStore } from '../db/managed-objects.js';
 import { applyCharacter } from '../discord/character-registration.js';
 import { COLORS } from '../discord/colors.js';
 import type { GuildDirectory } from '../discord/directory.js';
-import { fetchMember } from '../discord/members.js';
+import { fetchMember, memberStanding } from '../discord/members.js';
 import { rankingMenu } from '../discord/ranking-menu.js';
 import { ptBR } from '../i18n/pt-BR.js';
 import type { Logger } from '../logger.js';
 import type { GameCharacterService } from './game-character.service.js';
+import type { MemberService } from './member.service.js';
+import type { ReviewInput } from './recruitment.service.js';
 
 const t = ptBR.legionCheck;
 const RANKING_MESSAGE_KEY = 'ranking-board';
@@ -33,14 +46,43 @@ interface Deps {
   registrations: CharacterStore;
   characters: GameCharacterService;
   runAction: ActionRunner;
+  members: MemberService;
+  restrictions: RestrictionStore;
+  /** Opens a review for the officers (RecruitmentDesk.openReview). */
+  review: (input: ReviewInput) => Promise<void>;
   logger: Logger;
   pause?: (ms: number) => Promise<void>;
 }
 
+/** One member's result, applied once every character has been read. */
+interface Checked {
+  userId: string;
+  lines: string[];
+  snapshot: CharacterSnapshot;
+  /** The legion at the last check: kept when a held-back move must be seen again tomorrow. */
+  legionBefore: string;
+  move?: {
+    member: GuildMember;
+    from: Standing;
+    transition: Transition;
+    character: CharacterProfile;
+  };
+}
+
+const MOVE_ACTION: Record<Standing['kind'], ActionName> = {
+  tier: 'member.promote',
+  ally: 'member.ally',
+  partner: 'member.partner',
+  restricted: 'member.restrict',
+  visitor: 'member.demote',
+};
+
 /**
  * Once a day, re-reads every registered character on the official site: a class or name change
- * updates the member's class role and nickname, a character that left (or joined) the legion is
- * reported to the officers, and the #ranking board is rebuilt from the fresh numbers.
+ * updates the member's class role and nickname; someone who left the legion (or their alliance's
+ * legion) becomes Restrito or Aliado with a review for the officers, and someone the check
+ * restricted who came back gets their place again (legionTransition). The officers get a report,
+ * and the #ranking board is rebuilt from the fresh numbers.
  */
 export class LegionCheckService implements BackgroundJob {
   private running = false;
@@ -69,15 +111,16 @@ export class LegionCheckService implements BackgroundJob {
     if (this.running) return [];
     this.running = true;
     try {
-      const report: string[] = [];
+      const checked: Checked[] = [];
       for (const row of this.deps.registrations.all()) {
-        const lines = await this.checkOne(row).catch((error: unknown) => {
+        const result = await this.checkOne(row).catch((error: unknown) => {
           this.deps.logger.warn({ err: error, user: row.userId }, 'legion check failed for member');
-          return [];
+          return undefined;
         });
-        report.push(...lines);
+        if (result) checked.push(result);
         await this.pause(PAUSE_MS);
       }
+      const report = await this.applyMoves(checked);
       await this.postReport(report);
       await this.refreshRanking();
       this.deps.logger.info({ changes: report.length }, 'legion check done');
@@ -87,10 +130,10 @@ export class LegionCheckService implements BackgroundJob {
     }
   }
 
-  private async checkOne(row: RegisteredCharacter): Promise<string[]> {
-    const { guild, registrations, characters, config } = this.deps;
+  private async checkOne(row: RegisteredCharacter): Promise<Checked | undefined> {
+    const { guild, characters, config } = this.deps;
     const member = await fetchMember(guild, row.userId);
-    if (!member) return []; // Left the Discord; nothing to update.
+    if (!member) return undefined; // Left the Discord; nothing to update.
 
     const profile = await characters.profile({ id: row.characterId, serverId: row.serverId }, true);
     const classRole = matchClass(profile.className, classRoles(config.get()));
@@ -120,14 +163,107 @@ export class LegionCheckService implements BackgroundJob {
         );
       }
     }
-    if (changes.leftLegion) lines.push(t.left(member.id, now.name, legion, now.legion));
-    if (changes.joinedLegion) lines.push(t.joined(member.id, now.name, legion));
 
-    registrations.updateSnapshot(row.userId, {
-      ...now,
-      combatPower: profile.combatPower,
-      itemLevel: profile.itemLevel,
-    });
+    const snapshot = { ...now, combatPower: profile.combatPower, itemLevel: profile.itemLevel };
+    const from = memberStanding(member, this.deps.directory);
+    // Registered before the legion was stored: this first check only sets the baseline.
+    const transition = row.checkedAt
+      ? legionTransition({
+          standing: from,
+          before: row.legion,
+          now: profile.legion,
+          legion,
+          alliances: config.get().alliances,
+          restrictedBy: this.deps.restrictions.get(member.id)?.origin,
+        })
+      : null;
+    if (!transition) {
+      if (changes.leftLegion) lines.push(t.left(member.id, now.name, legion, now.legion));
+      if (changes.joinedLegion) lines.push(t.joined(member.id, now.name, legion));
+    }
+    return {
+      userId: member.id,
+      lines,
+      snapshot,
+      legionBefore: row.legion,
+      ...(transition && { move: { member, from, transition, character: profile } }),
+    };
+  }
+
+  /**
+   * Carries out the moves the check found and stores what it saw. With more than MAX_DEPARTURES
+   * departures nobody is moved (it looks like a problem on the site): the officers are asked to
+   * look, and those characters keep their old legion so tomorrow's check sees them again.
+   */
+  private async applyMoves(checked: Checked[]): Promise<string[]> {
+    const report = checked.flatMap((c) => c.lines);
+    const departures = checked.filter((c) => c.move?.transition.departure).length;
+    const holdBack = departures > MAX_DEPARTURES;
+    if (holdBack) report.push(t.tooManyDepartures(departures, MAX_DEPARTURES));
+
+    for (const c of checked) {
+      if (c.move && holdBack) {
+        report.push(t.heldBack(c.userId, c.snapshot.name, c.snapshot.legion));
+      } else if (c.move) {
+        report.push(...(await this.carryOut(c.move)));
+      }
+      const legion = c.move && holdBack ? c.legionBefore : c.snapshot.legion;
+      this.deps.registrations.updateSnapshot(c.userId, { ...c.snapshot, legion });
+    }
+    return report;
+  }
+
+  /** One move: the new standing (by Padrinho, audited) and the review or the report line. */
+  private async carryOut(move: NonNullable<Checked['move']>): Promise<string[]> {
+    const { member, from, transition, character } = move;
+    const bot = systemActor(this.deps.guild.client.user.id);
+    const { members } = this.deps;
+    const fromName = members.standingName(from);
+    const legion = this.deps.config.get().settings.characters.legion;
+    const lines: string[] = [];
+
+    if (transition.to) {
+      const to = transition.to;
+      const outcome = await members.move(bot, member.id, to, {
+        action: MOVE_ACTION[to.kind],
+        preview: (name, was) => `${was} → ${members.standingName(to)}: ${name}`,
+        done: (name) => name,
+        restriction: { origin: 'check', reason: t.restrictReason },
+      });
+      if (outcome.status !== 'ok') {
+        this.deps.logger.warn({ user: member.id, outcome }, 'legion check could not move member');
+        lines.push(t.moveFailed(member.id, character.name, members.standingName(to)));
+        return lines;
+      }
+      lines.push(
+        transition.why === 'returned'
+          ? t.returned(member.id, character.name, members.standingName(to))
+          : t.moved(
+              member.id,
+              character.name,
+              character.legion,
+              fromName,
+              members.standingName(to),
+            ),
+      );
+    } else {
+      lines.push(t.leaderLeft(member.id, character.name, legion, character.legion, fromName));
+    }
+
+    if (transition.review) {
+      const to = transition.to;
+      await this.deps
+        .review({
+          userId: member.id,
+          kind: to?.kind === 'ally' ? 'ally' : 'restricted',
+          character,
+          allianceLegion: to?.kind === 'ally' ? (members.legionOf(to) ?? character.legion) : null,
+          previousStanding: encodeStanding(from),
+        })
+        .catch((error: unknown) =>
+          this.deps.logger.warn({ err: error, user: member.id }, 'could not open the review'),
+        );
+    }
     return lines;
   }
 

@@ -96,3 +96,38 @@ describe('ConfigStore voice generators', () => {
     ).toThrow(ConfigError);
   });
 });
+
+describe('ConfigStore alliances', () => {
+  let path: string;
+
+  beforeEach(() => {
+    path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
+    copyFileSync(repoServerYaml, path);
+  });
+
+  it('adds and removes alliances, one per line, keeping the comments', () => {
+    const store = new ConfigStore(path);
+    store.addAlliance({ key: 'ally-noxus', legion: 'Noxus' });
+    store.addAlliance({ key: 'ally-lagta', legion: 'Lagta' });
+
+    const text = readFileSync(path, 'utf8');
+    expect(text).toContain(
+      'alliances:\n  - { key: ally-noxus, legion: Noxus }\n  - { key: ally-lagta, legion: Lagta }',
+    );
+    expect(text).toContain('# Allied legions (/alliance add');
+    expect(new ConfigStore(path).get().alliances.map((a) => a.legion)).toEqual(['Noxus', 'Lagta']);
+
+    store.removeAlliance('ally-noxus');
+    store.removeAlliance('ally-lagta');
+    expect(readFileSync(path, 'utf8')).toContain('alliances: []');
+    expect(() => store.removeAlliance('ally-noxus')).toThrow(ConfigError);
+  });
+
+  it('refuses a legion listed twice or a key that is also a role', () => {
+    const store = new ConfigStore(path);
+    store.addAlliance({ key: 'ally-noxus', legion: 'Noxus' });
+    expect(() => store.addAlliance({ key: 'ally-noxus-2', legion: 'NOXUS' })).toThrow(ConfigError);
+    expect(() => store.addAlliance({ key: 'partner', legion: 'Lagta' })).toThrow(ConfigError);
+    expect(store.get().alliances).toHaveLength(1);
+  });
+});

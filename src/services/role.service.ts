@@ -34,10 +34,20 @@ export class RoleService {
     const me = this.deps.guild.members.me;
     if (me && role.position >= me.roles.highest.position) return t.aboveBot;
     if (forAssignment) {
-      const tierIds = new Set(Object.values(this.deps.directory.tierRoleIds()));
-      if (tierIds.has(role.id) || role.id === this.deps.directory.visitorRoleId()) {
-        return t.tierRole;
-      }
+      // Standing roles (ranks, Aliado and the alliances, Parceiro, Restrito, Visitante) go
+      // through MemberService, which swaps the previous one.
+      const s = this.deps.directory.standingRoles();
+      const standing = new Set(
+        [
+          ...Object.values(s.tiers),
+          ...Object.values(s.alliances),
+          s.visitor,
+          s.partner,
+          s.restricted,
+          s.ally,
+        ].filter((id): id is string => id !== undefined),
+      );
+      if (standing.has(role.id)) return t.tierRole;
     }
     return null;
   }

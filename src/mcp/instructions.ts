@@ -15,6 +15,7 @@ export function buildInstructions(config: ServerConfig): string {
     'Use as ferramentas list_* / get_* para descobrir nomes antes de agir quando não tiver certeza.',
     'Você age com as permissões do dono do token no Discord; se uma ação for negada, explique qual cargo é necessário.',
     'Personagens: get_character lê o site oficial do Aion 2 (o nome precisa ser exato). Para ligar um membro ao seu personagem use register_character; fichas do #recrutamento se veem com list_applications e se decidem com decide_application.',
+    'Fora da hierarquia há Aliado (membro de uma legião aliada, conta como Soldado; ally_member e list_alliances), Parceiro (não joga; partner_member) e Restrito (só vê o #geral; restrict_member). Mudar alguém para qualquer um deles tira o cargo anterior. Alianças novas: add_alliance / remove_alliance (só Comandante).',
     'A organização fixa do servidor (canais, cargos, eventos recorrentes, geradores de voz) vive no server.yaml: para mudanças permanentes use update_event_template / upsert_voice_generator e depois apply_server_config. Depois de editar o arquivo à mão, use reload_server_config.',
   ].join('\n');
 }

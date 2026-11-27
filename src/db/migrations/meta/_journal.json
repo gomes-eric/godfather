@@ -120,6 +120,13 @@
       "when": 1794016896537,
       "tag": "0016_application_thread",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1795747990701,
+      "tag": "0017_recruitment_kinds",
+      "breakpoints": true
     }
   ]
 }

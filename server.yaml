@@ -18,6 +18,16 @@ settings:
     timeoutSeconds: 900
   # Given and taken with /member partner (by Oficiais): friends who don't play.
   partnerRole: partner
+  # Members of an allied legion (/member ally, an approved Aliança application): Aliado counts as
+  # Soldado in every channel and command; each alliance adds a role named after its legion.
+  allyRole: ally
+  # Who left the legion in the game (daily check) or was restricted with /member restrict: sees
+  # only #geral and the channels open to everyone.
+  restrictedRole: restricted
+  # The legion roles of the alliances (listed under `alliances` at the end of this file).
+  alliances:
+    color: "#5B9BD5"   # allied blue
+    channel: alliance-chat
   welcome:
     channel: welcome
     autoRole: visitor
@@ -30,8 +40,12 @@ settings:
     steps:
       - name: 📜 Leia as regras
         value: Tudo começa em {channel:rules}.
-      - name: 🎮 Já joga na M4F1A ou quer entrar?
-        value: Mande a ficha com o nome do seu personagem em {channel:recruitment}. Ela serve para os dois casos. Aprovada, você vira Soldado na hora.
+      - name: 🎮 Mande a sua ficha
+        value: |
+          Em {channel:recruitment}, escolha como quer entrar:
+          ⚔️ **Membro**: já joga na M4F1A ou quer entrar nela.
+          🤝 **Aliança**: é de uma legião aliada.
+          💬 **Parceiro**: não joga, mas quer ficar com a gente.
       - name: ❓ Ficou com dúvida?
         value: Pergunte em {channel:visitor-qa}, a gente responde.
   # Posted (and kept up to date) by /setup in #regras. {channel:<key>} becomes a clickable link.
@@ -162,10 +176,19 @@ roles:
     hoist: true
   # Friends who don't play: they chat and hang out in voice, outside the tier ladder.
   # Channels let them in with access.asSoldier.
+  # Allied legions: counts as Soldado everywhere (settings.allyRole). The legion roles of the
+  # alliances sit right above it, each hoisted, so the member list groups people by legion.
+  - key: ally
+    name: Aliado
+    color: "#5B9BD5"   # allied blue
   - key: partner
     name: Parceiro
     color: "#C98A6B"   # copper
     hoist: true
+  # Left the legion in the game, or restricted by an officer: only #geral (settings.restrictedRole).
+  - key: restricted
+    name: Restrito
+    color: "#5C5866"   # dim ash
   - key: visitor
     name: Visitante
     tier: visitor
@@ -211,7 +234,12 @@ categories:
     name: 📣 M4F1A
     access: { view: soldier, write: soldier, asSoldier: [partner] }
     channels:
-      - { key: general,      type: text, name: geral }
+      # Restrito sees only this channel (and the ones open to everyone).
+      - key: general
+        type: text
+        name: geral
+        allow:
+          - { role: restricted, permissions: [ViewChannel, ReadMessageHistory, SendMessages, SendMessagesInThreads] }
       - { key: off-topic,    type: text, name: off-topic }
       - { key: clips,        type: text, name: prints-e-clips }
       - { key: builds,       type: text, name: builds-e-equips, access: { asSoldier: [] } }
@@ -219,6 +247,15 @@ categories:
       - { key: agenda,       type: text, name: agenda,  access: { write: bot, asSoldier: [] } }
       - { key: news,         type: text, name: noticias, topic: "Notícias do Aion 2 (atualizações, manutenções, eventos e avisos), postadas pelo Padrinho assim que saem na Steam.", access: { write: bot, asSoldier: [] } }
       - { key: ranking,      type: text, name: ranking, topic: "Membros da legião por poder de combate, atualizado todo dia pelo Padrinho. Entra quem teve a ficha de recrutamento aprovada.", access: { write: bot, asSoldier: [] } }
+
+  # Allied legions and the legion together: Aliado counts as Soldado, so view: soldier lets both
+  # in and leaves Parceiro out.
+  - key: alliance
+    name: 🤝 ALIANÇA
+    access: { view: soldier, write: soldier }
+    channels:
+      - { key: alliance-chat,  type: text,  name: alianca }
+      - { key: alliance-voice, type: voice, name: Aliança }
 
   - key: knowledge
     name: 📚 CONHECIMENTO
@@ -361,3 +398,7 @@ eventTemplates:
     time: "21:00"
     shugoEvent: guardian-nahma
     enabled: true
+
+# Allied legions (/alliance add and /alliance remove write this list). Each gets a role named after
+# the legion, above Aliado; `legion` is the name exactly as the game shows it.
+alliances: []

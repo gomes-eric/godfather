@@ -137,17 +137,36 @@ export const postedNews = sqliteTable('posted_news', {
 });
 
 // Recruitment applications (the #recrutamento form), reviewed by the officers there.
+export const APPLICATION_KINDS = ['member', 'ally', 'partner', 'restricted'] as const;
+
 export const applications = sqliteTable('applications', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: text('user_id').notNull(),
-  characterId: text('character_id').notNull(),
-  characterName: text('character_name').notNull(),
-  serverId: integer('server_id').notNull(),
-  className: text('class_name').notNull(),
-  level: integer('level').notNull(),
+  /** The character, read from the official site; all null for a Parceiro who left it out. */
+  characterId: text('character_id'),
+  characterName: text('character_name'),
+  serverId: integer('server_id'),
+  className: text('class_name'),
+  level: integer('level'),
   legion: text('legion').notNull().default(''),
   combatPower: integer('combat_power'),
   itemLevel: integer('item_level'),
+  /** What approving does: Membro (Soldado), Aliança, Parceiro, or Restrito (daily check only). */
+  kind: text('kind', { enum: APPLICATION_KINDS }).notNull().default('member'),
+  /** What the applicant picked in the form; officers may change `kind` with Mudar. */
+  requestedKind: text('requested_kind', { enum: APPLICATION_KINDS }).notNull().default('member'),
+  /** `form`: sent with "Enviar minha ficha". `check`: opened by the daily check for a review. */
+  origin: text('origin', { enum: ['form', 'check'] })
+    .notNull()
+    .default('form'),
+  /** For an Aliança: the legion, as the official site showed it. */
+  allianceLegion: text('alliance_legion'),
+  /** "Quem te convidou / por que quer entrar", from the form. */
+  note: text('note'),
+  /** Someone else already had this character registered when it was sent. */
+  duplicateOf: text('duplicate_of'),
+  /** Daily check: the standing before the bot changed it (Recusar puts it back). */
+  previousStanding: text('previous_standing'),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] })
     .notNull()
     .default('pending'),
@@ -157,6 +176,21 @@ export const applications = sqliteTable('applications', {
   decidedBy: text('decided_by'),
   decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch('subsec') * 1000)`),
+});
+
+/**
+ * Members holding Restrito, and why: the daily check (they left the legion; it lifts the role
+ * when they come back), an officer (/member restrict: only an officer lifts it), or a character
+ * that moved to another account.
+ */
+export const restrictions = sqliteTable('restrictions', {
+  userId: text('user_id').primaryKey(),
+  origin: text('origin', { enum: ['check', 'manual', 'transfer'] }).notNull(),
+  reason: text('reason'),
+  by: text('by').notNull(),
+  at: integer('at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(unixepoch('subsec') * 1000)`),
 });

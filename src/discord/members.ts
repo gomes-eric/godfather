@@ -1,21 +1,28 @@
 import type { Guild, GuildMember } from 'discord.js';
 import type { Actor, ActorSource } from '../core/actor.js';
-import { resolveTier, type Tier, type TierRoleIds } from '../core/tiers.js';
+import { standingOf, standingTier, type Standing, type StandingRoles } from '../core/standing.js';
+import type { Tier } from '../core/tiers.js';
 import type { GuildDirectory } from './directory.js';
 
 /**
- * Tier of a member from their roles as they are right now. Pass `tierIds` when classifying many
- * members at once, so the role ids are looked up only once.
+ * The member's standing (rank, ally, partner...) from their roles as they are right now. Pass
+ * `roles` when classifying many members at once, so the role ids are looked up only once.
  */
-export function memberTier(
-  member: GuildMember,
+export function memberStanding(
+  member: Pick<GuildMember, 'id' | 'roles' | 'guild'>,
   directory: GuildDirectory,
-  tierIds: TierRoleIds = directory.tierRoleIds(),
+  roles: StandingRoles = directory.standingRoles(),
+): Standing {
+  return standingOf(member.roles.cache.keys(), roles, member.guild.ownerId === member.id);
+}
+
+/** Permission tier of a member right now: an ally counts as Soldado. */
+export function memberTier(
+  member: Pick<GuildMember, 'id' | 'roles' | 'guild'>,
+  directory: GuildDirectory,
+  roles: StandingRoles = directory.standingRoles(),
 ): Tier {
-  return resolveTier(
-    { roleIds: member.roles.cache.keys(), isOwner: member.guild.ownerId === member.id },
-    tierIds,
-  );
+  return standingTier(memberStanding(member, directory, roles));
 }
 
 /** The member, or null when they are no longer in the server. */

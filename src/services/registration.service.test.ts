@@ -31,6 +31,8 @@ function setup(options: { found?: boolean; tierRoles?: Record<string, string> } 
   const roleSets: string[][] = [];
   const nicknames: string[] = [];
   const promoted: string[] = [];
+  const moved: string[] = [];
+  const notices: string[] = [];
   const member = {
     id: 'u1',
     displayName: 'Fulano',
@@ -44,17 +46,24 @@ function setup(options: { found?: boolean; tierRoles?: Record<string, string> } 
   };
   const service = new RegistrationService({
     guild: {
-      members: { fetch: async (id: string) => (id === 'u1' ? member : null) },
+      members: {
+        fetch: async (id: string) => (id === 'u1' ? member : id === 'u9' ? { id: 'u9' } : null),
+      },
     } as never,
     config: {
       get: () => ({
         roles: [{ key: 'class-cleric', name: 'Clérigo', class: true, emoji: '✨' }],
+        settings: { characters: { reportChannel: 'officers' } },
       }),
     } as unknown as ConfigStore,
     directory: {
       roleId: (key: string) => (key === 'class-cleric' ? 'cleric-role' : undefined),
       classRoleIds: () => ['cleric-role'],
       tierRoleIds: () => options.tierRoles ?? {},
+      standingRoles: () => ({ tiers: options.tierRoles ?? {}, alliances: {} }),
+      channelByKey: () => ({
+        send: async (m: { content: string }) => void notices.push(m.content),
+      }),
     } as unknown as GuildDirectory,
     registrations,
     characters: {
@@ -66,6 +75,10 @@ function setup(options: { found?: boolean; tierRoles?: Record<string, string> } 
         promoted.push(userId);
         return { status: 'ok', value: 'ok' };
       },
+      move: async (_actor: Actor, userId: string, to: { kind: string }) => {
+        moved.push(`${userId} ${to.kind}`);
+        return { status: 'ok', value: 'ok' };
+      },
     } as unknown as MemberService,
     legion: { refreshRanking: async () => undefined } as unknown as LegionCheckService,
     runAction: (async (r: { execute: () => Promise<unknown> }) => ({
@@ -74,7 +87,7 @@ function setup(options: { found?: boolean; tierRoles?: Record<string, string> } 
     })) as unknown as ActionRunner,
     logger: { warn: () => undefined } as unknown as Logger,
   });
-  return { service, registrations, roleSets, nicknames, promoted };
+  return { service, registrations, roleSets, nicknames, promoted, moved, notices };
 }
 
 describe('RegistrationService', () => {
@@ -106,5 +119,32 @@ describe('RegistrationService', () => {
       status: 'rejected',
     });
     expect(registrations.all()).toEqual([]);
+  });
+
+  it('moves a character someone else has only with confirm; the old account becomes Restrito', async () => {
+    const { service, registrations, moved, notices } = setup();
+    registrations.save({
+      userId: 'u9',
+      characterId: profile.id,
+      serverId: 2403,
+      name: 'Padrinho',
+      classKey: 'class-cleric',
+      legion: '',
+      combatPower: null,
+      itemLevel: null,
+    });
+
+    expect(await service.register(officer, 'u1', 'Padrinho')).toMatchObject({
+      status: 'rejected',
+      reason: expect.stringContaining('<@u9>'),
+    });
+    expect(notices).toEqual([expect.stringContaining('já está cadastrado para <@u9>')]);
+    expect(registrations.get('u1')).toBeUndefined();
+
+    expect(await service.register(officer, 'u1', 'Padrinho', true)).toMatchObject({ status: 'ok' });
+    expect(registrations.get('u9')).toBeUndefined();
+    expect(registrations.get('u1')).toMatchObject({ characterId: profile.id });
+    expect(notices.at(-1)).toContain('passou de <@u9> para <@u1>');
+    expect(moved).toEqual(['u9 restricted']);
   });
 });

@@ -1,3 +1,4 @@
+import { allianceCommand } from './alliance.js';
 import { auditCommand } from './audit.js';
 import { configCommand } from './config.js';
 import { mcpCommand } from './mcp.js';
@@ -19,6 +20,7 @@ export const commands: SlashCommand[] = [
   setupCommand,
   configCommand,
   memberCommand,
+  allianceCommand,
   modCommand,
   sayCommand,
   voiceCommand,

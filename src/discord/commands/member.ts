@@ -1,6 +1,7 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { unixSeconds } from '../../core/schedule.js';
 import type { Tier } from '../../core/tiers.js';
+import { findAlliance } from '../../core/alliances.js';
 import { ptBR } from '../../i18n/pt-BR.js';
 import { COLORS } from '../colors.js';
 import { runWithConfirmation } from '../interactions/confirmation.js';
@@ -48,7 +49,8 @@ export const memberCommand: SlashCommand = {
         .setName('partner')
         .setDescription('Make someone who does not play a Parceiro (or take it back)')
         .setDescriptionLocalizations({
-          'pt-BR': 'Torna Parceiro alguém que não joga (ou tira o cargo)',
+          'pt-BR':
+            'Torna Parceiro alguém que não joga, tirando o cargo anterior (ou tira o Parceiro)',
         })
         .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true))
         .addBooleanOption((o) =>
@@ -56,6 +58,40 @@ export const memberCommand: SlashCommand = {
             .setName('remove')
             .setDescription('Take Parceiro away and go back to Visitante')
             .setDescriptionLocalizations({ 'pt-BR': 'Tira o Parceiro e volta para Visitante' }),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('ally')
+        .setDescription('Make someone an ally of an existing alliance')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Torna alguém Aliado de uma aliança, tirando o cargo anterior',
+        })
+        .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true))
+        .addStringOption((o) =>
+          o
+            .setName('legion')
+            .setDescription('The allied legion, as in /alliance list')
+            .setDescriptionLocalizations({ 'pt-BR': 'A legião aliada, como em /alliance list' })
+            .setMaxLength(100)
+            .setRequired(true),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName('restrict')
+        .setDescription('Restrict someone to #geral (any of the existing commands lifts it)')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Restringe alguém ao #geral (promote, partner ou ally tiram o Restrito)',
+        })
+        .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true))
+        .addStringOption((o) =>
+          o
+            .setName('reason')
+            .setDescription('Why (shown to the officers)')
+            .setDescriptionLocalizations({ 'pt-BR': 'Motivo (aparece para os oficiais)' })
+            .setMaxLength(300)
+            .setRequired(true),
         ),
     )
     .addSubcommand((sub) =>
@@ -86,6 +122,21 @@ export const memberCommand: SlashCommand = {
       );
       return;
     }
+    if (sub === 'ally') {
+      const legion = interaction.options.getString('legion', true);
+      const alliance = findAlliance(ctx.config.get().alliances, legion);
+      await runWithConfirmation(interaction, ctx.confirmations, () =>
+        ctx.members.ally(actor, user.id, alliance?.key ?? legion),
+      );
+      return;
+    }
+    if (sub === 'restrict') {
+      const reason = interaction.options.getString('reason', true);
+      await runWithConfirmation(interaction, ctx.confirmations, () =>
+        ctx.members.restrict(actor, user.id, reason),
+      );
+      return;
+    }
     if (sub === 'demote') {
       await runWithConfirmation(interaction, ctx.confirmations, (confirm) =>
         ctx.members.demote(actor, user.id, rank, confirm),
@@ -107,7 +158,7 @@ export const memberCommand: SlashCommand = {
       .setThumbnail(info.avatarUrl)
       .setColor(COLORS.brand)
       .addFields(
-        { name: f.tier, value: ptBR.tier(info.tier), inline: true },
+        { name: f.tier, value: info.standing, inline: true },
         { name: f.classes, value: info.classes.join(', ') || f.none, inline: true },
         { name: f.joined, value: ts(info.joinedAt), inline: true },
         { name: f.created, value: ts(info.createdAt), inline: true },

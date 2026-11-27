@@ -9,6 +9,7 @@ import type { Actor } from '../../core/actor.js';
 import type { AuditLog } from '../../core/audit.js';
 import type { CharacterStore } from '../../db/characters.js';
 import type { Logger } from '../../logger.js';
+import type { AllianceService } from '../../services/alliance.service.js';
 import type { EventService } from '../../services/event.service.js';
 import type { GameCharacterService } from '../../services/game-character.service.js';
 import type { LegionCheckService } from '../../services/legion-check.service.js';
@@ -31,6 +32,8 @@ export interface CommandContext {
   audit: AuditLog;
   setup: SetupService;
   members: MemberService;
+  /** Allied legions (/alliance). */
+  alliances: AllianceService;
   moderation: ModerationService;
   messages: MessageService;
   voice: VoiceService;

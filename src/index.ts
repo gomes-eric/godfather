@@ -45,6 +45,8 @@ import { createClaudeClient } from './services/claude.js';
 import { gameClassName } from './core/news-digest.js';
 import { classRoles } from './config/schema.js';
 import { RecruitmentDesk } from './services/recruitment-desk.service.js';
+import { AllianceService } from './services/alliance.service.js';
+import { RestrictionStore } from './db/restrictions.js';
 import { RecruitmentService } from './services/recruitment.service.js';
 import { RegistrationService } from './services/registration.service.js';
 import { ReminderScheduler } from './services/reminder.scheduler.js';
@@ -168,6 +170,10 @@ async function main(): Promise<void> {
     });
     const characters = new GameCharacterService({ config, logger });
     const registrations = new CharacterStore(database.db);
+    const restrictions = new RestrictionStore(database.db);
+    const members = new MemberService({ guild, directory, config, restrictions, runAction });
+    // The check opens its reviews through the recruitment desk, created further down.
+    const late: { desk?: RecruitmentDesk } = {};
     const legion = new LegionCheckService({
       guild,
       config,
@@ -176,6 +182,9 @@ async function main(): Promise<void> {
       registrations,
       characters,
       runAction,
+      members,
+      restrictions,
+      review: async (input) => late.desk?.openReview(input),
       logger,
     });
     const claude = createClaudeClient(env, logger);
@@ -198,10 +207,19 @@ async function main(): Promise<void> {
         }),
       }),
     });
-    for (const job of [scheduler, eventTimes, news, legion]) stopJobs.push(job.start());
+    for (const job of [scheduler, eventTimes, news]) stopJobs.push(job.start());
 
     // Shared by slash commands and MCP tools: both adapters call the same services.
-    const members = new MemberService({ guild, directory, config, runAction });
+    const setup = new SetupService(createDiscordGuildPort(guild), managed, config);
+    const alliances = new AllianceService({
+      guild,
+      config,
+      directory,
+      setup,
+      members,
+      runAction,
+      logger,
+    });
     const registration = new RegistrationService({
       guild,
       config,
@@ -221,17 +239,21 @@ async function main(): Promise<void> {
       recruitment: new RecruitmentService({ store: applications, runAction }),
       applications,
       registration,
+      members,
+      alliances,
       logger,
     });
-    stopJobs.push(recruitmentDesk.start());
+    late.desk = recruitmentDesk;
+    stopJobs.push(recruitmentDesk.start(), legion.start());
     const services = {
       guild,
       config,
       directory,
       audit,
       runAction,
-      setup: new SetupService(createDiscordGuildPort(guild), managed, config),
+      setup,
       members,
+      alliances,
       moderation: new ModerationService({ guild, directory, runAction }),
       messages: new MessageService({ guild, runAction }),
       events: new EventService({ store: eventStore, scheduler, config, runAction }),

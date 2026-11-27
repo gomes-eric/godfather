@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  checkModerationTarget,
-  decideDemotion,
-  decidePartner,
-  decidePromotion,
-  rolesForPartner,
-  rolesForTier,
-} from './member-rules.js';
+import { checkModerationTarget, decideDemotion, decidePromotion } from './member-rules.js';
 
 const base = {
   actorId: 'actor',
@@ -117,88 +110,5 @@ describe('checkModerationTarget', () => {
         targetIsOwner: true,
       }),
     ).toBe('targetIsOwner');
-  });
-});
-
-describe('rolesForTier', () => {
-  const tierRoles = { visitor: 'v', soldier: 's', officer: 'o' };
-
-  it('swaps the tier role and keeps class roles', () => {
-    expect(rolesForTier(['v', 'class-cleric'], 'soldier', tierRoles)).toEqual([
-      'class-cleric',
-      's',
-    ]);
-  });
-
-  it('gives Visitante back on demotion to visitor', () => {
-    expect(rolesForTier(['s', 'class-cleric'], 'visitor', tierRoles)).toEqual([
-      'class-cleric',
-      'v',
-    ]);
-  });
-});
-
-describe('decidePartner', () => {
-  const base = {
-    actorId: 'officer',
-    targetId: 'friend',
-    targetIsBot: false,
-    targetIsOwner: false,
-    targetTier: 'visitor' as const,
-    isPartner: false,
-    remove: false,
-  };
-
-  it('makes a Visitante a Parceiro and takes it back', () => {
-    expect(decidePartner(base)).toBeNull();
-    expect(decidePartner({ ...base, isPartner: true, remove: true })).toBeNull();
-  });
-
-  it('refuses legion members, repeats, bots, the owner and oneself', () => {
-    expect(decidePartner({ ...base, targetTier: 'soldier' })).toBe('inLegion');
-    expect(decidePartner({ ...base, isPartner: true })).toBe('alreadyPartner');
-    expect(decidePartner({ ...base, remove: true })).toBe('notPartner');
-    expect(decidePartner({ ...base, targetIsBot: true })).toBe('targetIsBot');
-    expect(decidePartner({ ...base, targetIsOwner: true })).toBe('targetIsOwner');
-    expect(decidePartner({ ...base, targetId: 'officer' })).toBe('targetIsSelf');
-  });
-});
-
-describe('rolesForPartner', () => {
-  it('swaps Visitante for Parceiro and back, keeping other roles', () => {
-    expect(rolesForPartner(['visitor', 'class'], 'partner', 'visitor', false)).toEqual([
-      'class',
-      'partner',
-    ]);
-    expect(rolesForPartner(['partner', 'class'], 'partner', 'visitor', true)).toEqual([
-      'class',
-      'visitor',
-    ]);
-  });
-});
-
-describe('the server owner', () => {
-  const input = {
-    actorTier: 'commander' as const,
-    actorId: 'owner',
-    targetId: 'friend',
-    targetTier: 'officer' as const,
-    targetIsBot: false,
-    targetIsOwner: false,
-    officerCount: 0,
-  };
-
-  it('makes and unmakes Comandantes; a Comandante cannot', () => {
-    expect(decidePromotion({ ...input, actorIsOwner: true, rank: 'commander' })).toEqual({
-      ok: true,
-      to: 'commander',
-    });
-    expect(decidePromotion({ ...input, rank: 'commander' })).toEqual({
-      ok: false,
-      refusal: 'cannotManageTier',
-    });
-    expect(
-      decideDemotion({ ...input, actorIsOwner: true, targetTier: 'commander', rank: 'officer' }),
-    ).toEqual({ ok: true, to: 'officer' });
   });
 });
