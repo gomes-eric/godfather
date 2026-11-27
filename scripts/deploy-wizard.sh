@@ -253,11 +253,11 @@ pause
 stage "Configuração de produção (.env)"
 say "Use os mesmos valores do .env do seu PC (pasta do projeto Godfather)."
 open_url "https://discord.com/developers/applications"
-step "Token: aplicação Padrinho → Bot → Reset Token (ou reaproveite o do PC)."
+step "Token: sua aplicação → Bot → Reset Token (ou reaproveite o do PC)."
 ask_secret DISCORD_TOKEN "DISCORD_TOKEN (fica oculto):"
 step "Application ID: aba General Information."
 ask DISCORD_CLIENT_ID "DISCORD_CLIENT_ID:"
-step "ID do servidor M4F1A: botão direito no ícone do servidor → Copiar ID."
+step "ID do servidor: botão direito no ícone do servidor → Copiar ID (Modo desenvolvedor ligado)."
 ask DISCORD_GUILD_ID "DISCORD_GUILD_ID:"
 write_env DISCORD_TOKEN "$DISCORD_TOKEN"
 write_env DISCORD_CLIENT_ID "$DISCORD_CLIENT_ID"
@@ -271,21 +271,28 @@ write_env DISCORD_MESSAGE_CONTENT "$(_existing DISCORD_MESSAGE_CONTENT || echo f
 pause
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
-stage "Parar o bot do PC"
+stage "Parar outra cópia do bot"
 warn "Dois bots com o mesmo token respondem em dobro e duplicam os avisos."
-say "No PC, pare o Padrinho que roda em modo dev:"
-step "Feche o terminal do 'npm run dev' / 'tsx src/index.ts', ou peça ao Claude para parar o bot."
-step "Confira no Discord: o Padrinho deve ficar offline (bolinha cinza) em ~1 minuto."
-until confirm "O bot do PC está parado (Padrinho offline no Discord)?"; do
-  say "Sem pressa. Pare o bot do PC e responda y."
-done
+migrating=0
+if confirm "O Padrinho já roda em outro lugar (ex.: no PC, com npm run dev)?"; then
+  migrating=1
+  step "Pare essa cópia: feche o terminal do 'npm run dev' / 'tsx src/index.ts'."
+  step "Confira no Discord: o bot deve ficar offline (bolinha cinza) em ~1 minuto."
+  until confirm "A outra cópia está parada (bot offline no Discord)?"; do
+    say "Sem pressa. Pare a outra cópia e responda y."
+  done
+else
+  note "Instalação nova: o banco é criado vazio na primeira subida."
+fi
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
-stage "Trazer o banco atual do PC"
+stage "Trazer o banco existente"
 say "O banco guarda os IDs criados pelo /setup, eventos, RSVPs, salas e tokens MCP."
 mkdir -p "$REPO_DIR/data"
-replace_db=1
-if [[ -f "$REPO_DIR/data/padrinho.db" ]]; then
+replace_db=$migrating
+if (( ! migrating )); then
+  note "Nada para trazer nesta instalação nova."
+elif [[ -f "$REPO_DIR/data/padrinho.db" ]]; then
   note "já existe data/padrinho.db aqui."
   confirm "Substituir pelo banco do PC?" || replace_db=0
 fi
@@ -304,6 +311,11 @@ pause
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
 stage "Subir o container"
+say "O bot reescreve o server.yaml (horários do shugo.gg, /event template edit)."
+say "O container entra no grupo do seu usuário (gid $(id -g)) e o arquivo fica gravável por ele:"
+write_env HOST_GID "$(id -g)"
+chmod g+w "$REPO_DIR/server.yaml"
+note "✓ HOST_GID=$(id -g), server.yaml com g+w"
 say "Construindo a imagem e subindo (pode levar alguns minutos na primeira vez)…"
 docker compose up -d --build
 say "Esperando o /healthz…"

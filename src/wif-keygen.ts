@@ -27,4 +27,4 @@ console.log('');
 console.log('Regra de federação');
 console.log(`  subject_prefix: ${WIF_SUBJECT}`);
 console.log(`  audience: ${CLAUDE_AUDIENCE}`);
-console.log('  escopo: workspace:inference');
+console.log('  escopo: workspace:developer');

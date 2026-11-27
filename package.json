@@ -2,7 +2,7 @@
   "name": "padrinho",
   "version": "0.1.0",
   "private": true,
-  "description": "Discord bot for the M4F1A legion (Aion 2, Triniel LATAM), controllable through MCP.",
+  "description": "Discord bot for Aion 2 legions, controllable through MCP.",
   "type": "module",
   "engines": {
     "node": ">=22"
