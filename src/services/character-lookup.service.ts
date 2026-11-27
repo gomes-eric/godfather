@@ -16,7 +16,6 @@ import {
 
 const t = ptBR.profile;
 
-/** A character by its in-game name, or the one a member (maybe the actor) registered. */
 export type CharacterTarget = { name: string } | { userId: string };
 
 export type CharacterKey = Pick<CharacterRef, 'id' | 'serverId'>;
@@ -48,13 +47,11 @@ export class CharacterLookup {
       characters: GameCharacterService;
       registrations: CharacterStore;
       config: ConfigStore;
-      /** How Discord shows the member, when they are still in the server. */
       memberName: (userId: string) => string | undefined;
       runAction: ActionRunner;
     },
   ) {}
 
-  /** Every registered character, strongest first, as the last daily check saw it. */
   registered(actor: Actor): Promise<ServiceOutcome<RegisteredSummary[]>> {
     return this.deps.runAction({
       actor,

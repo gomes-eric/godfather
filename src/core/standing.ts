@@ -139,7 +139,6 @@ export function decideStandingChange(input: {
   return allowed ? null : 'cannotManageTier';
 }
 
-/** Why someone's standing changes; it decides the audit reason and how a restriction is lifted. */
 export type StandingCause =
   | { kind: 'officer'; reason: string | null }
   | { kind: 'recruitment' }
@@ -147,19 +146,19 @@ export type StandingCause =
   | { kind: 'transfer'; character: string }
   | { kind: 'allianceEnded'; legion: string };
 
-/** Only the daily check lifts a restriction by itself, and only one it (or a lost alliance) made. */
 export function restrictionOrigin(cause: StandingCause): 'check' | 'officer' | 'transfer' {
   switch (cause.kind) {
     case 'officer':
       return 'officer';
     case 'transfer':
       return 'transfer';
-    default:
+    case 'recruitment':
+    case 'legionCheck':
+    case 'allianceEnded':
       return 'check';
   }
 }
 
-/** The audited action for moving someone to each standing. */
 export const STANDING_ACTION = {
   tier: 'member.promote',
   ally: 'member.ally',

@@ -15,15 +15,12 @@ import { Roster } from '../roster.service.js';
 import { copyRepoYaml } from '../../config/testing/repo-yaml.js';
 import { FakeMembers } from './fake-members.js';
 
-/** A role's id in the fake guild: the role key itself, prefixed. */
 export const roleId = (key: string) => `role:${key}`;
 
-/** server.yaml copied to a temp file, so tests may write alliances to it. */
 export function testConfig(): ConfigStore {
   return new ConfigStore(copyRepoYaml());
 }
 
-/** Every configured role (and alliance) exists, with id `role:<key>`; channels post into `sent`. */
 export function fakeDirectory(
   config: () => ServerConfig,
   sent: { channel: string; content: string }[] = [],
@@ -74,7 +71,6 @@ export const passThroughRunner = (async (request: { execute: () => Promise<unkno
   value: await request.execute(),
 })) as unknown as ActionRunner;
 
-/** A roster over the real server.yaml, an in-memory database and fake members. */
 export function rosterFixture(options: { runAction?: ActionRunner } = {}) {
   const config = testConfig();
   const db = openDatabase(':memory:');
@@ -105,7 +101,6 @@ export const profile = (name: string, legion = '', className = 'Clérigo') => ({
   avatarUrl: null,
 });
 
-/** The roster plus character registration, with the official site answering from `characters`. */
 export function registrationFixture(
   characters: Record<string, ReturnType<typeof profile>> = {},
   options: { siteDown?: boolean; runAction?: ActionRunner } = {},

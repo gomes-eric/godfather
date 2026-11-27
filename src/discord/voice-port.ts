@@ -60,7 +60,7 @@ export function createDiscordVoicePort(guild: Guild, logger: Logger): VoiceRoomP
       return channel.id;
     },
 
-    async deleteChannel(id, reason) {
+    async deleteChannelIfExists(id, reason) {
       try {
         await guild.channels.delete(id, reason);
       } catch (error) {
@@ -76,6 +76,11 @@ export function createDiscordVoicePort(guild: Guild, logger: Logger): VoiceRoomP
       await member.voice.setChannel(channelId, reason);
     },
 
+    async disconnectMember(userId, reason) {
+      const member = await guild.members.fetch(userId);
+      await member.voice.disconnect(reason);
+    },
+
     async setOverwrites(channelId, overwrites) {
       await voiceChannel(channelId).permissionOverwrites.set(toDiscordOverwrites(overwrites));
     },
@@ -85,8 +90,7 @@ export function createDiscordVoicePort(guild: Guild, logger: Logger): VoiceRoomP
     },
 
     // Discord allows 2 renames per channel per 10 minutes, and discord.js waits out the limit in
-    // silence. Renames made in Discord itself count too, so even a rename inside the bot's own
-    // budget can be held; past a few seconds it is reported as queued instead of hanging.
+    // silence.
     async setName(channelId, name) {
       const done = voiceChannel(channelId)
         .setName(name)

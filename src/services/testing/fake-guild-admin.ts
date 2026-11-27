@@ -21,7 +21,6 @@ const EMBED_DESCRIPTION_MAX = 4096;
 type FakeRole = Omit<RoleView, 'memberCount'> & Omit<RoleFields, 'name'>;
 type FakeChannel = ChannelView & { topic: string | null; userLimit: number };
 
-/** An in-memory guild that refuses what Discord refuses. */
 export class FakeGuildAdmin implements GuildAdminPort {
   owner = newId();
   botPosition: number | null = 10;
@@ -36,7 +35,6 @@ export class FakeGuildAdmin implements GuildAdminPort {
   readonly timeouts = new Map<string, number | null>();
   roleList: FakeRole[] = [];
   channelList: FakeChannel[] = [];
-  /** Oldest first per channel. */
   readonly messages = new Map<string, MessageView[]>();
   readonly sent: { channelId: string; message: OutgoingMessage }[] = [];
 
@@ -252,7 +250,7 @@ export class FakeGuildAdmin implements GuildAdminPort {
     return channel;
   }
 
-  async recentMessages(channelId: string, limit: number): Promise<MessageView[]> {
+  async newestMessages(channelId: string, limit: number): Promise<MessageView[]> {
     this.messageable(channelId);
     return [...(this.messages.get(channelId) ?? [])].reverse().slice(0, limit);
   }

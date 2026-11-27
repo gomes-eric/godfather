@@ -1,9 +1,7 @@
 export interface GuardedMessage {
   inMusicChannel: boolean;
   authorIsBot: boolean;
-  /** Typed by someone (a message or a reply), not a join, a pin or another system message. */
   isUserMessage: boolean;
-  /** In the text chat of a voice room, where music commands are welcome. */
   inVoiceChat: boolean;
   content: string;
   mentionedBotIds: readonly string[];
@@ -12,11 +10,6 @@ export interface GuardedMessage {
 
 export type MusicVerdict = 'keep' | { delete: true; notice: 'here' | 'elsewhere' };
 
-/**
- * #musica takes only music commands; anywhere else but a voice room's chat, a music command is
- * removed and its author pointed to #musica. A music command is one of the prefixes (`m!play`) or
- * a mention of a music bot at the start (`@Jockie Music play`), which Jockie also takes as a prefix.
- */
 export function musicVerdict(
   message: GuardedMessage,
   settings: { commandPrefixes: readonly string[] },

@@ -42,23 +42,19 @@ export interface MemberInfo {
   timeoutUntil: Date | null;
 }
 
-/** Their character: the class role and the "⚔️ Nome" nickname. */
 export interface CharacterLook {
   classKey: string;
   gameName: string;
 }
 
 export interface StandingChange {
-  /** Their new standing; left out to only apply a character. */
   to?: Standing;
   character?: CharacterLook;
   cause: StandingCause;
-  /** The audited action when it differs from the one for the new standing. */
   action?: ActionName;
   confirm?: boolean;
   preview?: (name: string, from: string) => string;
   done?: (name: string) => string;
-  /** Refusal when they already have this standing; without it that is a quiet success. */
   already?: string;
 }
 
@@ -75,11 +71,6 @@ interface Deps {
   runAction: ActionRunner;
 }
 
-/**
- * Who holds which standing in the server (a rank, Aliado, Parceiro, Restrito, Visitante) and the
- * one place that changes it. Every change swaps the previous standing role, applies the character
- * when given, and writes it all to Discord at once.
- */
 export class Roster {
   constructor(private readonly deps: Deps) {}
 
@@ -92,7 +83,6 @@ export class Roster {
     return member && this.standingFrom(member);
   }
 
-  /** Whether they are in the server, and how they show there. */
   async member(
     userId: string,
   ): Promise<{ displayName: string; avatarUrl: string; standing: Standing } | null> {
@@ -124,7 +114,6 @@ export class Roster {
     return this.deps.restrictions.get(userId)?.origin;
   }
 
-  /** Why `actor` may not move them to `to`, or null when they may (or already are there). */
   async check(actor: Actor, userId: string, to: Standing): Promise<string | null> {
     const member = await this.deps.members.member(userId);
     if (!member) return t.notMember;
@@ -190,9 +179,7 @@ export class Roster {
     }
 
     const moved = change.to !== undefined && !sameStanding(from, to);
-    // A guild leader leads only the alliance they are an ally of.
-    const leaderId = this.deps.directory.allyLeaderRoleId();
-    if (moved && leaderId) roleIds = roleIds.filter((id) => id !== leaderId);
+    if (moved) roleIds = this.withoutAllyLeader(roleIds);
     const fromName = this.standingName(from);
     const finalRoles = roleIds;
     return this.deps.runAction({
@@ -216,7 +203,11 @@ export class Roster {
     });
   }
 
-  /** The class role (replacing any other class) and the nickname, when Discord allows renaming. */
+  private withoutAllyLeader(roleIds: string[]): string[] {
+    const leaderId = this.deps.directory.allyLeaderRoleId();
+    return leaderId ? roleIds.filter((id) => id !== leaderId) : roleIds;
+  }
+
   private characterRoles(
     roleIds: string[],
     member: MemberSnapshot,
@@ -339,7 +330,6 @@ export class Roster {
     );
   }
 
-  /** Parceiro for someone who doesn't play, whatever they were; `remove` sends them to Visitante. */
   async partner(actor: Actor, userId: string, remove: boolean): Promise<ServiceOutcome<string>> {
     if (!this.deps.directory.standingRoles().partner) return rejected(t.noPartnerRole);
     const cause: StandingCause = { kind: 'officer', reason: null };
@@ -368,7 +358,6 @@ export class Roster {
     );
   }
 
-  /** Aliado of an existing alliance, named by its legion as people write it. */
   async ally(actor: Actor, userId: string, legion: string): Promise<ServiceOutcome<string>> {
     const alliance = findAlliance(this.deps.config.get().alliances, legion);
     if (!alliance) return rejected(t.unknownAlliance(legion));
@@ -384,8 +373,6 @@ export class Roster {
     );
   }
 
-  /** /member restrict: only #geral from now on, until an officer moves them again. */
-  /** Marks (or unmarks) an ally as a leader of their guild with the Líder Aliado role. */
   async setAllyLeader(
     actor: Actor,
     userId: string,

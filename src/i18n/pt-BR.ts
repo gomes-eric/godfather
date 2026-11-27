@@ -471,7 +471,6 @@ export const ptBR = {
       | 'alreadyRestricted',
       string
     >,
-    /** Reason in Discord's audit log for a change made with /member or MCP. */
     officerReason: 'Mudança de cargo feita por um oficial',
     changePreview: (name: string, from: string, to: string) => `**${name}**: ${from} → **${to}**`,
     changed: (name: string, to: string) => `**${name}** agora é **${to}**.`,

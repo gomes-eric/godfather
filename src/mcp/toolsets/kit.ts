@@ -85,7 +85,6 @@ export const reason = z.string().max(400).optional().describe('Motivo (vai para 
 
 export type ToolKit = ReturnType<typeof createToolKit>;
 
-/** What every toolset registers its tools with, bound to the calling actor. */
 export function createToolKit(server: McpServer, s: McpServices, actor: Actor) {
   const tool = <Shape extends z.ZodRawShape>(
     name: string,

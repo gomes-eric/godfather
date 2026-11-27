@@ -10,11 +10,7 @@ export interface ActionRequest<T> {
   params?: Record<string, unknown>;
   confirm?: boolean;
   preview: string;
-  /**
-   * The action's own rules (a target too high, a role the bot can't touch). They run only once
-   * the actor holds the rank, so people without it learn nothing about the target.
-   */
-  check?: () => string | null;
+  checkAfterAuthorization?: () => string | null;
   execute: () => Promise<T>;
 }
 
@@ -35,7 +31,6 @@ export function rejected(reason: string): Rejected {
   return { status: 'rejected', reason };
 }
 
-/** A request the runner refuses after authorizing it, for a target that can't be found. */
 export function refusedRequest(
   request: Pick<ActionRequest<never>, 'actor' | 'action' | 'target' | 'params'>,
   reason: string,
@@ -43,9 +38,14 @@ export function refusedRequest(
   return {
     ...request,
     preview: reason,
-    check: () => reason,
+    checkAfterAuthorization: () => reason,
     execute: () => Promise.reject(new Error(reason)),
   };
+}
+
+function auditsResult(audited: boolean, actor: Actor, result: AuditResult): boolean {
+  const deniedOverMcp = result === 'denied' && actor.source === 'mcp';
+  return audited || deniedOverMcp;
 }
 
 export function createActionRunner(audit: Pick<AuditLog, 'record'>): ActionRunner {
@@ -53,9 +53,7 @@ export function createActionRunner(audit: Pick<AuditLog, 'record'>): ActionRunne
     const { actor, action, target, params } = request;
     const policy = ACTION_POLICIES[action];
     const record = async (result: AuditResult, extra?: Record<string, unknown>) => {
-      // A denied MCP call is kept even for reads: it shows a token outliving its owner's rank.
-      // Denied clicks on self-service buttons would only flood the audit channel.
-      if (policy.audited || (result === 'denied' && actor.source === 'mcp')) {
+      if (auditsResult(policy.audited, actor, result)) {
         const details = params || extra ? { ...params, ...extra } : undefined;
         await audit.record({
           actor,
@@ -73,7 +71,7 @@ export function createActionRunner(audit: Pick<AuditLog, 'record'>): ActionRunne
       return { status: 'denied', requiredTier: authorization.requiredTier };
     }
 
-    const refusal = request.check?.() ?? null;
+    const refusal = request.checkAfterAuthorization?.() ?? null;
     if (refusal !== null) {
       await record('rejected', { refusal });
       return rejected(refusal);

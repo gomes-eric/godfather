@@ -22,7 +22,6 @@ import { recruitmentSettings } from '../../config/views.js';
 
 const t = ptBR.recruitment;
 
-/** "Enviar minha ficha" and the officers' Aprovar/Recusar/Mudar. Returns false for other buttons. */
 export async function handleRecruitButton(
   interaction: ButtonInteraction,
   ctx: CommandContext,
@@ -57,7 +56,6 @@ export async function handleRecruitButton(
   }
   if (action !== 'approve' && action !== 'reject') return false;
 
-  // Registering can take a few seconds; the module updates the card itself once it is decided.
   await interaction.deferUpdate();
   const outcome = await ctx.recruitment.decide(await actor(), id, action === 'approve');
   if (outcome.status !== 'ok') {
@@ -66,7 +64,6 @@ export async function handleRecruitButton(
   return true;
 }
 
-/** The officer picked a type in Mudar's menu: the card shows it, and Aprovar gives it. */
 export async function handleRecruitSelect(
   interaction: StringSelectMenuInteraction,
   ctx: CommandContext,
@@ -90,7 +87,6 @@ export async function handleRecruitSelect(
   return true;
 }
 
-/** The submitted form; the module checks the character on the official site. */
 export async function handleRecruitModal(
   interaction: ModalSubmitInteraction,
   ctx: CommandContext,

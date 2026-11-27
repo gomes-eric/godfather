@@ -164,7 +164,7 @@ describe('domain checks', () => {
       action: 'member.kick',
       target: 'Padrinho',
       preview: 'Expulsar Padrinho',
-      check,
+      checkAfterAuthorization: check,
       execute: vi.fn(),
     });
 
@@ -183,7 +183,7 @@ describe('domain checks', () => {
       target: 'Padrinho',
       params: { userId: '42' },
       preview: 'Expulsar Padrinho',
-      check: () => 'Você só pode moderar quem está abaixo do seu cargo.',
+      checkAfterAuthorization: () => 'Você só pode moderar quem está abaixo do seu cargo.',
       execute,
     });
 
@@ -208,7 +208,7 @@ describe('domain checks', () => {
       actor: officer,
       action: 'member.kick',
       preview: 'Expulsar Padrinho',
-      check: () => null,
+      checkAfterAuthorization: () => null,
       execute: vi.fn(),
     });
 
@@ -221,7 +221,7 @@ describe('domain checks', () => {
       actor: officer,
       action: 'message.read',
       preview: 'Ler #geral',
-      check: () => 'Esse canal não aceita mensagens.',
+      checkAfterAuthorization: () => 'Esse canal não aceita mensagens.',
       execute: vi.fn(),
     });
 

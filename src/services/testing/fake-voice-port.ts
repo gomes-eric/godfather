@@ -11,7 +11,6 @@ import type {
 let nextId = 2_000_000_000_000_000n;
 const newId = () => String(nextId++);
 
-/** Lets other pending work run, the way a round trip to Discord would. */
 const roundTrip = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 const copy = (overwrites: readonly PermissionOverwrite[]) => overwrites.map((o) => ({ ...o }));
@@ -20,10 +19,8 @@ export class FakeVoicePort implements VoiceRoomPort {
   readonly everyoneRoleId = newId();
   readonly channels = new Map<string, VoiceChannelInfo>();
   readonly people = new Map<string, RoomMember>();
-  /** The voice channel each connected user is in. */
   readonly connected = new Map<string, string>();
   readonly panels = new Map<string, { channelId: string; view: RoomPanelView }>();
-  /** Users who leave voice before the bot can move them. */
   readonly unmovable = new Set<string>();
   failCreates = 0;
   failDeletes = 0;
@@ -53,7 +50,6 @@ export class FakeVoicePort implements VoiceRoomPort {
     return id;
   }
 
-  /** Moves the user as Discord would on their own action; returns the channel they left. */
   connect(userId: string, channelId: string | null): string | null {
     const from = this.connected.get(userId) ?? null;
     if (channelId) this.connected.set(userId, channelId);
@@ -61,7 +57,6 @@ export class FakeVoicePort implements VoiceRoomPort {
     return from;
   }
 
-  /** Channel names in a category, top to bottom. */
   order(parentId: string): string[] {
     return [...this.channels.values()]
       .filter((c) => c.parentId === parentId)
@@ -114,7 +109,7 @@ export class FakeVoicePort implements VoiceRoomPort {
     });
   }
 
-  async deleteChannel(id: string): Promise<void> {
+  async deleteChannelIfExists(id: string): Promise<void> {
     await roundTrip();
     if (this.failDeletes > 0) {
       this.failDeletes--;
@@ -129,13 +124,23 @@ export class FakeVoicePort implements VoiceRoomPort {
     }
   }
 
-  async moveMember(userId: string, channelId: string | null): Promise<void> {
+  async moveMember(userId: string, channelId: string): Promise<void> {
     await roundTrip();
+    this.assertMovable(userId);
+    this.channel(channelId);
+    this.connect(userId, channelId);
+  }
+
+  async disconnectMember(userId: string): Promise<void> {
+    await roundTrip();
+    this.assertMovable(userId);
+    this.connect(userId, null);
+  }
+
+  private assertMovable(userId: string): void {
     if (!this.connected.has(userId) || this.unmovable.has(userId)) {
       throw new Error('Target user is not connected to voice');
     }
-    if (channelId) this.channel(channelId);
-    this.connect(userId, channelId);
   }
 
   async setOverwrites(channelId: string, overwrites: PermissionOverwrite[]): Promise<void> {

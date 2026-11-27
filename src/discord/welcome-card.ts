@@ -24,11 +24,7 @@ export interface Newcomer {
   memberCount: number;
 }
 
-/**
- * The welcome card: the title and message from server.yaml, one field per first step, the
- * newcomer's avatar and their member number. The mention also goes in `content`, because a
- * mention inside an embed does not notify anyone.
- */
+/** The mention goes in `content` because a mention inside an embed does not notify anyone. */
 export function welcomeCard(
   welcome: ServerConfig['settings']['welcome'],
   newcomer: Newcomer,

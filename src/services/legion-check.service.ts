@@ -7,7 +7,7 @@ import { matchClass, type CharacterProfile } from '../core/game-character.js';
 import {
   batchVerdict,
   checkDue,
-  legionToStore,
+  legionToSave,
   MAX_DEPARTURES,
   memberVerdict,
   reviewFor,
@@ -30,9 +30,7 @@ import type { Roster } from './roster.service.js';
 import { ownLegion } from '../config/views.js';
 
 const t = ptBR.legionCheck;
-/** How often to look whether a check is due. */
 const TICK_MS = 60 * 60_000;
-/** Pause between characters, to be gentle with the official site. */
 const PAUSE_MS = 1_500;
 
 interface Deps {
@@ -43,7 +41,6 @@ interface Deps {
   characters: GameCharacterService;
   roster: Roster;
   restrictions: RestrictionStore;
-  /** Opens a review for the officers (Recruitment.openReview). */
   review: (request: ReviewRequest) => Promise<void>;
   botUserId: string;
   runAction: ActionRunner;
@@ -61,11 +58,6 @@ interface Checked {
   itemLevel: number | null;
 }
 
-/**
- * Once a day, re-reads every registered character on the official site and carries out what the
- * core's verdict says: new class or name applied, standing moves (with reviews for the officers),
- * the officers' report, and the #ranking board rebuilt from the fresh numbers.
- */
 export class LegionCheckService implements BackgroundJob {
   private running = false;
   private readonly pause: (ms: number) => Promise<void>;
@@ -91,7 +83,6 @@ export class LegionCheckService implements BackgroundJob {
     return this.running;
   }
 
-  /** /ranking and MCP: the check now, as an audited action, unless one is under way. */
   async runNow(actor: Actor): Promise<ServiceOutcome<{ report: string[]; members: number }>> {
     if (this.running) return rejected(t.commandBusy);
     return this.deps.runAction({
@@ -193,7 +184,7 @@ export class LegionCheckService implements BackgroundJob {
       }
       this.deps.registrations.updateSnapshot(c.userId, {
         ...c.verdict.now,
-        legion: legionToStore(c.verdict, holdBack),
+        legion: legionToSave(c.verdict, holdBack),
         combatPower: c.combatPower,
         itemLevel: c.itemLevel,
       });

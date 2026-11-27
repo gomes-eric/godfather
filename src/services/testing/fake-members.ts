@@ -1,6 +1,5 @@
 import type { MemberPort, MemberSnapshot, MemberUpdate } from '../member-port.js';
 
-/** In-memory members for tests: writes land on the snapshot, as Discord would apply them. */
 export class FakeMembers implements MemberPort {
   readonly writes: ({ userId: string; reason: string } & MemberUpdate)[] = [];
   private readonly members = new Map<string, MemberSnapshot>();
@@ -23,7 +22,6 @@ export class FakeMembers implements MemberPort {
     return this;
   }
 
-  /** They left the server. */
   remove(userId: string): this {
     this.members.delete(userId);
     return this;

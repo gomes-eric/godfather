@@ -25,11 +25,9 @@ export class NoticeThrottle {
   }
 }
 
-/** A message the guard removes, and the channel it was sent in. */
 export interface GuardTarget {
   authorId: string;
   delete(): Promise<void>;
-  /** Posts in the message's channel, mentioning only its author; null where the bot can't post. */
   notify(content: string): Promise<{ delete(): Promise<unknown> } | null>;
 }
 

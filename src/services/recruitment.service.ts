@@ -34,7 +34,6 @@ import { allianceChatKey, ownLegion } from '../config/views.js';
 
 const t = ptBR.recruitment;
 
-/** How long a decided application's private thread stays before it is deleted. */
 export const THREAD_LIFETIME_MS = { approved: 60 * 60_000, rejected: 6 * 60 * 60_000 } as const;
 const SWEEP_MS = 5 * 60_000;
 
@@ -52,13 +51,11 @@ interface Deps {
   now?: () => Date;
 }
 
-/** What someone sent with "Enviar minha ficha". */
 export interface SentForm {
   picked: FormKind;
   characterName: string | null;
 }
 
-/** The daily check changed someone's standing (or saw an Oficial leave) and asks the officers. */
 export interface ReviewRequest {
   userId: string;
   kind: ApplicationKind;
@@ -81,10 +78,8 @@ export interface ApplicationSummary {
   decidedBy: string | null;
 }
 
-/** What a decision will do, settled before anything changes. */
 interface DecisionPlan {
   target: Standing | null;
-  /** An Aliança of a legion that is not an alliance yet: created first, by a Comandante. */
   newAllianceLegion: string | null;
   character: CharacterProfile | null;
 }
@@ -114,10 +109,6 @@ function stored(c: CharacterProfile | null): ApplicationCharacter | null {
   );
 }
 
-/**
- * Recruitment applications from "Enviar minha ficha" and the daily check's reviews: one module
- * owns them, decides each one in full before changing anything, and shows them through the board.
- */
 export class Recruitment implements BackgroundJob {
   private readonly deciding = new Set<number>();
 
@@ -131,14 +122,12 @@ export class Recruitment implements BackgroundJob {
     return ownLegion(this.deps.config.get());
   }
 
-  /** Why the form can't be opened for them now, if it can't. */
   canApply(actor: Actor): string | null {
     if (actor.tier !== 'visitor') return t.alreadyMember;
     if (this.deps.store.pendingFor(actor.userId)) return t.alreadyPending;
     return null;
   }
 
-  /** Their registered character's name, to pre-fill the form. */
   formDefaults(userId: string): { characterName: string | undefined } {
     return { characterName: this.deps.registration.storedName(userId) };
   }
@@ -181,10 +170,6 @@ export class Recruitment implements BackgroundJob {
       );
   }
 
-  /**
-   * Records the form and posts its card in a private thread. A Membro whose character is already
-   * in the legion (and nobody else's) is approved right away.
-   */
   async submit(
     actor: Actor,
     form: SentForm,
@@ -258,7 +243,6 @@ export class Recruitment implements BackgroundJob {
     return { status: 'ok', value: { application, autoApproved: false, shownName } };
   }
 
-  /** A card in a private thread in the officers' channel; Recusar puts the old standing back. */
   async openReview(request: ReviewRequest): Promise<void> {
     const created = await this.deps.runAction({
       actor: systemActor(this.deps.botUserId),
@@ -280,7 +264,6 @@ export class Recruitment implements BackgroundJob {
     if (created.status === 'ok') await this.post(created.value, true);
   }
 
-  /** The application Mudar works on, when the officer may change it. */
   kindChoices(actor: Actor, id: number): ServiceOutcome<Application> {
     const application = this.deps.store.get(id);
     if (!application) return rejected(t.gone);
@@ -292,7 +275,6 @@ export class Recruitment implements BackgroundJob {
     return { status: 'ok', value: application };
   }
 
-  /** Mudar: the type approving will give. Aliança takes the character's legion. */
   async changeKind(
     actor: Actor,
     id: number,
@@ -319,11 +301,6 @@ export class Recruitment implements BackgroundJob {
     return outcome;
   }
 
-  /**
-   * Approves or refuses an application. Every check runs first (still pending, rank, the person
-   * and the roles they need); only then is a new alliance created and the standing changed. One
-   * decision per application at a time.
-   */
   async decide(actor: Actor, id: number, approve: boolean): Promise<ServiceOutcome<Application>> {
     if (this.deciding.has(id)) return rejected(t.beingDecided);
     this.deciding.add(id);
@@ -442,7 +419,6 @@ export class Recruitment implements BackgroundJob {
       : { status: 'ok', value: { target: null, newAllianceLegion: legion, character } };
   }
 
-  /** The standing (and the character, for a form) in one roster change; returns the nickname. */
   private async apply(
     actor: Actor,
     userId: string,
@@ -476,7 +452,6 @@ export class Recruitment implements BackgroundJob {
     );
   }
 
-  /** Applications for officers, newest first, with names already resolved. */
   list(
     actor: Actor,
     status?: Application['status'],
@@ -504,10 +479,6 @@ export class Recruitment implements BackgroundJob {
     });
   }
 
-  /**
-   * Deletes the private thread of each decided application once its time is up: an hour after an
-   * approval, six hours after a refusal, counted from the stored decision time.
-   */
   async sweepThreads(): Promise<number> {
     const now = (this.deps.now ?? (() => new Date()))().getTime();
     let deleted = 0;

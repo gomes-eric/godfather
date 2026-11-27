@@ -39,7 +39,6 @@ const LEVEL_RANK: Record<AccessLevel, number> = {
   none: 4,
 };
 
-/** @everyone's base permissions with ChangeNickname and CreateInstantInvite locked or granted. */
 export function everyonePermissions(
   current: bigint,
   locks: { nicknames: boolean; invites: boolean },

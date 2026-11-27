@@ -69,7 +69,7 @@ export class ModerationService {
       params: { userId, reason: why },
       confirm,
       preview: t.kickPreview(name, why),
-      check: () =>
+      checkAfterAuthorization: () =>
         this.targetRefusal(actor, userId, member, member.bot) ??
         (member.kickable ? null : ptBR.members.botCannot),
       execute: async () => {
@@ -108,7 +108,7 @@ export class ModerationService {
       params,
       confirm,
       preview: t.banPreview(name, why, deleteHours),
-      check: () =>
+      checkAfterAuthorization: () =>
         this.targetRefusal(actor, userId, member, user.bot) ??
         (member && !member.bannable ? ptBR.members.botCannot : null),
       execute: async () => {
@@ -132,7 +132,7 @@ export class ModerationService {
       target: name,
       params: { userId, reason: why },
       preview: t.unbanned(name),
-      check: () => (banned ? null : t.notBanned),
+      checkAfterAuthorization: () => (banned ? null : t.notBanned),
       execute: async () => {
         await this.deps.guild.unban(userId, why);
         return t.unbanned(name);
@@ -167,7 +167,7 @@ export class ModerationService {
       target: name,
       params,
       preview: done,
-      check: () =>
+      checkAfterAuthorization: () =>
         this.targetRefusal(actor, userId, member, member.bot) ??
         (member.moderatable ? null : ptBR.members.botCannot),
       execute: async () => {
@@ -196,10 +196,10 @@ export class ModerationService {
       params: { channelId, count: amount, ...(authorId && { authorId }) },
       confirm,
       preview: t.purgePreview(amount, name, author?.displayName),
-      check: () => (channel?.messageable ? null : t.notText),
+      checkAfterAuthorization: () => (channel?.messageable ? null : t.notText),
       execute: async () => {
         const cutoff = (this.deps.now?.() ?? new Date()).getTime() - BULK_DELETE_MAX_AGE_MS;
-        const ids = (await guild.recentMessages(channelId, MAX_PURGE))
+        const ids = (await guild.newestMessages(channelId, MAX_PURGE))
           .filter((m) => !authorId || m.authorId === authorId)
           .slice(0, amount)
           .filter((m) => m.createdAt.getTime() > cutoff)

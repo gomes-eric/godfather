@@ -19,7 +19,6 @@ export interface PartyView {
 
 export interface PartyUpdate {
   view: PartyView;
-  /** Set when this join took the last slot: the call to post, and whom it pings. */
   filled?: { text: string; mentionIds: string[] };
 }
 

@@ -13,6 +13,13 @@ function hash(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+function revokeAction(
+  actor: Actor,
+  ownerId: string | undefined,
+): 'mcp.token.revoke.own' | 'mcp.token.revoke.any' {
+  return ownerId === actor.userId ? 'mcp.token.revoke.own' : 'mcp.token.revoke.any';
+}
+
 export class TokenService {
   constructor(
     private readonly db: Db,
@@ -50,8 +57,7 @@ export class TokenService {
 
   async revoke(actor: Actor, id: number): Promise<ServiceOutcome<string>> {
     const row = this.db.select().from(mcpTokens).where(eq(mcpTokens.id, id)).get();
-    // An unknown id takes the stricter policy, so it reads like someone else's token.
-    const action = row?.userId === actor.userId ? 'mcp.token.revoke.own' : 'mcp.token.revoke.any';
+    const action = revokeAction(actor, row?.userId);
     if (!row || row.revokedAt) {
       return this.runAction(
         refusedRequest(

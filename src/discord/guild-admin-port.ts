@@ -157,7 +157,7 @@ export function createDiscordGuildAdmin(guild: Guild): GuildAdminPort {
       await guild.channels.delete(channelId);
     },
 
-    async recentMessages(channelId, limit) {
+    async newestMessages(channelId, limit) {
       const messages = await (await textChannel(channelId)).messages.fetch({ limit });
       return [...messages.values()].map((m) => ({
         id: m.id,

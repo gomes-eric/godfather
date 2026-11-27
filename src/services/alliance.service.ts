@@ -18,7 +18,6 @@ export interface AllianceSummary {
   key: string;
   legion: string;
   members: number;
-  /** Display names of the allies holding Líder Aliado. */
   leaders: string[];
 }
 

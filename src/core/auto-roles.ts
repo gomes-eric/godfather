@@ -5,11 +5,8 @@ export interface MemberSnapshot {
 }
 
 export interface AutoRoles {
-  /** welcome.autoRole, for a person with no place in the server yet. */
   visitor?: string | undefined;
-  /** welcome.botRole, for every bot but Padrinho. */
   bot?: string | undefined;
-  /** Roles that already give a person a place: standing, alliance and soldier-like roles. */
   placed: ReadonlySet<string>;
 }
 

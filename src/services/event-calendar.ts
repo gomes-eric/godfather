@@ -54,9 +54,7 @@ export interface ReminderMessage {
   occurrence: OccurrenceView;
   offsetMinutes: number;
   rsvp: RsvpSummary;
-  /** The classes of who said yes, most common first. */
   classes: ClassCount[];
-  /** Posted for a time the event no longer has; the reminders for the new time come later. */
   superseded: boolean;
 }
 
@@ -75,7 +73,6 @@ export interface TickReport {
 
 export interface NewEvent {
   title: string;
-  /** As people type it: "30/10 21:00", "sáb 21h", "amanhã 20:30". */
   when: string;
   description?: string;
   voiceChannelId?: string;
@@ -90,13 +87,10 @@ export interface EventEdit {
 }
 
 export interface TemplateEdit {
-  /** "21:00", "21h", "9h30". */
   time?: string;
-  /** "seg qui sáb", "mon,thu,sat", "todo dia". */
   days?: string;
   title?: string;
   enabled?: boolean;
-  /** Where the new values came from, for the audit. */
   source?: string;
 }
 
@@ -106,21 +100,21 @@ interface Deps {
   config: Pick<ConfigStore, 'get' | 'updateEventTemplate'>;
   runAction: ActionRunner;
   port: AnnouncementPort;
-  /** Names of the class roles a member has. */
   classesOf: (userId: string) => string[];
   logger: Logger;
   now?: () => Date;
 }
 
-/**
- * The legion's events: one-off ones and the occurrences of the server.yaml templates, their
- * reminders, RSVPs and the pinned agenda. Every change goes through here, whoever makes it.
- */
+function localDayKey(now: Date, timeZone: string): [number, number, number] {
+  const { year, month, day } = localParts(now, timeZone);
+  return [year, month, day];
+}
+
 export class EventCalendar implements BackgroundJob {
   private readonly now: () => Date;
   private agendaChecked = false;
   private running: Promise<TickReport> | undefined;
-  private queued: Promise<TickReport> | undefined;
+  private nextTickAfterRunning: Promise<TickReport> | undefined;
 
   constructor(private readonly deps: Deps) {
     this.now = deps.now ?? (() => new Date());
@@ -134,23 +128,21 @@ export class EventCalendar implements BackgroundJob {
     );
   }
 
-  /** Syncs the template occurrences, schedules and sends the due reminders, then the agenda. */
   tick(): Promise<TickReport> {
     if (!this.running) {
       this.running = this.runTick().finally(() => (this.running = undefined));
       return this.running;
     }
-    // A change made while a tick runs can come too late for it, so one more follows.
-    this.queued ??= this.running
+    this.nextTickAfterRunning ??= this.running
       .then(
         () => undefined,
         () => undefined,
       )
       .then(() => {
-        this.queued = undefined;
+        this.nextTickAfterRunning = undefined;
         return this.tick();
       });
-    return this.queued;
+    return this.nextTickAfterRunning;
   }
 
   async create(actor: Actor, input: NewEvent): Promise<ServiceOutcome<string>> {
@@ -260,7 +252,6 @@ export class EventCalendar implements BackgroundJob {
     });
   }
 
-  /** The events of the next 7 days. */
   async list(actor: Actor): Promise<ServiceOutcome<OccurrenceView[]>> {
     return this.deps.runAction({
       actor,
@@ -340,7 +331,6 @@ export class EventCalendar implements BackgroundJob {
     return occurrence ? this.view(occurrence) : null;
   }
 
-  /** What occurrence #N is today: its event, or its template as server.yaml has it now. */
   private view(occurrence: OccurrenceRow): OccurrenceView | null {
     const config = this.deps.config.get();
     const defaultPing = config.settings.eventDefaults.ping === 'everyone';
@@ -427,7 +417,6 @@ export class EventCalendar implements BackgroundJob {
     };
   }
 
-  /** Brings the reminder cards already in the channel up to date with the occurrence. */
   private async refreshCards(occurrenceId: number, posted: ReminderRow[]): Promise<void> {
     const occurrence = this.deps.store.getOccurrence(occurrenceId);
     const view = occurrence && this.view(occurrence);
@@ -452,7 +441,6 @@ export class EventCalendar implements BackgroundJob {
     return report;
   }
 
-  /** The templates' occurrences in the window exist, and ones no template wants any more go. */
   private syncTemplateOccurrences(now: Date, until: Date): void {
     const { store } = this.deps;
     const config = this.deps.config.get();
@@ -517,13 +505,12 @@ export class EventCalendar implements BackgroundJob {
   private async refreshAgenda(now: Date): Promise<boolean> {
     const items = this.upcoming(now);
     const timeZone = this.deps.config.get().settings.timezone;
-    const today = localParts(now, timeZone);
+    const localDay = localDayKey(now, timeZone);
     const fingerprint = createHash('sha256')
       .update(
         JSON.stringify([
-          // The agenda labels days "Hoje" and "Amanhã", so it changes at local midnight too.
           timeZone,
-          [today.year, today.month, today.day],
+          localDay,
           items.map((i) => [
             i.occurrenceId,
             i.title,

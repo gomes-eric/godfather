@@ -52,7 +52,6 @@ export interface RoomDescription extends RoomAccess {
   name: string;
   userLimit: number;
   ownerId: string;
-  /** Everyone connected, bots included. */
   occupants: RoomMember[];
 }
 
@@ -148,7 +147,6 @@ export class VoiceService {
     };
   }
 
-  /** The same check manage() runs first, for prompts shown before the command. */
   check(actor: Actor, roomId: string | null, type: RoomCommand['type']): RoomCheck {
     return this.gate(actor, roomId, type);
   }
@@ -238,7 +236,7 @@ export class VoiceService {
       case 'kick': {
         await port.setOverwrites(room.id, banFromRoom(this.overwrites(room.id), command.userId));
         if (port.members(room.id).some((m) => m.id === command.userId)) {
-          await port.moveMember(command.userId, null, 'Kicked from temp room');
+          await port.disconnectMember(command.userId, 'Kicked from temp room');
         }
         const kicked = room.occupants.find((o) => o.id === command.userId);
         return t.kicked(kicked?.displayName ?? command.userId);
@@ -302,7 +300,6 @@ export class VoiceService {
     return this.creationLimit.limiter.take(GUILD_KEY);
   }
 
-  /** True when the member ended up in a new room of their own. */
   private async createRoom(generator: Generator, member: RoomMember): Promise<boolean> {
     const { port, logger } = this.deps;
     if (!this.allowCreation()) {
@@ -355,7 +352,7 @@ export class VoiceService {
       rooms.insert({ channelId, generatorKey: generator.key, number: n, ownerId: member.id });
     } catch (error) {
       await port
-        .deleteChannel(channelId, 'Temp room could not be saved')
+        .deleteChannelIfExists(channelId, 'Temp room could not be saved')
         .catch((cleanup: unknown) =>
           logger.warn({ err: cleanup, channelId }, 'could not delete an unsaved temp room'),
         );
@@ -364,7 +361,6 @@ export class VoiceService {
     return channelId;
   }
 
-  /** True when the room is gone afterwards. A room whose channel could not be deleted stays. */
   private async deleteIfEmpty(channelId: string): Promise<boolean> {
     const { port, rooms, logger } = this.deps;
     if (!rooms.get(channelId) || this.deleting.has(channelId)) return false;
@@ -373,7 +369,7 @@ export class VoiceService {
       if (port.members(channelId).length > 0) return false;
       this.deleting.add(channelId);
       try {
-        await port.deleteChannel(channelId, 'Temp room is empty');
+        await port.deleteChannelIfExists(channelId, 'Temp room is empty');
       } catch (error) {
         logger.warn({ err: error, channelId }, 'failed to delete empty temp room');
         return false;

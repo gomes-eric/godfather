@@ -34,18 +34,12 @@ interface Deps {
   logger: Logger;
 }
 
-/** What linking does besides the character: a new standing, and why. */
 export interface LinkOptions {
   to?: Standing;
   cause: StandingCause;
   action?: ActionName;
 }
 
-/**
- * Ties a member to their in-game character: class role, "⚔️ Nome" nickname and the stored
- * character (for /perfil, the daily check and #ranking), written together with any standing
- * change through the roster.
- */
 export class RegistrationService {
   constructor(private readonly deps: Deps) {}
 
@@ -53,13 +47,11 @@ export class RegistrationService {
     return matchClass(className, classRoles(this.deps.config.get()));
   }
 
-  /** The character with this exact name on the legion's server, read fresh from the site. */
   async lookup(name: string): Promise<CharacterProfile | null> {
     const ref = await this.deps.characters.find(normalizeGameName(name), true);
     return ref && this.deps.characters.profile(ref, true);
   }
 
-  /** The site's answer as an outcome: not found and site down become refusals. */
   async find(name: string): Promise<ServiceOutcome<CharacterProfile>> {
     try {
       const character = await this.lookup(name);
@@ -76,17 +68,11 @@ export class RegistrationService {
     return this.deps.registrations.get(userId)?.name;
   }
 
-  /** Who else has this character registered (not `userId`), if anyone. */
   ownerOf(characterId: string, userId: string): string | undefined {
     const row = this.deps.registrations.byCharacter(characterId);
     return row && row.userId !== userId ? row.userId : undefined;
   }
 
-  /**
-   * Applies the character (and `options.to`, when given) to the member in one write, then stores
-   * it. A character registered to another account moves here: that account loses it and becomes
-   * Restrito, and the officers are told.
-   */
   async link(
     actor: Actor,
     userId: string,
@@ -139,10 +125,6 @@ export class RegistrationService {
     await notifyOfficers(this.deps, t.transferred(character, oldOwner, newOwner));
   }
 
-  /**
-   * An officer registering a member's character by hand (MCP `register_character`); a Visitante
-   * also becomes Soldado. A character someone else has needs `confirm` and the officers are told.
-   */
   async register(
     actor: Actor,
     userId: string,

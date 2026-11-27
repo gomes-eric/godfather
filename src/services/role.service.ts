@@ -81,7 +81,7 @@ export class RoleService {
       target: role.name,
       params: { roleId: role.id, ...input },
       preview: role.name,
-      check: () => this.refusal(role, false),
+      checkAfterAuthorization: () => this.refusal(role, false),
       execute: async () => {
         await this.deps.guild.editRole(role.id, roleFields(input));
         return t.edited(input.name ?? role.name);
@@ -105,7 +105,7 @@ export class RoleService {
       params: { roleId: role.id },
       confirm,
       preview: t.deletePreview(role.name, role.memberCount),
-      check: () => this.refusal(role, false),
+      checkAfterAuthorization: () => this.refusal(role, false),
       execute: async () => {
         await this.deps.guild.deleteRole(role.id);
         return t.deleted(role.name);
@@ -144,7 +144,7 @@ export class RoleService {
       target: `${roleName} → ${name}`,
       params: { roleId, userId: member.value.id, assign },
       preview: roleName,
-      check: () => this.refusal(role.value, true),
+      checkAfterAuthorization: () => this.refusal(role.value, true),
       execute: async () => {
         if (assign) {
           await this.deps.guild.addRole(member.value.id, roleId);

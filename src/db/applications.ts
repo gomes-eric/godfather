@@ -13,7 +13,6 @@ type CharacterColumn =
   | 'combatPower'
   | 'itemLevel';
 
-/** The character as the official site showed it when the application was sent. */
 export interface ApplicationCharacter {
   id: string;
   name: string;
@@ -25,7 +24,6 @@ export interface ApplicationCharacter {
   itemLevel: number | null;
 }
 
-/** A Parceiro may send the form without a character: then `character` is null. */
 export type Application = Omit<Row, CharacterColumn> & { character: ApplicationCharacter | null };
 export type ApplicationKind = Application['kind'];
 export type NewApplication = Omit<

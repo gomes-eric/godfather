@@ -4,7 +4,7 @@ import {
   checkDue,
   CHECK_EVERY_MS,
   legionTransition,
-  legionToStore,
+  legionToSave,
   memberVerdict,
   batchVerdict,
   reviewFor,
@@ -169,8 +169,8 @@ describe('memberVerdict and the batch', () => {
     const left = verdict({ legion: 'Outra' });
     const batch = batchVerdict([left, left, left, left]);
     expect(batch).toEqual({ departures: 4, holdBack: true });
-    expect(legionToStore(left, true)).toBe('M4F1A');
-    expect(legionToStore(left, false)).toBe('Outra');
+    expect(legionToSave(left, true)).toBe('M4F1A');
+    expect(legionToSave(left, false)).toBe('Outra');
     expect(batchVerdict([left, left, left]).holdBack).toBe(false);
   });
 

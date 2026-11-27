@@ -29,7 +29,7 @@ export class MessageService {
       target: `#${name}`,
       params: { channelId, text, ...options },
       preview: text,
-      check: () => (channel?.messageable ? null : ptBR.moderation.notText),
+      checkAfterAuthorization: () => (channel?.messageable ? null : ptBR.moderation.notText),
       execute: async () => {
         const allowMentions = options.allowMentions === true;
         // A plain message holds 2000 characters; longer text (from the /say form) goes as an embed.
@@ -47,7 +47,6 @@ export class MessageService {
     });
   }
 
-  /** The channel's last messages, oldest first. */
   async read(
     actor: Actor,
     channelInput: string,
@@ -70,8 +69,8 @@ export class MessageService {
       action: 'message.read',
       target: `#${channel.name}`,
       preview: channel.name,
-      check: () => (channel.messageable ? null : ptBR.moderation.notText),
-      execute: async () => (await this.deps.guild.recentMessages(channel.id, limit)).reverse(),
+      checkAfterAuthorization: () => (channel.messageable ? null : ptBR.moderation.notText),
+      execute: async () => (await this.deps.guild.newestMessages(channel.id, limit)).reverse(),
     });
   }
 }

@@ -38,7 +38,7 @@ trocar para usar o bot no seu servidor.
 | Voz          | Canais "➕ Criar" que geram salas temporárias (Dungeon 01, 02…). O dono da sala a renomeia e limita com `/voice`.                                                                                                                                                                                           |
 | Música       | Bots de música só respondem em #musica e no chat dos canais de voz. Comandos de música digitados em outro canal são apagados.                                                                                                                                                                               |
 | Moderação    | `/mod`, `/member`, `/say` e log de auditoria de tudo que o bot faz.                                                                                                                                                                                                                                         |
-| Alianças     | `/alliance add`, `remove` e `list`. Cada aliança tem um cargo com o nome da legião e acesso à categoria Aliança.                                                                                                                                                                                            |
+| Alianças     | `/alliance add`, `remove` e `list`. Cada aliança tem um cargo com o nome da legião e acesso à categoria Aliança. `/alliance leader` marca os líderes das guildas aliadas com o cargo Líder Aliado.                                                                                                          |
 | Grupos       | `/party` monta grupos para conteúdo.                                                                                                                                                                                                                                                                        |
 
 `/help` lista os comandos que cada pessoa pode usar, de acordo com o nível dela.
@@ -114,10 +114,16 @@ avisado quando chega uma ficha nova.
 
 **Aliados e Restritos** (`settings.allyRole`, `settings.restrictedRole`, `settings.alliances` e a
 lista `alliances` no fim do arquivo): o cargo Aliado conta como Soldado em todos os canais; o
-Restrito só vê os canais que o liberam (no exemplo, o #geral). A lista `alliances` é escrita pelo
-`/alliance add`. O cargo `settings.allyLeaderRole` (Líder Aliado) marca os líderes das guildas
-aliadas com `/alliance leader add`, e o bot o tira quando a pessoa deixa de ser Aliado. A checagem diária transforma em Restrito quem sai da legião no jogo e abre uma
-análise para os oficiais (com mais de 3 saídas de uma vez, ela não muda ninguém).
+Restrito só vê os canais que o liberam (no exemplo, o #geral). A lista `alliances` pode ser editada à
+mão ou pelo `/alliance add`. O cargo `settings.allyLeaderRole` (Líder Aliado) marca os líderes das
+guildas aliadas com `/alliance leader add`, e o bot o tira quando a pessoa deixa de ser Aliado. A
+checagem diária transforma em Restrito quem sai da legião no jogo e abre uma análise para os
+oficiais (com mais de 3 saídas de uma vez, ela não muda ninguém).
+
+**Apelidos e convites** (`settings.lockNicknames` e `settings.lockInvites`): com `lockNicknames`,
+ninguém troca o próprio apelido; quem define é a ficha aprovada e a checagem diária. Com
+`lockInvites`, só quem tem Administrator (no exemplo, Fundador e Comandante) e o bot criam convites.
+O `/setup` aplica os dois tirando a permissão do `@everyone`.
 
 **Notícias** (`settings.news`): o canal e o app da Steam (`3393110` é o AION 2). Sem `summary`, sai o
 card simples da Steam. Os resumos com Claude estão na [seção 7](#7-resumos-de-notícias-com-claude-opcional).
@@ -141,13 +147,13 @@ campos, está em [src/config/schema.ts](src/config/schema.ts).
 
 Alguns textos ainda citam a M4F1A e o Triniel direto no código. Troque-os no seu fork:
 
-| Arquivo                                                      | O que tem                                                                                                                |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| [src/i18n/pt-BR.ts](src/i18n/pt-BR.ts)                       | Mensagens do bot: "Este bot só funciona no servidor da M4F1A", "Não achei o personagem no Triniel", rodapés com "M4F1A". |
-| [src/core/news-digest.ts](src/core/news-digest.ts)           | O prompt dos resumos de notícias: descreve a legião, o servidor e quando marcar @everyone.                               |
-| [src/services/news.service.ts](src/services/news.service.ts) | A regra que só marca @everyone quando o anúncio cita "Triniel".                                                          |
-| [src/mcp/instructions.ts](src/mcp/instructions.ts)           | O texto que apresenta o bot aos assistentes de IA (a facção está fixa como Asmodiana).                                   |
-| [Dockerfile](Dockerfile)                                     | `TZ=America/Sao_Paulo`, o fuso do container.                                                                             |
+| Arquivo                                                  | O que tem                                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [src/i18n/pt-BR.ts](src/i18n/pt-BR.ts)                   | Mensagens do bot: "Este bot só funciona no servidor da M4F1A", "Não achei o personagem no Triniel", rodapés com "M4F1A". |
+| [src/core/news-digest.ts](src/core/news-digest.ts)       | O prompt dos resumos de notícias e a regra que só marca @everyone quando o anúncio cita "Triniel".                       |
+| [src/services/fetch-json.ts](src/services/fetch-json.ts) | O User-Agent das consultas ao site oficial e ao shugo.gg.                                                                |
+| [src/mcp/instructions.ts](src/mcp/instructions.ts)       | O texto que apresenta o bot aos assistentes de IA (a facção está fixa como Asmodiana).                                   |
+| [Dockerfile](Dockerfile)                                 | `TZ=America/Sao_Paulo`, o fuso do container.                                                                             |
 
 Procure por `M4F1A`, `Triniel` e `asmodian` para achar todos:
 
@@ -196,9 +202,9 @@ docker compose up -d              # recria o container com a URL nova
 Detalhes de permissão:
 
 - O container roda como o usuário `node` (uid 1000). A pasta `data/` precisa pertencer ao uid 1000.
-- O bot reescreve o `server.yaml` (horários do shugo.gg, `/event template edit`). Para isso, o
-  container entra no grupo do seu usuário (`HOST_GID` no `.env`) e o arquivo precisa de permissão de
-  escrita para o grupo (`chmod g+w server.yaml`). O wizard faz os dois.
+- O bot reescreve o `server.yaml` (horários do shugo.gg, `/event template edit`, `/alliance add` e
+  `remove`). Para isso, o container entra no grupo do seu usuário (`HOST_GID` no `.env`) e o arquivo
+  precisa de permissão de escrita para o grupo (`chmod g+w server.yaml`). O wizard faz os dois.
 - A porta 8080 só abre para o próprio servidor (`127.0.0.1`). Quem a expõe para fora é o Funnel.
 
 ## 5. Primeira configuração no Discord
@@ -342,6 +348,10 @@ git pull && docker compose up -d --build
 
 As migrações do banco rodam sozinhas na subida. Se você pegou as mudanças do repositório original,
 rode `/setup dry-run:true` para ver se o `server.yaml` novo muda algo no servidor.
+
+Se o bot alterou o `server.yaml` no servidor (horários do shugo.gg, `/alliance add`…), o `git pull`
+reclama do arquivo modificado. Veja a diferença com `git diff server.yaml`, leve-a para o seu fork e
+só então atualize; assim a mudança não se perde.
 
 **Backup**: `scripts/backup.sh` copia o banco para `data/backups` e guarda os 14 mais recentes. O
 wizard o agenda para as 04:15. O banco guarda os ids criados pelo `/setup`, eventos, presenças,

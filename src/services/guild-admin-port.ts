@@ -1,12 +1,9 @@
 import type { SnapshotChannelKind } from '../setup/model.js';
 
-/** The Discord operations behind moderation, roles, channels and bot messages. */
 export interface GuildAdminPort {
   ownerId(): string;
-  /** Null until the bot's own member is cached. */
   botTopRolePosition(): number | null;
 
-  /** The cached members, for resolving names. */
   members(): MemberView[];
   fetchMember(userId: string): Promise<MemberView | null>;
   fetchUser(userId: string): Promise<UserView | null>;
@@ -14,10 +11,8 @@ export interface GuildAdminPort {
   ban(userId: string, reason: string, deleteMessageSeconds: number): Promise<void>;
   fetchBan(userId: string): Promise<UserView | null>;
   unban(userId: string, reason: string): Promise<void>;
-  /** A null duration lifts the timeout. */
   timeout(userId: string, durationMs: number | null, reason: string): Promise<void>;
 
-  /** Every role but @everyone. */
   roles(): RoleView[];
   createRole(fields: RoleFields & { name: string }): Promise<RoleView>;
   editRole(roleId: string, fields: RoleFields): Promise<void>;
@@ -31,9 +26,7 @@ export interface GuildAdminPort {
   editChannel(channelId: string, fields: ChannelFields): Promise<void>;
   deleteChannel(channelId: string): Promise<void>;
 
-  /** Newest first, as Discord returns them. */
-  recentMessages(channelId: string, limit: number): Promise<MessageView[]>;
-  /** Returns how many messages Discord deleted. */
+  newestMessages(channelId: string, limit: number): Promise<MessageView[]>;
   bulkDelete(channelId: string, messageIds: string[]): Promise<number>;
   send(channelId: string, message: OutgoingMessage): Promise<void>;
 }
@@ -46,7 +39,6 @@ export interface MemberView {
   nickname: string | null;
   bot: boolean;
   roleIds: string[];
-  /** Whether the bot's own rank and permissions allow it. */
   kickable: boolean;
   bannable: boolean;
   moderatable: boolean;
@@ -62,7 +54,6 @@ export interface RoleView {
   id: string;
   name: string;
   position: number;
-  /** Owned by an integration, such as a bot's own role. */
   managed: boolean;
   memberCount: number;
 }
@@ -80,7 +71,6 @@ export interface ChannelView {
   kind: SnapshotChannelKind;
   parentId: string | null;
   hasTopic: boolean;
-  /** Takes messages: text and announcement channels, threads and the chat of voice channels. */
   messageable: boolean;
 }
 

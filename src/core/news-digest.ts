@@ -26,7 +26,6 @@ export function digestSchema(classes: readonly DigestClass[]) {
 
 export type NewsDigest = z.infer<ReturnType<typeof digestSchema>>;
 
-/** The card shows this many sections of this many points; the rest is cut. */
 export const CARD_SECTIONS = 4;
 export const CARD_POINTS = 4;
 
@@ -35,18 +34,14 @@ export interface DigestPing {
   classKeys: string[];
 }
 
-/**
- * Pings everyone only when the announcement itself names Triniel. Pings class roles only for a
- * change of a few classes (half or more is a change for everyone) and only for a class a point on
- * the card names, so whoever is pinged finds the reason.
- */
 export function digestPing(
   digest: Pick<NewsDigest, 'triniel' | 'classes' | 'sections'>,
   note: Pick<NewsPost, 'title' | 'body'>,
   classes: readonly Pick<DigestClass, 'key' | 'name'>[],
 ): DigestPing {
   const everyone = digest.triniel && /triniel/i.test(`${note.title}\n${note.body}`);
-  if (digest.classes.length * 2 >= classes.length) return { everyone, classKeys: [] };
+  const halfOrMoreClasses = digest.classes.length * 2 >= classes.length;
+  if (halfOrMoreClasses) return { everyone, classKeys: [] };
   const points = digest.sections
     .slice(0, CARD_SECTIONS)
     .flatMap((section) => section.points.slice(0, CARD_POINTS))

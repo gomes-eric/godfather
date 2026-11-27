@@ -55,7 +55,6 @@ export interface ReminderCard {
   color: number;
   fields: { name: string; value: string; inline: boolean }[];
   footer: string;
-  /** Whether the card carries the RSVP buttons. */
   rsvpOpen: boolean;
 }
 

@@ -90,7 +90,6 @@ export function legionTransition(input: {
   return null;
 }
 
-/** What the check saw for one character, before anything is said or changed. */
 export type CheckEvent =
   | { kind: 'renamed'; from: string; to: string }
   | { kind: 'classChanged'; from: string; to: string }
@@ -99,19 +98,12 @@ export type CheckEvent =
 
 export interface MemberVerdict {
   events: CheckEvent[];
-  /** The character's new name or class, to apply to the member. */
   sync: { name: string; classKey: string } | null;
   transition: Transition | null;
-  /** What to store as seen now. */
   now: CharacterState;
-  /** The legion stored at the last check, kept when a move is held back. */
   legionBefore: string;
 }
 
-/**
- * Everything the check decides for one member: what changed, what to apply, and how their
- * standing moves. The first check of an old registration (no checkedAt) only sets the baseline.
- */
 export function memberVerdict(input: {
   before: CharacterState & { checkedAt: Date | null };
   now: CharacterState;
@@ -150,7 +142,6 @@ export function memberVerdict(input: {
   };
 }
 
-/** The whole check's departures, and whether they look like a site problem (move nobody). */
 export function batchVerdict(verdicts: readonly Pick<MemberVerdict, 'transition'>[]): {
   departures: number;
   holdBack: boolean;
@@ -159,12 +150,10 @@ export function batchVerdict(verdicts: readonly Pick<MemberVerdict, 'transition'
   return { departures, holdBack: !departuresLookTrustworthy(departures) };
 }
 
-/** A held-back move keeps the old legion stored, so tomorrow's check sees the change again. */
-export function legionToStore(verdict: MemberVerdict, holdBack: boolean): string {
+export function legionToSave(verdict: MemberVerdict, holdBack: boolean): string {
   return verdict.transition && holdBack ? verdict.legionBefore : verdict.now.legion;
 }
 
-/** The review the officers get for a move, or null when it needs none. */
 export function reviewFor(
   transition: Transition,
   from: Standing,

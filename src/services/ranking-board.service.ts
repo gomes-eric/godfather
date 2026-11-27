@@ -21,7 +21,6 @@ interface Deps {
   registrations: CharacterStore;
 }
 
-/** The #ranking board: registered legion members by combat power, from what is stored. */
 export class RankingBoard {
   constructor(private readonly deps: Deps) {}
 

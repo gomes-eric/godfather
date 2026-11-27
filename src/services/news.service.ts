@@ -19,11 +19,9 @@ const t = ptBR.news;
 const EVENTS_URL = 'https://store.steampowered.com/events/ajaxgetpartnereventspageable/';
 
 export interface NewsChannel {
-  /** Returns the id of the posted message. */
   post(message: NewsMessage): Promise<string>;
 }
 
-/** Channels and roles by their server.yaml key. */
 export interface NewsPort {
   channel(key: string): NewsChannel | undefined;
   roleId(key: string): string | undefined;
@@ -60,7 +58,6 @@ export class NewsService implements BackgroundJob {
     return this.deps.config.get().settings.news;
   }
 
-  /** Claude's digests, when there is a summarizer and server.yaml turns summaries on. */
   private summaries(): Summaries | undefined {
     const { summarizer } = this.deps;
     const summary = this.settings()?.summary;
@@ -86,7 +83,6 @@ export class NewsService implements BackgroundJob {
     return parseNews(await this.fetchJson(`${EVENTS_URL}?${query}`), settings.steamAppId);
   }
 
-  /** The digest's pings, among the class roles the server has. */
   private pings(digest: NewsDigest, note: NewsPost, classes: readonly DigestClass[]) {
     const { everyone, classKeys } = digestPing(digest, note, classes);
     const roles = classKeys.flatMap((key) => {

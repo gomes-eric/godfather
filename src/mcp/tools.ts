@@ -12,7 +12,6 @@ import { registerVoiceTools } from './toolsets/voice.js';
 
 export type { McpServices };
 
-/** Registers every Padrinho tool, bound to the calling actor (PLAN.md §8.3). */
 export function registerTools(server: McpServer, s: McpServices, actor: Actor): void {
   const kit = createToolKit(server, s, actor);
   registerServerTools(kit);

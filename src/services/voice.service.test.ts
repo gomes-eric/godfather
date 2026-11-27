@@ -79,7 +79,6 @@ function setup(options: { maxCreationsPerMinute?: number } = {}) {
     const from = port.connect(userId, null);
     await voice.memberMoved(userId, from, null);
   };
-  /** Opens a room owned by the first user and puts the others in it. */
   const roomWith = async (owner: string, ...guests: string[]) => {
     await join(owner, generator);
     const room = voice.roomOf(owner)!;

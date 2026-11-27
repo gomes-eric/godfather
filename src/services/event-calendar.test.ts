@@ -27,7 +27,6 @@ const WAR = 'Guerra do Abismo — Cerco de Artefatos';
 const officer: Actor = { userId: 'padrinho', tier: 'officer', source: 'slash' };
 const soldier = (userId: string): Actor => ({ userId, tier: 'soldier', source: 'slash' });
 
-/** Brasília wall time in October 2026; the 26th is a Monday. */
 const brt = (hhmm: string, day = 26) => {
   const [h, m] = hhmm.split(':').map(Number);
   return new Date(Date.UTC(2026, 9, day, h! + 3, m!));
