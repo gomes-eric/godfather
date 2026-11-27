@@ -18,6 +18,8 @@ export interface AllianceSummary {
   key: string;
   legion: string;
   members: number;
+  /** Display names of the allies holding Líder Aliado. */
+  leaders: string[];
 }
 
 interface Deps {
@@ -38,12 +40,22 @@ export class AllianceService {
       actor,
       action: 'alliance.read',
       preview: 'alliance.read',
-      execute: async () =>
-        this.deps.config.get().alliances.map((alliance) => {
+      execute: async () => {
+        const leaderKey = this.deps.config.get().settings.allyLeaderRole;
+        const leaderId = leaderKey ? this.deps.directory.roleId(leaderKey) : undefined;
+        return this.deps.config.get().alliances.map((alliance) => {
           const id = this.deps.directory.roleId(alliance.key);
-          const role = id ? this.deps.guild.roles.cache.get(id) : undefined;
-          return { key: alliance.key, legion: alliance.legion, members: role?.members.size ?? 0 };
-        }),
+          const allies = [...((id && this.deps.guild.roles.cache.get(id)?.members.values()) || [])];
+          return {
+            key: alliance.key,
+            legion: alliance.legion,
+            members: allies.length,
+            leaders: leaderId
+              ? allies.filter((m) => m.roles.cache.has(leaderId)).map((m) => m.displayName)
+              : [],
+          };
+        });
+      },
     });
   }
 

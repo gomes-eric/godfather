@@ -38,8 +38,17 @@ export function registerMemberTools({ tool, memberId, s, actor }: ToolKit): void
     { member, reason: z.string().min(1).max(300).describe('Motivo (aparece para os oficiais)') },
     async (args) => s.roster.restrict(actor, memberId(args.member), args.reason),
   );
-  tool('list_alliances', 'As legiões aliadas e quantos aliados cada uma tem.', {}, async () =>
-    s.alliances.list(actor),
+  tool(
+    'set_alliance_leader',
+    'Marca (leader=true) ou desmarca um Aliado como líder da guilda aliada dele, com o cargo Líder Aliado. O bot tira o cargo sozinho quando a pessoa deixa de ser Aliado daquela aliança.',
+    { member, leader: z.boolean() },
+    async (args) => s.roster.setAllyLeader(actor, memberId(args.member), args.leader),
+  );
+  tool(
+    'list_alliances',
+    'As legiões aliadas, quantos aliados cada uma tem e quem são os líderes.',
+    {},
+    async () => s.alliances.list(actor),
   );
   tool(
     'add_alliance',

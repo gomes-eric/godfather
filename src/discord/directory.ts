@@ -15,6 +15,8 @@ export interface GuildDirectory {
   tierRoleIds(): TierRoleIds;
   visitorRoleId(): string | undefined;
   standingRoles(): StandingRoles;
+  /** Líder Aliado, which marks the leaders of the allied guilds. */
+  allyLeaderRoleId(): string | undefined;
   classRoleIds(): string[];
   classesOf(member: { roles: { cache: { has(id: string): boolean } } }): RoleConfig[];
   channelByKey(key: string): TextChannel | undefined;
@@ -49,6 +51,8 @@ export function createDirectory(
 
     tierRoleIds,
     visitorRoleId,
+
+    allyLeaderRoleId: () => settingRole(config().settings.allyLeaderRole),
 
     standingRoles() {
       const { settings, alliances } = config();

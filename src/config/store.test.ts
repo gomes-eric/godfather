@@ -1,19 +1,14 @@
-import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConfigError } from './loader.js';
 import { ConfigStore } from './store.js';
-
-const repoServerYaml = fileURLToPath(new URL('../../server.yaml', import.meta.url));
+import { copyRepoYaml } from './testing/repo-yaml.js';
 
 describe('ConfigStore.updateEventTemplate', () => {
   let path: string;
 
   beforeEach(() => {
-    path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
-    copyFileSync(repoServerYaml, path);
+    path = copyRepoYaml();
   });
 
   it('writes the change back, keeping comments and quoting', () => {
@@ -53,8 +48,7 @@ describe('ConfigStore voice generators', () => {
   let path: string;
 
   beforeEach(() => {
-    path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
-    copyFileSync(repoServerYaml, path);
+    path = copyRepoYaml();
   });
 
   it('adds, updates and removes a generator in server.yaml', () => {
@@ -100,8 +94,7 @@ describe('ConfigStore alliances', () => {
   let path: string;
 
   beforeEach(() => {
-    path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
-    copyFileSync(repoServerYaml, path);
+    path = copyRepoYaml();
   });
 
   it('adds and removes alliances, one per line, keeping the comments', () => {

@@ -69,6 +69,7 @@ export const ptBR = {
       'member.restrict': '🔒 Restrito',
       'alliance.add': '🤝 Aliança criada',
       'alliance.remove': '✂️ Aliança desfeita',
+      'alliance.leader': '👑 Líder aliado',
       'recruit.kind': '🔀 Tipo da ficha trocado',
       'member.sync': '🔄 Sincronizado com o jogo',
       'recruit.decide': '🤝 Ficha de recrutamento',
@@ -490,6 +491,19 @@ export const ptBR = {
     noRestrictedRole:
       'O cargo Restrito não está configurado (settings.restrictedRole). Rode /setup.',
     noAllyRole: 'O cargo Aliado não está configurado (settings.allyRole). Rode /setup.',
+    noAllyLeaderRole:
+      'O cargo Líder Aliado não está configurado (settings.allyLeaderRole). Rode /setup.',
+    notAlly: 'Só um Aliado pode ser líder aliado. Use /member ally antes.',
+    alreadyLeader: (legion: string) => `Essa pessoa já é líder aliado da **${legion}**.`,
+    notLeader: 'Essa pessoa não é líder aliado.',
+    leaderPreview: (name: string, legion: string) =>
+      `Marcar **${name}** como líder aliado da **${legion}**.`,
+    unleaderPreview: (name: string, legion: string) =>
+      `Tirar **${name}** de líder aliado da **${legion}**.`,
+    leaderSet: (name: string, legion: string) =>
+      `👑 **${name}** agora é **Líder Aliado** da **${legion}**.`,
+    leaderUnset: (name: string, legion: string) =>
+      `↩️ **${name}** deixou de ser líder aliado da **${legion}**.`,
     unknownAlliance: (legion: string) =>
       `**${legion}** não é uma aliança. Veja as alianças em /alliance list.`,
     noPartnerRole: 'O cargo de Parceiro não está configurado (settings.partnerRole). Rode /setup.',
@@ -534,6 +548,7 @@ export const ptBR = {
       `✂️ A aliança com a **${legion}** acabou. ${restricted === 1 ? '1 aliado virou' : `${restricted} aliados viraram`} Restrito.`,
     listTitle: '🤝 Alianças',
     listEmpty: 'Nenhuma aliança ainda. Um Comandante cria com /alliance add.',
+    leaders: (names: string[]) => (names.length > 0 ? ` · 👑 ${names.join(', ')}` : ''),
     listLine: (legion: string, members: number) =>
       `**${legion}** · ${members === 1 ? '1 aliado' : `${members} aliados`}`,
   },
@@ -939,6 +954,11 @@ export const ptBR = {
             tier: 'officer',
           },
           { usage: '/alliance list', text: 'As legiões aliadas', tier: 'soldier' },
+          {
+            usage: '/alliance leader add · remove',
+            text: 'Marca ou desmarca o líder de uma guilda aliada (cargo Líder Aliado)',
+            tier: 'officer',
+          },
           {
             usage: '/alliance add · remove',
             text: 'Cria ou desfaz uma aliança (os aliados dela viram Restrito)',

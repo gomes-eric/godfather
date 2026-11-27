@@ -165,6 +165,8 @@ const settingsSchema = z.looseObject({
    * the legion's ranking and check); each alliance adds a role named after its legion on top.
    */
   allyRole: key.optional(),
+  /** Marks the leaders of the allied guilds; only an ally holds it. */
+  allyLeaderRole: key.optional(),
   /** Who left the legion (or was restricted by an officer): sees only what its channels allow. */
   restrictedRole: key.optional(),
   /** Look of the per-legion alliance roles, and the alliance chat linked in their welcome. */
@@ -340,7 +342,7 @@ export const serverConfigSchema = z
     if (partnerRole !== undefined && !roleKeys.includes(partnerRole)) {
       issue(['settings', 'partnerRole'], `unknown role key "${partnerRole}"`);
     }
-    for (const field of ['allyRole', 'restrictedRole'] as const) {
+    for (const field of ['allyRole', 'allyLeaderRole', 'restrictedRole'] as const) {
       const roleKey = config.settings[field];
       if (roleKey !== undefined && !roleKeys.includes(roleKey)) {
         issue(['settings', field], `unknown role key "${roleKey}"`);
@@ -354,6 +356,9 @@ export const serverConfigSchema = z
     }
     const legions = config.alliances.map((a) => a.legion.toLowerCase());
     for (const dup of duplicates(legions)) issue(['alliances'], `legion "${dup}" is listed twice`);
+    if (config.settings.allyLeaderRole && !config.settings.allyRole) {
+      issue(['settings', 'allyLeaderRole'], 'allyLeaderRole needs settings.allyRole');
+    }
     if (config.alliances.length > 0 && !config.settings.allyRole) {
       issue(['settings', 'allyRole'], 'alliances need settings.allyRole');
     }

@@ -190,6 +190,9 @@ export class Roster {
     }
 
     const moved = change.to !== undefined && !sameStanding(from, to);
+    // A guild leader leads only the alliance they are an ally of.
+    const leaderId = this.deps.directory.allyLeaderRoleId();
+    if (moved && leaderId) roleIds = roleIds.filter((id) => id !== leaderId);
     const fromName = this.standingName(from);
     const finalRoles = roleIds;
     return this.deps.runAction({
@@ -382,6 +385,41 @@ export class Roster {
   }
 
   /** /member restrict: only #geral from now on, until an officer moves them again. */
+  /** Marks (or unmarks) an ally as a leader of their guild with the Líder Aliado role. */
+  async setAllyLeader(
+    actor: Actor,
+    userId: string,
+    leader: boolean,
+  ): Promise<ServiceOutcome<string>> {
+    const roleId = this.deps.directory.allyLeaderRoleId();
+    if (!roleId) return rejected(t.noAllyLeaderRole);
+    const member = await this.deps.members.member(userId);
+    if (!member) return rejected(t.notMember);
+    const standing = this.standingFrom(member);
+    const legion = this.legionOf(standing);
+    if (!legion) return rejected(t.notAlly);
+    const isLeader = member.roleIds.includes(roleId);
+    if (leader && isLeader) return rejected(t.alreadyLeader(legion));
+    if (!leader && !isLeader) return rejected(t.notLeader);
+    if (!member.manageable) return rejected(t.botCannot);
+
+    const name = member.displayName;
+    const roleIds = leader
+      ? [...member.roleIds, roleId]
+      : member.roleIds.filter((id) => id !== roleId);
+    return this.deps.runAction({
+      actor,
+      action: 'alliance.leader',
+      target: name,
+      params: { userId, legion, leader },
+      preview: leader ? t.leaderPreview(name, legion) : t.unleaderPreview(name, legion),
+      execute: async () => {
+        await this.deps.members.update(userId, { roleIds }, t.officerReason);
+        return leader ? t.leaderSet(name, legion) : t.leaderUnset(name, legion);
+      },
+    });
+  }
+
   async restrict(actor: Actor, userId: string, reason: string): Promise<ServiceOutcome<string>> {
     if (!this.deps.directory.standingRoles().restricted) return rejected(t.noRestrictedRole);
     let fromName = '';

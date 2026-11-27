@@ -13,10 +13,14 @@ function setup() {
   const guild = new FakeGuildAdmin();
   guild.botPosition = 10;
   const soldierRole = guild.seedRole({ name: 'Soldado', position: 3 });
+  const leaderRole = guild.seedRole({ name: 'Líder Aliado', position: 3 });
   const { runAction, audit } = recordingRunner();
   const service = new RoleService({
     guild,
-    directory: { standingRoles: () => ({ tiers: { soldier: soldierRole }, alliances: {} }) },
+    directory: {
+      standingRoles: () => ({ tiers: { soldier: soldierRole }, alliances: {} }),
+      allyLeaderRoleId: () => leaderRole,
+    },
     runAction,
   });
   return { guild, service, audit, soldierRole };
@@ -107,5 +111,9 @@ describe('RoleService', () => {
       reason: t.tierRole,
     });
     expect(padrinho.roleIds).not.toContain(soldierRole);
+    expect(await service.setAssignment(commander, 'Padrinho', 'Líder Aliado', true)).toEqual({
+      status: 'rejected',
+      reason: t.tierRole,
+    });
   });
 });

@@ -61,6 +61,7 @@ describe('Aliado, Restrito and the alliances', () => {
     const keys = withAlliance.roles.map((r) => r.key);
     expect(keys.slice(keys.indexOf('soldier'), keys.indexOf('partner') + 1)).toEqual([
       'soldier',
+      'ally-leader',
       'ally-noxus',
       'ally',
       'partner',

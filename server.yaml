@@ -20,6 +20,9 @@ settings:
   # Members of an allied legion (/member ally, an approved Aliança application): Aliado counts as
   # Soldado in every channel and command; each alliance adds a role named after its legion.
   allyRole: ally
+  # Leaders of the allied guilds (/alliance leader): shown with their legion's role; the bot takes it
+  # back when they stop being an ally of that alliance.
+  allyLeaderRole: ally-leader
   # Who left the legion in the game (daily check) or was restricted with /member restrict: sees
   # only #geral and the channels open to everyone.
   restrictedRole: restricted
@@ -165,6 +168,10 @@ roles:
     name: Soldado
     tier: soldier
     color: "#8B7FB8"
+    hoist: true
+  - key: ally-leader
+    name: Líder Aliado
+    color: "#E0B04B"
     hoist: true
   - key: ally
     name: Aliado
@@ -373,4 +380,7 @@ eventTemplates:
 
 # Allied legions (/alliance add and /alliance remove write this list). Each gets a role named after
 # the legion, above Aliado; `legion` is the name exactly as the game shows it.
-alliances: []
+alliances:
+  - { key: ally-ascension, legion: Ascension }
+  - { key: ally-karvinag, legion: Karvinag }
+  - { key: ally-ccg, legion: CCG }

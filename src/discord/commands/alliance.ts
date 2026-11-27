@@ -41,6 +41,28 @@ export const allianceCommand: SlashCommand = {
         })
         .addStringOption(legionOption('The allied legion', 'A legião aliada')),
     )
+    .addSubcommandGroup((group) =>
+      group
+        .setName('leader')
+        .setDescription('Leaders of the allied guilds (the Líder Aliado role)')
+        .setDescriptionLocalizations({
+          'pt-BR': 'Líderes das guildas aliadas (cargo Líder Aliado)',
+        })
+        .addSubcommand((sub) =>
+          sub
+            .setName('add')
+            .setDescription('Mark an ally as a leader of their guild')
+            .setDescriptionLocalizations({ 'pt-BR': 'Marca um Aliado como líder da guilda dele' })
+            .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true)),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName('remove')
+            .setDescription('Take the Líder Aliado role back')
+            .setDescriptionLocalizations({ 'pt-BR': 'Tira o cargo Líder Aliado' })
+            .addUserOption((o) => o.setName('user').setDescription('Who').setRequired(true)),
+        ),
+    )
     .addSubcommand((sub) =>
       sub
         .setName('list')
@@ -52,6 +74,14 @@ export const allianceCommand: SlashCommand = {
   async execute(interaction, ctx) {
     const sub = interaction.options.getSubcommand();
     const actor = await ctx.resolveActor(interaction.user.id);
+
+    if (interaction.options.getSubcommandGroup() === 'leader') {
+      const user = interaction.options.getUser('user', true);
+      await runWithConfirmation(interaction, ctx.confirmations, () =>
+        ctx.roster.setAllyLeader(actor, user.id, sub === 'add'),
+      );
+      return;
+    }
 
     if (sub === 'add') {
       const legion = interaction.options.getString('legion', true);
@@ -73,7 +103,7 @@ export const allianceCommand: SlashCommand = {
       await replyPrivately(interaction, failureText(outcome));
       return;
     }
-    const lines = outcome.value.map((a) => t.listLine(a.legion, a.members));
+    const lines = outcome.value.map((a) => t.listLine(a.legion, a.members) + t.leaders(a.leaders));
     await replyPrivately(interaction, { embeds: [listEmbed(t.listTitle, lines, t.listEmpty)] });
   },
 };

@@ -17,7 +17,7 @@ export interface RoleInput {
 
 interface Deps {
   guild: GuildAdminPort;
-  directory: Pick<GuildDirectory, 'standingRoles'>;
+  directory: Pick<GuildDirectory, 'standingRoles' | 'allyLeaderRoleId'>;
   runAction: ActionRunner;
 }
 
@@ -42,7 +42,9 @@ export class RoleService {
     const top = this.deps.guild.botTopRolePosition();
     if (top !== null && role.position >= top) return t.aboveBot;
     if (forAssignment) {
-      if (standingRoleIds(this.deps.directory.standingRoles()).has(role.id)) return t.tierRole;
+      const { directory } = this.deps;
+      if (standingRoleIds(directory.standingRoles()).has(role.id)) return t.tierRole;
+      if (role.id === directory.allyLeaderRoleId()) return t.tierRole;
     }
     return null;
   }

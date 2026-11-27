@@ -1,7 +1,3 @@
-import { copyFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { TextChannel } from 'discord.js';
 import { classRoles, tierRoleKeys, type ServerConfig } from '../../config/schema.js';
 import { ConfigStore } from '../../config/store.js';
@@ -16,18 +12,15 @@ import { GameApiError, type GameCharacterService } from '../game-character.servi
 import type { RankingBoard } from '../ranking-board.service.js';
 import { RegistrationService } from '../registration.service.js';
 import { Roster } from '../roster.service.js';
+import { copyRepoYaml } from '../../config/testing/repo-yaml.js';
 import { FakeMembers } from './fake-members.js';
-
-const repoServerYaml = fileURLToPath(new URL('../../../server.yaml', import.meta.url));
 
 /** A role's id in the fake guild: the role key itself, prefixed. */
 export const roleId = (key: string) => `role:${key}`;
 
 /** server.yaml copied to a temp file, so tests may write alliances to it. */
 export function testConfig(): ConfigStore {
-  const path = join(mkdtempSync(join(tmpdir(), 'padrinho-')), 'server.yaml');
-  copyFileSync(repoServerYaml, path);
-  return new ConfigStore(path);
+  return new ConfigStore(copyRepoYaml());
 }
 
 /** Every configured role (and alliance) exists, with id `role:<key>`; channels post into `sent`. */
@@ -68,6 +61,7 @@ export function fakeDirectory(
         alliances: Object.fromEntries(alliances.map((a) => [a.key, roleId(a.key)])),
       };
     },
+    allyLeaderRoleId: () => id(config().settings.allyLeaderRole),
     classRoleIds: () => classRoles(config()).map((r) => roleId(r.key)),
     classesOf: () => [],
     channelByKey: channel,

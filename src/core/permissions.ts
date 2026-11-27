@@ -30,6 +30,8 @@ export const ACTION_POLICIES = {
   'alliance.add': policy('commander'),
   'alliance.remove': policy('commander', { destructive: true }),
   'alliance.read': policy('soldier', { audited: false }),
+  // Marking who leads an allied guild (the Líder Aliado role).
+  'alliance.leader': policy('officer'),
   'member.sync': policy('commander'),
   'member.read': policy('officer', { audited: false }),
   'member.register': policy('officer'),

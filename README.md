@@ -115,7 +115,8 @@ avisado quando chega uma ficha nova.
 **Aliados e Restritos** (`settings.allyRole`, `settings.restrictedRole`, `settings.alliances` e a
 lista `alliances` no fim do arquivo): o cargo Aliado conta como Soldado em todos os canais; o
 Restrito só vê os canais que o liberam (no exemplo, o #geral). A lista `alliances` é escrita pelo
-`/alliance add`. A checagem diária transforma em Restrito quem sai da legião no jogo e abre uma
+`/alliance add`. O cargo `settings.allyLeaderRole` (Líder Aliado) marca os líderes das guildas
+aliadas com `/alliance leader add`, e o bot o tira quando a pessoa deixa de ser Aliado. A checagem diária transforma em Restrito quem sai da legião no jogo e abre uma
 análise para os oficiais (com mais de 3 saídas de uma vez, ela não muda ninguém).
 
 **Notícias** (`settings.news`): o canal e o app da Steam (`3393110` é o AION 2). Sem `summary`, sai o

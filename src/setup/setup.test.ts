@@ -83,7 +83,7 @@ describe('/setup reconciliation', () => {
       .filter((r) => r.position < guild.botRolePosition && r.id !== guild.everyoneRoleId)
       .sort((a, b) => b.position - a.position)
       .map((r) => r.name);
-    expect(order).toEqual(repoConfig.roles.map((r) => r.name));
+    expect(order).toEqual(buildDesiredState(repoConfig).roles.map((r) => r.name));
   });
 
   it('lets soldiers type commands and run slash commands in #musica, but not visitors', async () => {

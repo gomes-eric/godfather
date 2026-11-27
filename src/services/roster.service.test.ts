@@ -104,6 +104,41 @@ describe('Roster.change', () => {
   });
 });
 
+describe('Líder Aliado', () => {
+  it('marks only an ally, and is taken back when they stop being that ally', async () => {
+    const { roster, members, config } = setup();
+    config.addAlliance({ key: 'ally-noxus', legion: 'Noxus' });
+    expect(await roster.setAllyLeader(officer, 'u1', true)).toMatchObject({
+      status: 'rejected',
+      reason: expect.stringContaining('Só um Aliado'),
+    });
+
+    await roster.ally(officer, 'v1', 'Noxus');
+    expect(await roster.setAllyLeader(officer, 'v1', true)).toMatchObject({ status: 'ok' });
+    expect(members.roles('v1')).toContain(roleId('ally-leader'));
+    expect(await roster.setAllyLeader(officer, 'v1', true)).toMatchObject({ status: 'rejected' });
+
+    await roster.change(bot, 'v1', {
+      character: { classKey: 'class-cleric', gameName: 'Padrinho' },
+      cause: { kind: 'legionCheck' },
+    });
+    expect(members.roles('v1')).toContain(roleId('ally-leader'));
+
+    await roster.change(bot, 'v1', { to: RESTRICTED, cause: { kind: 'legionCheck' } });
+    expect(members.roles('v1')).not.toContain(roleId('ally-leader'));
+  });
+
+  it('unmarks a leader and keeps them Aliado', async () => {
+    const { roster, members, config } = setup();
+    config.addAlliance({ key: 'ally-noxus', legion: 'Noxus' });
+    await roster.ally(officer, 'v1', 'Noxus');
+    await roster.setAllyLeader(officer, 'v1', true);
+    expect(await roster.setAllyLeader(officer, 'v1', false)).toMatchObject({ status: 'ok' });
+    expect(members.roles('v1')).toEqual([roleId('ally'), roleId('ally-noxus')]);
+    expect(await roster.setAllyLeader(officer, 'v1', false)).toMatchObject({ status: 'rejected' });
+  });
+});
+
 describe('Roster commands', () => {
   it('makes anyone a Parceiro without demoting them first', async () => {
     const { roster, members } = setup();
