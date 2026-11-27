@@ -28,7 +28,6 @@ const form = {
   kind: 'member',
   character,
   allianceLegion: null,
-  note: null,
   duplicateOf: null,
 } as const;
 

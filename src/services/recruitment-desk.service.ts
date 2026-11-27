@@ -52,7 +52,6 @@ interface Deps {
 export interface SentForm {
   picked: FormKind;
   character: CharacterProfile | null;
-  note: string | null;
 }
 
 /** How long a decided application's private thread stays before it is deleted. */
@@ -148,7 +147,6 @@ export class RecruitmentDesk implements BackgroundJob {
       kind: plan.kind,
       character,
       allianceLegion: plan.allianceLegion,
-      note: form.note,
       duplicateOf: owner ?? null,
     });
     if (outcome.status !== 'ok') return outcome;

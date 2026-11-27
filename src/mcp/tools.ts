@@ -632,7 +632,6 @@ export function registerTools(server: McpServer, s: McpServices, actor: Actor): 
           picked: a.requestedKind,
           origin: a.origin,
           allianceLegion: a.allianceLegion,
-          note: a.note,
           characterTakenBy: a.duplicateOf
             ? (s.guild.members.cache.get(a.duplicateOf)?.displayName ?? a.duplicateOf)
             : null,

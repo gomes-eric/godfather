@@ -161,8 +161,6 @@ export const applications = sqliteTable('applications', {
     .default('form'),
   /** For an Aliança: the legion, as the official site showed it. */
   allianceLegion: text('alliance_legion'),
-  /** "Quem te convidou / por que quer entrar", from the form. */
-  note: text('note'),
   /** Someone else already had this character registered when it was sent. */
   duplicateOf: text('duplicate_of'),
   /** Daily check: the standing before the bot changed it (Recusar puts it back). */

@@ -13,8 +13,8 @@ describe('#recrutamento panel', () => {
     expect(panel.channelKey).toBe('recruitment');
     expect(panel.buttons.map((b) => b.customId)).toEqual([RECRUIT_APPLY_ID]);
     expect(panel.description).toContain('{channel:visitor-qa}');
-    expect(panel.description).toContain('⚔️ **Membro**: para quem já está na M4F1A');
-    expect(panel.description).toContain('🤝 **Aliança**');
-    expect(panel.description).toContain('💬 **Parceiro**');
+    expect(panel.description).toContain('### ⚔️ Membro\nPara quem já está na M4F1A');
+    expect(panel.description).toContain('### 🤝 Aliança');
+    expect(panel.description).toContain('### 💬 Parceiro');
   });
 });

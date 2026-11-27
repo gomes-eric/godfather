@@ -127,6 +127,13 @@
       "when": 1795747990701,
       "tag": "0017_recruitment_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1795751358838,
+      "tag": "0018_drop_application_note",
+      "breakpoints": true
     }
   ]
 }

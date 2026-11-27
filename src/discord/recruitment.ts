@@ -20,7 +20,7 @@ const t = ptBR.recruitment;
 export const RECRUIT_MODAL_ID = 'recruit:submit';
 /** Officer controls on an application card: `recruit:<approve|reject|change|kind>:<applicationId>`. */
 export const RECRUIT_DECIDE_PREFIX = 'recruit:';
-export const RECRUIT_FIELDS = { kind: 'kind', name: 'name', note: 'note' } as const;
+export const RECRUIT_FIELDS = { kind: 'kind', name: 'name' } as const;
 
 const STATUS_COLORS = { pending: COLORS.brand, approved: COLORS.green, rejected: COLORS.slate };
 
@@ -45,12 +45,6 @@ export function applicationModal(characterName: string | undefined): ModalBuilde
     .setMaxLength(30)
     .setPlaceholder(t.namePlaceholder);
   if (characterName) name.setValue(characterName);
-  const note = new TextInputBuilder()
-    .setCustomId(RECRUIT_FIELDS.note)
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(false)
-    .setMaxLength(300)
-    .setPlaceholder(t.notePlaceholder);
   return new ModalBuilder()
     .setCustomId(RECRUIT_MODAL_ID)
     .setTitle(t.modalTitle)
@@ -60,7 +54,6 @@ export function applicationModal(characterName: string | undefined): ModalBuilde
         .setLabel(t.nameLabel)
         .setDescription(t.nameHint)
         .setTextInputComponent(name),
-      new LabelBuilder().setLabel(t.noteLabel).setTextInputComponent(note),
     );
 }
 
@@ -100,17 +93,19 @@ export function applicationCard(
       : a.status === 'approved'
         ? t.approvedBy(a.decidedBy ?? '')
         : t.rejectedBy(a.decidedBy ?? '');
-  const lines = [
-    t.applicant(a.userId),
+  // What needs attention goes first, each as its own highlighted block.
+  const notices = [
     ...(fromCheck ? [t.fromCheck(look.previousStanding ?? '')] : []),
-    t.kindLine(kindText(a.kind, a.allianceLegion)),
-    ...(a.requestedKind !== a.kind ? [t.pickedLine(kindText(a.requestedKind, null))] : []),
     ...(a.kind === 'ally' && look.newAlliance && a.status === 'pending'
       ? [t.newAllianceWarning(a.allianceLegion ?? '')]
       : []),
     ...(a.duplicateOf ? [t.duplicateWarning(a.duplicateOf)] : []),
-    status,
   ];
+  const kind = [
+    kindText(a.kind, a.allianceLegion),
+    ...(a.requestedKind !== a.kind ? [t.pickedLine(kindText(a.requestedKind, null))] : []),
+  ].join('\n');
+
   const embed = new EmbedBuilder()
     .setColor(STATUS_COLORS[a.status])
     .setTitle(
@@ -118,9 +113,14 @@ export function applicationCard(
         ? t.reviewTitle(a.characterName ?? look.applicantName)
         : t.cardTitle(a.characterName ?? look.applicantName),
     )
-    .setDescription(lines.join('\n'))
     .setFooter({ text: fromCheck ? t.reviewFooter(a.id) : t.footer(a.id) })
-    .setTimestamp(a.createdAt);
+    .setTimestamp(a.createdAt)
+    .addFields(
+      { name: t.applicantField, value: `<@${a.userId}>`, inline: true },
+      { name: t.kindField, value: kind, inline: true },
+      { name: t.statusField, value: status, inline: true },
+    );
+  if (notices.length > 0) embed.setDescription(notices.join('\n\n'));
   if (a.characterName) {
     embed.addFields(
       {
@@ -138,7 +138,6 @@ export function applicationCard(
   } else {
     embed.addFields({ name: t.characterField, value: t.noCharacter, inline: true });
   }
-  if (a.note) embed.addFields({ name: t.noteField, value: a.note.slice(0, 1024) });
   if (look.avatarUrl) embed.setThumbnail(look.avatarUrl);
 
   if (a.status !== 'pending') return { embeds: [embed], components: [] };

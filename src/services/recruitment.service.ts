@@ -13,7 +13,6 @@ export interface ApplicationInput {
   kind: ApplicationKind;
   character: CharacterProfile | null;
   allianceLegion: string | null;
-  note: string | null;
   duplicateOf: string | null;
 }
 
@@ -71,7 +70,6 @@ export class RecruitmentService {
           kind: input.kind,
           requestedKind: input.picked,
           allianceLegion: input.allianceLegion,
-          note: input.note,
           duplicateOf: input.duplicateOf,
         }),
     });

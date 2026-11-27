@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { EmbedBuilder } from 'discord.js';
 import type { Application } from '../db/applications.js';
 import { applicationCard } from './recruitment.js';
 
@@ -17,7 +18,6 @@ const application: Application = {
   requestedKind: 'member',
   origin: 'form',
   allianceLegion: null,
-  note: null,
   duplicateOf: null,
   previousStanding: null,
   status: 'pending',
@@ -36,16 +36,23 @@ const look = {
   previousStanding: null,
 };
 
+const values = (embed: ReturnType<EmbedBuilder['toJSON']>) =>
+  Object.fromEntries((embed.fields ?? []).map((f) => [f.name, f.value]));
+
 describe('applicationCard', () => {
-  it('shows the character and the type, with Aprovar/Recusar/Mudar while pending', () => {
+  it('lays out who, type and status, then the character, with Aprovar/Recusar/Mudar', () => {
     const { embeds, components } = applicationCard(application, look);
     const embed = embeds[0]!.toJSON();
     expect(embed.title).toBe('📝 Ficha · Padrinho');
-    expect(embed.description).toContain('Tipo: **⚔️ Membro**');
-    expect(embed.fields?.map((f) => f.value)).toEqual([
-      '✨ Clérigo · Nv 45',
-      '⚔️ 100.000 · 🎚️ 2.000',
-      'Sem legião',
+    // Nothing to warn about: no description, only the grid of fields.
+    expect(embed.description).toBeUndefined();
+    expect(embed.fields?.map((f) => [f.name, f.value])).toEqual([
+      ['👤 Candidato', '<@u1>'],
+      ['📌 Tipo', '⚔️ Membro'],
+      ['📋 Situação', '⏳ Aguardando'],
+      ['🎮 Classe', '✨ Clérigo · Nv 45'],
+      ['📊 Poder', '⚔️ 100.000 · 🎚️ 2.000'],
+      ['🏰 Legião atual', 'Sem legião'],
     ]);
     const ids = (components[0]!.toJSON().components as { custom_id: string }[]).map(
       (c) => c.custom_id,
@@ -59,26 +66,27 @@ describe('applicationCard', () => {
       look,
     );
     expect(components).toEqual([]);
-    expect(embeds[0]!.toJSON().description).toContain('Aprovada por <@officer>');
+    expect(values(embeds[0]!.toJSON())['📋 Situação']).toBe('✅ Aprovada\n-# por <@officer>');
   });
 
-  it('warns about a character someone else has and a new alliance', () => {
-    const description = applicationCard(
+  it('puts the warnings first, each as its own quote', () => {
+    const embed = applicationCard(
       { ...application, kind: 'ally', allianceLegion: 'Lagta', duplicateOf: 'u9' },
       { ...look, newAlliance: true },
-    ).embeds[0]!.toJSON().description;
-    expect(description).toContain('🤝 Aliança · Lagta');
-    expect(description).toContain('Escolheu na ficha: ⚔️ Membro');
-    expect(description).toContain('Pedido de aliança nova');
-    expect(description).toContain('Personagem já cadastrado** para <@u9>');
+    ).embeds[0]!.toJSON();
+    expect(values(embed)['📌 Tipo']).toBe('🤝 Aliança · Lagta\n-# escolheu ⚔️ Membro');
+    const [alliance, duplicate] = embed.description!.split('\n\n');
+    expect(alliance).toMatch(/^> 🆕 \*\*Pedido de aliança nova\*\*\n> /);
+    expect(duplicate).toMatch(/^> ⚠️ \*\*Personagem já cadastrado\*\* para <@u9>\n> /);
   });
 
   it('shows a Parceiro without a character by their Discord name', () => {
     const embed = applicationCard(
-      { ...application, kind: 'partner', characterId: null, characterName: null, note: 'amigo' },
+      { ...application, kind: 'partner', characterId: null, characterName: null },
       look,
     ).embeds[0]!.toJSON();
     expect(embed.title).toBe('📝 Ficha · padrinho_discord');
-    expect(embed.fields?.map((f) => f.value)).toEqual(['Não informou', 'amigo']);
+    expect(values(embed)['🎮 Personagem']).toBe('Não informou');
+    expect(embed.fields).toHaveLength(4);
   });
 });

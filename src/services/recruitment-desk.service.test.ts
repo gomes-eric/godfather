@@ -29,8 +29,7 @@ const character = (legion = '') => ({
   title: null,
   avatarUrl: null,
 });
-const asMember = (legion = '') =>
-  ({ picked: 'member', character: character(legion), note: null }) as const;
+const asMember = (legion = '') => ({ picked: 'member', character: character(legion) }) as const;
 const describeStanding = (s: Standing) =>
   s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.alliance}` : s.kind;
 
@@ -262,11 +261,11 @@ describe('RecruitmentDesk', () => {
   it('refuses an Aliança without a legion, and needs a name for Membro', async () => {
     const s = setup();
     expect(
-      await s.desk.submit(visitor, { picked: 'ally', character: character(''), note: null }),
+      await s.desk.submit(visitor, { picked: 'ally', character: character('') }),
     ).toMatchObject({ status: 'rejected' });
-    expect(
-      await s.desk.submit(visitor, { picked: 'member', character: null, note: null }),
-    ).toMatchObject({ status: 'rejected' });
+    expect(await s.desk.submit(visitor, { picked: 'member', character: null })).toMatchObject({
+      status: 'rejected',
+    });
     expect(s.applications.list()).toEqual([]);
   });
 
@@ -275,7 +274,6 @@ describe('RecruitmentDesk', () => {
     const application = await submitted(s, {
       picked: 'partner',
       character: null,
-      note: 'amigo do Padrinho',
     });
     expect(application).toMatchObject({ kind: 'partner', characterName: null });
     expect(s.created[0]).toMatchObject({ name: 'Ficha · padrinho_discord' });
@@ -290,7 +288,6 @@ describe('RecruitmentDesk', () => {
     const application = await submitted(s, {
       picked: 'ally',
       character: character('noxus'),
-      note: null,
     });
     expect(application).toMatchObject({ kind: 'ally', allianceLegion: 'Noxus' });
 
@@ -304,7 +301,6 @@ describe('RecruitmentDesk', () => {
     const application = await submitted(s, {
       picked: 'ally',
       character: character('Lagta'),
-      note: null,
     });
 
     expect(await s.desk.decide(officer, application.id, true)).toMatchObject({
@@ -322,7 +318,6 @@ describe('RecruitmentDesk', () => {
     const application = await submitted(s, {
       picked: 'ally',
       character: character('Lagta'),
-      note: null,
     });
     expect(await s.desk.decide(commander, application.id, true)).toMatchObject({
       status: 'rejected',

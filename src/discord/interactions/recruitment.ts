@@ -126,7 +126,6 @@ export async function handleRecruitModal(
   const pickedValue = interaction.fields.getStringSelectValues(RECRUIT_FIELDS.kind)[0];
   const picked: FormKind = FORM_KINDS.find((k) => k === pickedValue) ?? 'member';
   const name = normalizeGameName(interaction.fields.getTextInputValue(RECRUIT_FIELDS.name));
-  const note = interaction.fields.getTextInputValue(RECRUIT_FIELDS.note).trim() || null;
 
   let character: CharacterProfile | null = null;
   if (name) {
@@ -144,7 +143,7 @@ export async function handleRecruitModal(
   }
 
   const actor = await ctx.resolveActor(interaction.user.id);
-  const outcome = await ctx.recruitmentDesk.submit(actor, { picked, character, note });
+  const outcome = await ctx.recruitmentDesk.submit(actor, { picked, character });
   // A Parceiro without a character is shown by their Discord name.
   const shown =
     character?.name ??
