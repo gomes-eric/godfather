@@ -35,7 +35,12 @@ const describeStanding = (s: Standing) =>
   s.kind === 'tier' ? s.tier : s.kind === 'ally' ? `ally:${s.alliance}` : s.kind;
 
 function setup(
-  options: { memberInServer?: boolean; takenBy?: string; restrictedBy?: 'manual' | 'check' } = {},
+  options: {
+    memberInServer?: boolean;
+    takenBy?: string;
+    restrictedBy?: 'manual' | 'check';
+    refusal?: string;
+  } = {},
 ) {
   const memberInServer = options.memberInServer ?? true;
   const db = openDatabase(':memory:');
@@ -143,7 +148,7 @@ function setup(
       },
     } as unknown as RegistrationService,
     members: {
-      refusalFor: () => null,
+      refusalFor: () => options.refusal ?? null,
       restrictionOf: () => options.restrictedBy,
       standingName: describeStanding,
       move: async (actor: Actor, userId: string, to: Standing) => {
@@ -310,6 +315,19 @@ describe('RecruitmentDesk', () => {
     expect(await s.desk.decide(commander, application.id, true)).toMatchObject({ status: 'ok' });
     expect(s.createdAlliances).toEqual(['Lagta']);
     expect(s.moves).toEqual(['commander u1 ally:ally-lagta']);
+  });
+
+  it('creates no alliance when the person cannot be moved', async () => {
+    const s = setup({ refusal: 'Não dá para fazer isso com um bot.' });
+    const application = await submitted(s, {
+      picked: 'ally',
+      character: character('Lagta'),
+      note: null,
+    });
+    expect(await s.desk.decide(commander, application.id, true)).toMatchObject({
+      status: 'rejected',
+    });
+    expect(s.createdAlliances).toEqual([]);
   });
 
   it('Mudar switches the type; Aliança takes the character legion', async () => {

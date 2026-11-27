@@ -17,7 +17,7 @@ import {
   type FormKind,
 } from '../core/application-rules.js';
 import { sameLegion, type CharacterProfile } from '../core/game-character.js';
-import { decodeStanding, type Standing } from '../core/standing.js';
+import { decodeStanding, SOLDIER, type Standing } from '../core/standing.js';
 import { tierAtLeast } from '../core/tiers.js';
 import type { ActionName } from '../core/permissions.js';
 import type { Application, ApplicationStore } from '../db/applications.js';
@@ -307,6 +307,12 @@ export class RecruitmentDesk implements BackgroundJob {
 
     // What the decision will make of them, checked before anything changes.
     let target: Standing | undefined;
+    if (approve && member && this.isNewAlliance(pending)) {
+      // Creating the alliance comes first, so make sure they can be moved at all (an ally
+      // stands where Soldado does) before anything is created.
+      const refusal = this.deps.members.refusalFor(actor, member, SOLDIER);
+      if (refusal) return rejected(refusal);
+    }
     if (approve) {
       const prepared = await this.prepareApproval(actor, pending);
       if (prepared.status !== 'ok') return prepared;

@@ -56,7 +56,7 @@ settings:
       Bem-vindo(a) à **M4F1A**, legião Asmodiana do Triniel! 🌹
       Estas regras valem aqui no Discord **e** dentro do jogo. Ao ficar no servidor, você concorda com elas.
 
-      🎮 **Já está na legião no jogo ou quer entrar?** Mande a ficha em {channel:recruitment} com o nome do seu personagem. Ela vale para os dois casos: quem já é da M4F1A ganha o cargo aqui, e quem quer entrar é avaliado pelos Oficiais.
+      🎮 **Quer entrar no servidor?** Mande a ficha em {channel:recruitment} e escolha o tipo: ⚔️ **Membro** (já é da M4F1A ou quer entrar), 🤝 **Aliança** (é de uma legião aliada) ou 💬 **Parceiro** (não joga, mas quer ficar com a gente).
 
       ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -73,7 +73,7 @@ settings:
       Siga as regras de distribuição combinadas pelos Oficiais. Nada de pegar item fora da sua vez.
 
       🗂️ **5 · Cada coisa no seu canal**
-      💬 Conversa em {channel:general} · 🎵 música só em {channel:music} (comandos `/`) · 📚 guias em {channel:tutorials} · 📸 prints em {channel:clips}
+      💬 Conversa em {channel:general} · 🎵 música só em {channel:music} e no chat das salas de voz · 📚 guias em {channel:tutorials} · 📸 prints em {channel:clips}
 
       🚫 **6 · Sem spam, divulgação ou golpes**
       Nada de flood, links suspeitos, venda de contas/gold ou propaganda de outros servidores.
@@ -89,7 +89,7 @@ settings:
       ⚖️ **Punições**
       Conforme a gravidade: aviso → timeout → expulsão do Discord e da legião. Casos graves vão direto para o banimento.
 
-      🎮 Ficha para membros e novatos: {channel:recruitment} · 📅 Veja a semana em {channel:agenda}
+      🎮 Ficha de entrada: {channel:recruitment} · 📅 Veja a semana em {channel:agenda}
   # Nobody changes their own nickname by hand: an approved application and the daily check set
   # it (Comandantes are not affected).
   lockNicknames: true
